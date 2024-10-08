@@ -40,3 +40,10 @@ Deprecated components
 
 ## What it looks like
 ![image](https://github.com/user-attachments/assets/c13b5e93-c620-452b-8d78-79e07c0204dd)
+
+## Tasks
+
+- [ ] refactor
+- [ ] automatically tick as many boxes as possible
+- [ ] support for externally stored checklists
+- [ ] better styling
