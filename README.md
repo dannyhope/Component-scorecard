@@ -5,6 +5,8 @@ A Figma plugin that allows you to track and score components based on a customiz
 
 By default, the plugin comes pre-loaded with the following design checks:
 
+```
+
 Sizing, layout
 - [ ] Resizes sensibly (including sensible default size)
 - [ ] Uses Autolayout where appropriate
@@ -33,6 +35,8 @@ Instances
 
 Deprecated components
 - [ ] If it’s deprecated, it says why and what to do instead of using it
+
+```
 
 ## What it looks like
 ![image](https://github.com/user-attachments/assets/c13b5e93-c620-452b-8d78-79e07c0204dd)
