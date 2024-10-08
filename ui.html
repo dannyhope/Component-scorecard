@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        font-family: 'Arial', sans-serif;
+        padding: 10px;
+        background-color: #f3f3f3;
+        font-size: 12px; /* Set global font size to 12px */
+      }
+      .component-section {
+        margin-bottom: 20px;
+      }
+      .component-title {
+        font-size: 12px; /* Ensure component title text is 12px */
+        font-weight: bold;
+        margin-bottom: 10px;
+        cursor: pointer;
+        color: #9B51E0; /* Component name colour is purple */
+      }
+      .custom-heading {
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: black; /* Black heading for custom check section */
+      }
+      .score-red {
+        color: red;
+      }
+      .score-amber {
+        color: orange;
+      }
+      .score-green {
+        color: green;
+      }
+      .checkbox-group {
+        margin-left: 10px;
+        margin-bottom: 10px;
+      }
+      .checkbox-group label {
+        font-size: 12px; /* Ensure label text is 12px */
+      }
+      .hidden {
+        display: none;
+      }
+      #textarea-container {
+        margin-top: 20px;
+      }
+      textarea {
+        width: 100%;
+        height: 200px;
+        font-size: 12px;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Components List -->
+    <div id="component-list"></div>
+
+    <!-- Text area for custom checkboxes -->
+    <div id="textarea-container">
+      <div class="custom-heading">Define your checklist</div>
+      <textarea id="custom-rules"></textarea>
+    </div>
+
+    <script>
+      const defaultRules = `Sizing, layout
+- [ ] Resizes sensibly (including sensible default size)
+- [ ] Uses Autolayout where appropriate
+- [ ] has appropriate, spacers/padding (toggle-able where appropriate)
+- [ ] Respects the grid (line height, paragraph spacing, list spacing)
+- [ ] proportions of drag-resizable components are constrained where appropriate
+
+Naming
+- [ ] Text layers have descriptive names (or at least are named Text, Text 2 etc.
+
+Accessibility
+- [ ] WCAG2 A contrast
+
+Lint
+- [ ] No design lint (check with Design Lint plugin)
+- [ ] Components all the way down (where appropriate)
+
+Properties and variants
+- [ ] It’s clear how to swap any images the component contains
+- [ ] ‘Expose child element properties’ (design panel › ‘Properties’) is selected
+- [ ] ‘Simplify all instances’ is selected
+- [ ] Uses Figma tokens
+
+Instances
+- [ ] There is  at least one instance of the component in existence
+
+Deprecated components
+- [ ] If it’s deprecated, it says why and what to do instead of using it`;
+
+      // Set the default content in the textarea
+      document.getElementById('custom-rules').value = defaultRules;
+
+      // Function to parse rules from the textarea
+      function parseRules(text) {
+        const lines = text.split('\n');
+        let currentCategory = '';
+        const rules = {};
+
+        lines.forEach(line => {
+          if (line.trim().startsWith('- [ ]')) {
+            // It's a checkbox item
+            const ruleText = line.trim().substring(6); // Extract the rule text after "- [ ]"
+            if (currentCategory) {
+              rules[currentCategory] = rules[currentCategory] || [];
+              rules[currentCategory].push(ruleText);
+            }
+          } else if (line.trim() !== '') {
+            // It's a heading
+            currentCategory = line.trim();
+            rules[currentCategory] = [];
+          }
+        });
+
+        return rules;
+      }
+
+      // Handle component collapsing/expanding
+      const componentState = {};
+
+      // Listen for messages from the plugin code
+      window.onmessage = async (event) => {
+        const message = event.data.pluginMessage;
+
+        if (message.type === 'load-components') {
+          const componentList = document.getElementById('component-list');
+          componentList.innerHTML = ''; // Clear existing list
+
+          const checkboxStates = message.checkboxStates;
+
+          let components = message.components;
+
+          // Get the custom rules from the textarea and parse them
+          const rules = parseRules(document.getElementById('custom-rules').value);
+
+          components.forEach(component => {
+            const section = document.createElement('div');
+            section.className = 'component-section';
+            section.setAttribute('data-id', component.id);
+
+            // Collapsed state toggle
+            componentState[component.id] = componentState[component.id] || { collapsed: true };
+
+            // Colour code scores
+            const scorePercent = (component.checkedCount / component.totalCategories) * 100;
+            let scoreClass = '';
+            if (scorePercent <= 33) scoreClass = 'score-red';
+            else if (scorePercent <= 66) scoreClass = 'score-amber';
+            else scoreClass = 'score-green';
+
+            // Display component name and score (e.g., "❖ Component name (3/8)")
+            const title = document.createElement('div');
+            title.className = `component-title`; // Title stays purple
+            title.id = `component-title-${component.id}`;
+            title.innerHTML = `❖ ${component.name} <span class="${scoreClass}">(${component.checkedCount}/8)</span>`;  // Only score is colour-coded
+
+            // Click to toggle collapse
+            title.onclick = () => {
+              componentState[component.id].collapsed = !componentState[component.id].collapsed;
+              toggleCollapse(component.id);
+            };
+            section.appendChild(title);
+
+            // Create the checkbox group
+            const checkboxGroup = document.createElement('div');
+            checkboxGroup.className = componentState[component.id].collapsed ? 'checkbox-group hidden' : 'checkbox-group';
+
+            // Populate checkboxes based on the parsed rules
+            for (let category in rules) {
+              const group = document.createElement('div');
+              group.className = 'checkbox-group';
+
+              const categoryTitle = document.createElement('div');
+              categoryTitle.textContent = category;
+              group.appendChild(categoryTitle);
+
+              rules[category].forEach(ruleText => {
+                const checkboxLabel = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+
+                // Set checkbox state from saved state
+                checkbox.checked = checkboxStates[component.id]
+                  && checkboxStates[component.id][category]
+                  && checkboxStates[component.id][category][ruleText]
+                  && checkboxStates[component.id][category][ruleText].checked || false;
+
+                checkbox.onchange = () => {
+                  parent.postMessage({ pluginMessage: { type: 'ok-checkbox-changed', componentId: component.id, category: category, label: ruleText, isChecked: checkbox.checked } }, '*');
+                };
+
+                checkboxLabel.appendChild(checkbox);
+                checkboxLabel.append(` ${ruleText}`);
+                group.appendChild(checkboxLabel);
+                group.appendChild(document.createElement('br'));
+              });
+
+              checkboxGroup.appendChild(group);
+            }
+
+            section.appendChild(checkboxGroup);
+            componentList.appendChild(section);
+          });
+        }
+
+        // Handle dynamic score updates when checkboxes are ticked/unticked
+        if (message.type === 'update-score') {
+          updateScore(message.componentId, message.checkedCount);
+        }
+      };
+
+      // Function to toggle the collapsed state of a component
+      function toggleCollapse(componentId) {
+        const checkboxGroup = document.querySelector(`#component-list div[data-id="${componentId}"] .checkbox-group`);
+        if (checkboxGroup) {
+          checkboxGroup.classList.toggle('hidden');
+        }
+      }
+
+      // Function to dynamically update score and score colour
+      function updateScore(componentId, checkedCount) {
+        const scorePercent = (checkedCount / 8) * 100;
+        let scoreClass = '';
+        if (scorePercent <= 33) scoreClass = 'score-red';
+        else if (scorePercent <= 66) scoreClass = 'score-amber';
+        else scoreClass = 'score-green';
+
+        const title = document.getElementById(`component-title-${componentId}`);
+        if (title) {
+          const name = title.innerHTML.split(' <span')[0]; // Preserve the name and avoid adding extra ❖
+          title.innerHTML = `${name} <span class="${scoreClass}">(${checkedCount}/8)</span>`;  // Only score is colour-coded
+        }
+      }
+    </script>
+  </body>
+</html>
