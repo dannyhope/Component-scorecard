@@ -1,5 +1,5 @@
 # Component-scorecard
-Design system quality check at the component level
+Component-level design system quality checks
 
 A Figma plugin that allows you to track and score components based on a customizable checklist of design guidelines. This plugin dynamically updates the score of each component based on checked or unchecked items in real time. It also allows users to define their own set of design checks and automatically updates the list of checkboxes as the input is changed.
 
