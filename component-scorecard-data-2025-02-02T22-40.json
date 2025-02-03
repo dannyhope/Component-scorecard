@@ -1,0 +1,593 @@
+{
+  "checkboxStates": {},
+  "components": [
+    {
+      "id": "1195:2041",
+      "name": "Example page",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1245:44599",
+      "name": "Example search results page",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1245:42455",
+      "name": "Login/user not found",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1245:42454",
+      "name": "Login/user not found",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1197:1840",
+      "name": "Example registeration form",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1197:1831",
+      "name": "Login form",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1333:5075",
+      "name": "Content frame with slots",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1036:481",
+      "name": "<nav>",
+      "usageCount": 4,
+      "checkedCount": 5,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2249",
+      "name": "Avatar pre 8 July 2024",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2253",
+      "name": "Full name pre 8 July 2024",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1084:899",
+      "name": "Breadcrumb separator (unpublished helper subcomponent)",
+      "usageCount": 15,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1036:482",
+      "name": "<footer>",
+      "usageCount": 4,
+      "checkedCount": 8,
+      "totalCategories": 15
+    },
+    {
+      "id": "1147:1242",
+      "name": "Pagination",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1246:3339",
+      "name": "Example vertical menu",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1136:916",
+      "name": "Example vertical menu",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1246:3251",
+      "name": "Example breadcrumb menu",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2129",
+      "name": "Status box",
+      "usageCount": 4,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1333:3880",
+      "name": "Slot",
+      "usageCount": 7,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2284",
+      "name": "Progress bar",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "499:1529",
+      "name": "Icon/Placeholder",
+      "usageCount": 11,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "418:947",
+      "name": "Delete button",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "469:692",
+      "name": "Play symbol",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "418:961",
+      "name": "Popover/Expand signal/White",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "400:973",
+      "name": "Notification dot",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2106",
+      "name": "Icon/✔",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2108",
+      "name": "Icon/Diagonal cross (close)",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2101",
+      "name": "Icon/Alert",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:1947",
+      "name": "••• (overflow)",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1320:6393",
+      "name": "Example radio button set",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1140:963",
+      "name": "Tag group",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1139:1069",
+      "name": "Tag",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1160:1842",
+      "name": "Switch with labels",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2121",
+      "name": "Slider",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "478:529",
+      "name": "Caret 2020-11-13",
+      "usageCount": 19,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1019:1270",
+      "name": "<label> ❗️ depricated 2024-08-02",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1160:2140",
+      "name": "Vertical scroll bar",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1201:2798",
+      "name": "Browser window example",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1201:2742",
+      "name": "Browser window background (unpublished subcomponent)",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "534:933",
+      "name": "figcaption",
+      "usageCount": 8,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "532:843",
+      "name": "<p>",
+      "usageCount": 133,
+      "checkedCount": 15,
+      "totalCategories": 15
+    },
+    {
+      "id": "532:835",
+      "name": "<h1>",
+      "usageCount": 28,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "532:837",
+      "name": "<h2>",
+      "usageCount": 103,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "532:839",
+      "name": "<h3>",
+      "usageCount": 35,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "469:694",
+      "name": "Video",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "496:1509",
+      "name": "Icon/Dropdown indicator",
+      "usageCount": 36,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1026:1585",
+      "name": "Example menu",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1190:2057",
+      "name": "Fancy frame instructions (unpublished subcomponent)",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1190:1856",
+      "name": "Well in container",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2278",
+      "name": "Well background (unpublished subcomponent)",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1190:2068",
+      "name": "Well with hook in container",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1191:2283",
+      "name": "Drop-down with hook",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2048",
+      "name": "Calendar",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1162:1783",
+      "name": "<input> with drop-down",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1162:1802",
+      "name": "Group",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1162:1827",
+      "name": "Rich drop-down",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2258",
+      "name": "Menu/Menu",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2012",
+      "name": "Menu/Menu item",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2026",
+      "name": "Menu/Hovered item",
+      "usageCount": 5,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2024",
+      "name": "Menu/Item divider",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2020",
+      "name": "Menu/Item group header",
+      "usageCount": 1,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:2016",
+      "name": "Menu/Submenu item",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "499:1508",
+      "name": "Menu item",
+      "usageCount": 10,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "499:1513",
+      "name": "Menu divider",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1160:2122",
+      "name": "Example table",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1160:2710",
+      "name": "Table cell style (unpublished subcomponent)",
+      "usageCount": 131,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1242:8697",
+      "name": "Example chart",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "522:1333",
+      "name": "Marker with label/Marker",
+      "usageCount": 7,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "485:621",
+      "name": "Vertical origin",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "485:624",
+      "name": "Highlight",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1291:4568",
+      "name": "Example timeline 🟢❇️",
+      "usageCount": 2,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "485:2205",
+      "name": "Date division",
+      "usageCount": 98,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "485:2222",
+      "name": "Timeline today marker",
+      "usageCount": 3,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:3896",
+      "name": "Document cover",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:3897",
+      "name": "Document section title page",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:3898",
+      "name": "Document page",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:3899",
+      "name": "Document end page",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:1929",
+      "name": "Document section",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:1921",
+      "name": "Document header",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1028:1924",
+      "name": "Document footer",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1153:1252",
+      "name": "Annotation",
+      "usageCount": 4,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1049:16100",
+      "name": "Arrow",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1279:4841",
+      "name": "Example page presented in bezel",
+      "usageCount": 0,
+      "checkedCount": 1,
+      "totalCategories": 15
+    },
+    {
+      "id": "1269:3995",
+      "name": "Personal menu",
+      "usageCount": 6,
+      "checkedCount": 3,
+      "totalCategories": 15
+    },
+    {
+      "id": "1252:4901",
+      "name": "Icon badge",
+      "usageCount": 0,
+      "checkedCount": 13,
+      "totalCategories": 15
+    }
+  ]
+}
