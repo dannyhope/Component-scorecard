@@ -1,6 +1,85 @@
-// Store checkbox states and modification dates in Figma client storage
-let checkboxStates = {};
-let modifiedDates = {};
+// Import would be at the top, but Figma plugins don't support ES modules
+// Instead, we'll use the code directly
+
+class Storage {
+  constructor() {
+    this.cache = {
+      checkboxStates: null,
+      modifiedDates: null
+    };
+  }
+
+  async init() {
+    const [checkboxStates, modifiedDates] = await Promise.all([
+      figma.clientStorage.getAsync('checkboxStates'),
+      figma.clientStorage.getAsync('modifiedDates')
+    ]);
+
+    this.cache.checkboxStates = checkboxStates || {};
+    this.cache.modifiedDates = modifiedDates || {};
+  }
+
+  async getComponentState(componentId) {
+    if (!this.cache.checkboxStates) await this.init();
+    return this.cache.checkboxStates[componentId] || {};
+  }
+
+  async getAllComponentStates() {
+    if (!this.cache.checkboxStates) await this.init();
+    return this.cache.checkboxStates;
+  }
+
+  async updateCheckboxState(componentId, category, rule, state) {
+    if (!this.cache.checkboxStates) await this.init();
+    
+    if (!this.cache.checkboxStates[componentId]) {
+      this.cache.checkboxStates[componentId] = {};
+    }
+    if (!this.cache.checkboxStates[componentId][category]) {
+      this.cache.checkboxStates[componentId][category] = {};
+    }
+
+    this.cache.checkboxStates[componentId][category][rule] = state;
+    await this.persist();
+    
+    return this.cache.checkboxStates[componentId];
+  }
+
+  async persist() {
+    await Promise.all([
+      figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
+      figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates)
+    ]);
+  }
+}
+
+// Create storage instance
+const storage = new Storage();
+
+// Calculate a component's score
+async function calculateComponentScore(componentId) {
+  const componentState = await storage.getComponentState(componentId);
+  
+  if (Object.keys(componentState).length === 0) {
+    return { checkedCount: 0, totalRules: 0 };
+  }
+
+  const checkedCount = Object.values(componentState)
+    .flatMap(categoryState => Object.values(categoryState))
+    .filter(state => state.checked).length;
+
+  // Count total rules from component state
+  let totalRules = Object.values(componentState)
+    .flatMap(categoryState => Object.values(categoryState))
+    .length;
+    
+  // Fallback to 5 if no rules were found - matches default template
+  if (totalRules === 0) {
+    totalRules = 5; // Default number of rules in the template
+  }
+
+  return { checkedCount, totalRules };
+}
 
 // Function to analyze component usage across the document
 async function analyzeComponents() {
@@ -60,17 +139,17 @@ async function loadComponents() {
     (!node.parent || node.parent.type !== 'COMPONENT_SET')
   );
 
-  // Load the stored data from client storage
-  checkboxStates = await figma.clientStorage.getAsync('checkboxStates') || {};
-  modifiedDates = await figma.clientStorage.getAsync('modifiedDates') || {};
+  // Get all component states from storage
+  const states = await storage.getAllComponentStates();
 
   // Get component usage counts
   const usageCounts = await analyzeComponents();
 
   // Send component data to the UI along with checkbox states
   const componentData = components.map(component => {
-    // Get the checked count
-    const checkedCount = Object.values(checkboxStates[component.id] || {}).reduce((sum, category) => {
+    // Get the checked count using the storage states
+    const componentState = states[component.id] || {};
+    const checkedCount = Object.values(componentState).reduce((sum, category) => {
       return sum + Object.values(category).filter(state => state.checked).length;
     }, 0);
 
@@ -78,9 +157,8 @@ async function loadComponents() {
       id: component.id,
       name: component.name,
       checkedCount,
-      totalCategories: 0, // Will be calculated in UI based on actual rules
-      lastModified: modifiedDates[component.id] || null, // Get stored modification date
-      usageCount: usageCounts.get(component.id) || 0 // Add usage count
+      lastModified: storage.cache.modifiedDates[component.id] || null,
+      usageCount: usageCounts.get(component.id) || 0
     };
   });
 
@@ -92,15 +170,12 @@ async function loadComponents() {
   figma.ui.postMessage({
     type: 'load-components',
     components: componentData,
-    checkboxStates,
+    checkboxStates: states,
     selectedComponentId
   });
 }
 
-// Function to save checkbox states to Figma client storage
-async function saveCheckboxStates() {
-  await figma.clientStorage.setAsync('checkboxStates', checkboxStates);
-}
+
 
 // Function to get component usage data
 async function getComponentUsage(componentId) {
@@ -129,12 +204,15 @@ async function getComponentUsage(componentId) {
   }
 }
 
-function main() {
+async function main() {
+  // Initialize storage
+  await storage.init();
+
   // Show the UI
   figma.showUI(__html__, { width: 400, height: 600 });
 
   // Load components initially
-  loadComponents();
+  await loadComponents();
 
   // Listen for document changes (e.g., when components are added or modified)
   figma.on('documentchange', async (changes) => {
@@ -145,8 +223,8 @@ function main() {
         needsReload = true;
       } else if (change.type === 'PROPERTY_CHANGE' && change.node.type === 'COMPONENT') {
         // Update modification date for the changed component
-        modifiedDates[change.node.id] = Date.now();
-        await figma.clientStorage.setAsync('modifiedDates', modifiedDates);
+        storage.cache.modifiedDates[change.node.id] = Date.now();
+        await storage.persist();
         needsReload = true;
       }
     }
@@ -201,34 +279,20 @@ figma.ui.onmessage = async msg => {
   } else if (msg.type === 'ok-checkbox-changed') {
     const { componentId, category, label, isChecked } = msg;
 
-    // Save the checkbox state
-    if (!checkboxStates[componentId]) {
-      checkboxStates[componentId] = {};
-    }
-    if (!checkboxStates[componentId][category]) {
-      checkboxStates[componentId][category] = {};
-    }
-
-    // For Apply to all, we want all components to share the same timestamp
+    // Update the checkbox state
     const timestamp = msg.applyToAll ? msg.timestamp : (isChecked ? new Date().toISOString() : null);
-    checkboxStates[componentId][category][label] = { 
+    await storage.updateCheckboxState(componentId, category, label, {
       checked: isChecked,
       timestamp: timestamp
-    };
+    });
 
-    // Save the state to client storage
-    await saveCheckboxStates();
-
-    // Calculate the updated score
-    const checkedCount = Object.values(checkboxStates[componentId])
-      .flatMap(categoryState => Object.values(categoryState))
-      .filter(state => state.checked).length;
-
-    // Send the updated score to the UI
+    // Calculate and update the score
+    const score = await calculateComponentScore(componentId);
     figma.ui.postMessage({
       type: 'update-score',
       componentId,
-      checkedCount
+      checkedCount: score.checkedCount,
+      totalRules: score.totalRules
     });
   } else if (msg.type === 'select-instances') {
     const component = figma.getNodeById(msg.componentId);
