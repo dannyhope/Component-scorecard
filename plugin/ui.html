@@ -467,6 +467,7 @@
         const lines = text.split('\n');
         let currentCategory = '';
         const rules = {};
+        rules[currentCategory] = []; // Initialize default category for rules without headings
         let totalRules = 0;
 
         lines.forEach(line => {
@@ -474,15 +475,13 @@
           if (trimmedLine.startsWith('- [ ]')) {
             // It's a checkbox item
             const ruleText = trimmedLine.substring(6).trim(); // Extract the rule text after "- [ ]"
-            if (currentCategory) {
-              rules[currentCategory] = rules[currentCategory] || [];
-              rules[currentCategory].push(ruleText);
-              totalRules++;
-            }
+            rules[currentCategory] = rules[currentCategory] || [];
+            rules[currentCategory].push(ruleText);
+            totalRules++;
           } else if (trimmedLine !== '') {
             // It's a heading - keep the full category name including any commas
             currentCategory = trimmedLine;
-            rules[currentCategory] = [];
+            rules[currentCategory] = rules[currentCategory] || [];
           }
         });
 
