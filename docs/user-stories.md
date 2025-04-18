@@ -1,6 +1,7 @@
 # User Stories
 
 ## As a design system maintainer
+
 ### Scoring components
 **Given** I have a component that needs quality assessment  
 **When** I select the component  
@@ -33,23 +34,12 @@
 **And** I can easily report bugs or suggest improvements
 
 ## As a designer
+
 ### Finding component quality
 **Given** I'm looking for a component to use  
 **When** I browse components  
 **Then** I can see their quality scores  
 **And** understand what criteria they meet or don't meet
-
-### Understanding requirements
-**Given** I'm creating a new component  
-**When** I review the checklist  
-**Then** I understand what quality criteria to aim for  
-**And** can track my progress towards meeting them
-
-### Using headingless criteria
-**Given** I want to use a simple checklist without categories  
-**When** I remove headings from my criteria list  
-**Then** the checklist items still display correctly  
-**And** I can still track quality without hierarchical organization
 
 ### Exporting quality data
 **Given** I need to share component quality information with my team  
