@@ -49,6 +49,11 @@
       .settings-button:hover {
         background-color: rgba(0, 0, 0, 0.06);
       }
+      #issues-link {
+        width: auto !important;
+        height: auto !important;
+        padding: 4px 8px !important;
+      }
 
       /* Component count section */
       .component-count-row {
@@ -353,11 +358,7 @@
     <!-- Component count and settings row -->
     <div class="component-count-row">
       <span id="component-count">No components need checking</span>
-      <button class="settings-button" id="settings-button" title="Settings">
-        <svg viewBox="0 0 16 16" fill="currentColor">
-          <path d="M8 2a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/>
-        </svg>
-      </button>
+      <a href="https://github.com/dannyhope/Component-scorecard/issues" target="_blank" class="settings-button" id="issues-link" title="Issues">Issues</a>
     </div>
     <!-- Filter section (hidden) -->
     <div class="filter-section">
@@ -527,16 +528,16 @@
       });
 
       // Set up settings button handler
-      document.getElementById('settings-button').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const dropdown = document.getElementById('settings-dropdown');
-        dropdown.classList.toggle('visible');
-      });
+      // document.getElementById('settings-button').addEventListener('click', (e) => {
+      //   e.stopPropagation();
+      //   const dropdown = document.getElementById('settings-dropdown');
+      //   dropdown.classList.toggle('visible');
+      // });
 
       // Close dropdown when clicking outside
       document.addEventListener('click', (e) => {
         const dropdown = document.getElementById('settings-dropdown');
-        const settingsButton = document.getElementById('settings-button');
+        const settingsButton = document.getElementById('issues-link');
         if (!dropdown.contains(e.target) && !settingsButton.contains(e.target)) {
           dropdown.classList.remove('visible');
         }
