@@ -58,6 +58,15 @@
    - Create a proper data model for components and their states
    - Implement proper caching and state synchronization
 
+---
+
+## Temporary UI Hiding (April 2025)
+🟡 The following UI elements are currently hidden via CSS for interface simplification/testing:
+- The score count (e.g., (1/5)) next to each component name
+- The number of instances (e.g., "2 instances") next to each component name
+
+This is done by setting `display: none` on the relevant CSS classes in `plugin/ui.html`. These changes are non-destructive and can be easily reverted by removing or commenting out the CSS rules.
+
 3. **Component Architecture**
    - Separate UI components from state management
    - Create clear boundaries between plugin and UI code
