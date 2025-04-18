@@ -133,11 +133,19 @@ async function analyzeComponents() {
 
 // Function to load components and send data to the UI
 async function loadComponents() {
-  // Find all components in the document, excluding variants by default
-  const components = figma.currentPage.findAll(node => 
-    node.type === 'COMPONENT' && 
-    (!node.parent || node.parent.type !== 'COMPONENT_SET')
+  console.log('Loading components...');
+  
+  // Find all components in the document using the more reliable findAllWithCriteria
+  const allComponents = figma.currentPage.findAllWithCriteria({
+    types: ['COMPONENT']
+  });
+  
+  // Filter out components in component sets (variants)
+  const components = allComponents.filter(component => 
+    !component.parent || component.parent.type !== 'COMPONENT_SET'
   );
+  
+  console.log(`Found ${allComponents.length} total components, ${components.length} main components`);
 
   // Get all component states from storage
   const states = await storage.getAllComponentStates();
