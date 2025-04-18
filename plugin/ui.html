@@ -405,6 +405,36 @@
 
       // Set the default content in the textarea
       document.getElementById('custom-rules').value = defaultRules;
+      
+      // Function to rebuild component list when rules change
+      function rebuildComponentList() {
+        // Don't rebuild if there are no components yet
+        if (allComponents.length === 0) return;
+        
+        const componentList = document.getElementById('component-list');
+        componentList.innerHTML = ''; // Clear existing list
+        
+        // Get the updated rules
+        const rules = parseRules(document.getElementById('custom-rules').value);
+        const totalRules = rules._totalRules;
+        
+        // Update totalCategories for all components
+        allComponents = allComponents.map(component => ({
+          ...component,
+          totalCategories: totalRules
+        }));
+        
+        // Rebuild component list with new rules
+        buildComponentList(allComponents, checkboxStates, rules);
+        updateComponentCount();
+      }
+      
+      // Add debounced event listener to textarea for live updates
+      let rebuildTimeout;
+      document.getElementById('custom-rules').addEventListener('input', () => {
+        clearTimeout(rebuildTimeout);
+        rebuildTimeout = setTimeout(rebuildComponentList, 500); // Debounce 500ms
+      });
 
       // Function to parse rules from the textarea
       function parseRules(text) {
@@ -752,33 +782,11 @@
         }
       }
 
-      // Listen for messages from the plugin code
-      window.onmessage = async (event) => {
-        const message = event.data.pluginMessage;
-
-        if (message.type === 'component-selected') {
-          selectComponent(message.componentId);
-        } else if (message.type === 'load-components') {
-          const componentList = document.getElementById('component-list');
-          componentList.innerHTML = ''; // Clear existing list
-
-          const checkboxStates = message.checkboxStates;
-
-          let components = message.components;
-          allComponents = components;
-          updateComponentCount();
-
-          // Get the custom rules from the textarea and parse them
-          const rules = parseRules(document.getElementById('custom-rules').value);
-          const totalRules = rules._totalRules;
-
-          // Add totalCategories to each component
-          components = components.map(component => ({
-            ...component,
-            totalCategories: totalRules
-          }));
-
-          components.forEach((component, index) => {
+      // Function to build the component list
+      function buildComponentList(components, checkboxStates, rules) {
+        const componentList = document.getElementById('component-list');
+        
+        components.forEach((component, index) => {
             const section = document.createElement('div');
             section.className = 'component-section';
             section.setAttribute('data-id', component.id);
@@ -965,9 +973,39 @@
             componentList.appendChild(section);
           });
         }
+        
+      // Listen for messages from the plugin code
+      window.onmessage = async (event) => {
+        const message = event.data.pluginMessage;
 
+        if (message.type === 'component-selected') {
+          selectComponent(message.componentId);
+        } else if (message.type === 'load-components') {
+          const componentList = document.getElementById('component-list');
+          componentList.innerHTML = ''; // Clear existing list
+
+          // Store checkbox states globally for access by all functions
+          checkboxStates = message.checkboxStates || {};
+
+          let components = message.components;
+          allComponents = components;
+          updateComponentCount();
+
+          // Get the custom rules from the textarea and parse them
+          const rules = parseRules(document.getElementById('custom-rules').value);
+          const totalRules = rules._totalRules;
+
+          // Add totalCategories to each component
+          components = components.map(component => ({
+            ...component,
+            totalCategories: totalRules
+          }));
+          
+          // Build the component list
+          buildComponentList(components, checkboxStates, rules);
+        }
         // Handle dynamic score updates when checkboxes are ticked/unticked
-        if (message.type === 'update-score') {
+        else if (message.type === 'update-score') {
           // Update the component's checked count in our local state
           const component = allComponents.find(c => c.id === message.componentId);
           if (component) {
