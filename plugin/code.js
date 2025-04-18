@@ -168,7 +168,7 @@ async function loadComponents() {
 
   // Send data to the UI
   figma.ui.postMessage({
-    type: 'load-components',
+    type: 'loadComponents',
     components: componentData,
     checkboxStates: states,
     selectedComponentId
@@ -242,13 +242,13 @@ async function main() {
     if (selectedComponent) {
       const usageData = await getComponentUsage(selectedComponent.id);
       figma.ui.postMessage({
-        type: 'component-selected',
+        type: 'componentSelected',
         componentId: selectedComponent.id,
         usage: usageData
       });
     } else {
       figma.ui.postMessage({
-        type: 'component-selected',
+        type: 'componentSelected',
         componentId: null,
         usage: null
       });
@@ -258,12 +258,12 @@ async function main() {
 
 // Listen to messages from the UI
 figma.ui.onmessage = async msg => {
-  if (msg.type === 'get-document-title') {
+  if (msg.type === 'getDocumentTitle') {
     figma.ui.postMessage({
-      type: 'document-title',
+      type: 'documentTitle',
       title: figma.root.name
     });
-  } else if (msg.type === 'select-component-in-figma') {
+  } else if (msg.type === 'selectComponentInFigma') {
     // Find the component
     const component = figma.currentPage.findOne(node => 
       node.type === 'COMPONENT' && node.id === msg.componentId
@@ -276,7 +276,7 @@ figma.ui.onmessage = async msg => {
       // Scroll the component into view
       figma.viewport.scrollAndZoomIntoView([component]);
     }
-  } else if (msg.type === 'ok-checkbox-changed') {
+  } else if (msg.type === 'okCheckboxChanged') {
     const { componentId, category, label, isChecked } = msg;
 
     // Update the checkbox state
@@ -289,12 +289,12 @@ figma.ui.onmessage = async msg => {
     // Calculate and update the score
     const score = await calculateComponentScore(componentId);
     figma.ui.postMessage({
-      type: 'update-score',
+      type: 'updateScore',
       componentId,
       checkedCount: score.checkedCount,
       totalRules: score.totalRules
     });
-  } else if (msg.type === 'select-instances') {
+  } else if (msg.type === 'selectInstances') {
     const component = figma.getNodeById(msg.componentId);
     if (component) {
       // Find all instances of the component

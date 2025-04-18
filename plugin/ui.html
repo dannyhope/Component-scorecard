@@ -23,6 +23,16 @@
 
       .filter-input {
         display: none;
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #C7D0D4;
+        border-radius: 4px;
+        font-size: 12px;
+        background-color: white;
+      }
+      .filter-input:focus {
+        outline: none;
+        border-color: #9B51E0; /* Match component title color */
       }
 
       .settings-button {
@@ -263,7 +273,7 @@
 
       /* Custom rules textarea */
       #textarea-container {
-        margin-top: 10px;
+        margin-top: 20px;
       }
       textarea {
         width: 100%;
@@ -317,6 +327,11 @@
         background: #F3DAF4;
         color: #37006E;
       }
+    .component-name .score-red,
+    .component-name .score-orange,
+    .component-name .score-green {
+      display: none !important;
+    }
     </style>
   </head>
   <body>
@@ -328,7 +343,7 @@
     </div>
     <!-- Component count and settings row -->
     <div class="component-count-row">
-      <span id="component-count">0 components need checking</span>
+      <span id="component-count">No components need checking</span>
       <button class="settings-button" id="settings-button" title="Settings">
         <svg viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 2a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/>
@@ -706,12 +721,12 @@
         
         // Get document title from Figma for the filename
         parent.postMessage({
-          pluginMessage: { type: 'get-document-title' }
+          pluginMessage: { type: 'getDocumentTitle' }
         }, '*');
 
         // Listen for the response with the document title
         const messageHandler = (event) => {
-          if (event.data.pluginMessage && event.data.pluginMessage.type === 'document-title') {
+          if (event.data.pluginMessage && event.data.pluginMessage.type === 'documentTitle') {
             const docTitle = event.data.pluginMessage.title;
             const dateStr = formatDateForFilename(new Date());
             const filename = `${sanitizeFilename(docTitle)} component scorecards (${dateStr}).csv`;
@@ -925,7 +940,7 @@
                       timestampSpan.textContent = '';
                     }
                   }
-                  parent.postMessage({ pluginMessage: { type: 'ok-checkbox-changed', componentId: component.id, category: category, label: ruleText, isChecked: checkbox.checked } }, '*');
+                  parent.postMessage({ pluginMessage: { type: 'okCheckboxChanged', componentId: component.id, category: category, label: ruleText, isChecked: checkbox.checked } }, '*');
                   
                   // Update modification indicator after checkbox change
                   setTimeout(() => updateModificationIndicator(component.id), 100); // Small delay to ensure state is updated
@@ -978,9 +993,9 @@
       window.onmessage = async (event) => {
         const message = event.data.pluginMessage;
 
-        if (message.type === 'component-selected') {
+        if (message.type === 'componentSelected') {
           selectComponent(message.componentId);
-        } else if (message.type === 'load-components') {
+        } else if (message.type === 'loadComponents') {
           const componentList = document.getElementById('component-list');
           componentList.innerHTML = ''; // Clear existing list
 
@@ -1005,7 +1020,7 @@
           buildComponentList(components, checkboxStates, rules);
         }
         // Handle dynamic score updates when checkboxes are ticked/unticked
-        else if (message.type === 'update-score') {
+        else if (message.type === 'updateScore') {
           // Update the component's checked count in our local state
           const component = allComponents.find(c => c.id === message.componentId);
           if (component) {
@@ -1169,7 +1184,7 @@
       function selectInstances(componentId) {
         parent.postMessage({ 
           pluginMessage: { 
-            type: 'select-instances',
+            type: 'selectInstances',
             componentId: componentId
           }
         }, '*');

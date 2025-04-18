@@ -67,3 +67,35 @@
    - Current structure makes it difficult to test state changes
    - Need proper unit tests for score calculations
    - Need integration tests for state synchronization
+
+## UI and Codebase Structure Issues
+
+### UI Code Organization 🔴
+- All UI code is in a single HTML file with embedded JavaScript
+- No separation of concerns between UI components
+- Large, monolithic functions like `buildComponentList` with excessive nesting
+- Direct DOM manipulation instead of using a template system
+
+### Frontend Performance 🔴
+- Inefficient component filtering that rebuilds the entire list on each keystroke
+- Repeated DOM queries that could be cached
+- Potential performance issues when handling large component libraries
+- Missing throttling/debouncing for some UI interactions
+
+### Code Duplication 🔴
+- Storage class exists in both code.js and storage.js
+- Redundant code for managing component state 
+- Exports in storage.js aren't being used
+
+### Accessibility Issues 🔴
+- Missing ARIA attributes for better screen reader support
+- No keyboard navigation support for component selection and checkboxes
+- Color contrast issues with score indicators (red/amber/green)
+- Text size may be too small for some users (12px)
+- No focus management for component list
+
+### Missing Features 🔴
+- No build/version number in UI (mentioned in ideas.md)
+- No settings page for configuration
+- Missing visual debug information
+- No keyboard shortcuts for common operations

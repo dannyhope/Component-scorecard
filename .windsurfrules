@@ -1,3 +1,33 @@
-14 px text for the UI
-what I ask for a list of components its not subcomponents
-be smart about when to escape HTML tags
+# Cursor Rules for Figma Plugin Development
+
+## Key Resources
+- Figma Plugin API: https://www.figma.com/plugin-docs/intro/
+  - Use `figma` global object, JavaScript for logic, HTML/CSS for UI.
+  - Handle async operations (e.g., `figma.loadFontAsync`).
+- Plugin Review Guidelines: https://help.figma.com/hc/en-us/articles/360047285394
+  - No crashes, accurate metadata, support contact in UI.
+  - Avoid non-API external packages.
+- Community Guidelines: https://help.figma.com/hc/en-us/articles/360039958634
+  - No trademark misuse or offensive content.
+- Standards of Conduct: https://www.figma.com/standards-of-conduct/
+  - Secure data handling (e.g., OAuth2.0), legal compliance.
+- Security: https://forum.figma.com/t/security-considerations-when-deploying-plugin/39182
+  - Secure OAuth2.0, safe fileKey handling.
+- MCP Server: https://github.com/figma/mcp-server
+  - Run `npx fig2ai <figma-design-url>` for `.designrules`.
+
+## Coding Standards
+- Language: JavaScript (logic), HTML/CSS (UI).
+- API: Use `figma` object for interactions.
+- UI: Render via `figma.showUI`, handle `figma.ui.onmessage`.
+- Security: Secure OAuth2.0, data handling.
+- Testing: Error handling, test for crashes.
+- Dependencies: No non-API external packages.
+- Metadata: Accurate name, description, support contact.
+
+## Cursor Instructions
+- Generate code compliant with above resources.
+- Validate against Plugin Review Guidelines.
+- Use `.designrules` from MCP server for design context.
+- Audit security (OAuth2.0, fileKey).
+- Align UI/metadata with Brand/Community Guidelines.
