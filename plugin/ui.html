@@ -374,6 +374,7 @@
       display: none !important;
     }
     </style>
+    <!-- Message handler is included directly in this file -->
   </head>
   <body>
     <!-- Context menu -->
@@ -818,7 +819,9 @@
       });
 
       // Function to handle component selection
-      function selectComponent(componentId) {
+      function selectComponent(componentId, fromFigma = false) {
+        console.log('Selecting component in UI:', componentId, 'fromFigma:', fromFigma);
+        
         // Remove previous selection
         document.querySelectorAll('.component-section').forEach(section => {
           section.classList.remove('selected');
@@ -826,6 +829,7 @@
 
         // If no component is selected (componentId is null), just clear selection
         if (!componentId) {
+          console.log('No component ID provided, clearing selection');
           // Close the last auto-expanded component if it wasn't user-toggled
           if (lastAutoExpandedId && !componentState[lastAutoExpandedId].userToggled && !componentState[lastAutoExpandedId].collapsed) {
             componentState[lastAutoExpandedId].collapsed = true;
@@ -836,9 +840,16 @@
         }
 
         // Find and highlight the selected component
-        const section = document.querySelector(`[data-id="${componentId}"]`);
+        // Make sure we're using the component ID as a string for consistency
+        const componentIdStr = String(componentId);
+        console.log('Looking for component with ID:', componentIdStr);
+        const section = document.querySelector(`[data-id="${componentIdStr}"]`);
+        console.log('Found section for component:', section ? 'Yes' : 'No');
+        
         if (section) {
+          // Add selected class
           section.classList.add('selected');
+          console.log('Added selected class to component section');
 
           // Close the last auto-expanded component if it wasn't user-toggled
           if (lastAutoExpandedId && lastAutoExpandedId !== componentId && 
@@ -848,8 +859,18 @@
             toggleCollapse(lastAutoExpandedId);
           }
 
+          // Make sure the component state exists
+          if (!componentState[componentId]) {
+            console.log('Component state not found, initializing');
+            componentState[componentId] = {
+              collapsed: false,
+              userToggled: false
+            };
+          }
+
           // Expand the newly selected component if it's collapsed
           if (componentState[componentId].collapsed) {
+            console.log('Expanding collapsed component');
             componentState[componentId].collapsed = false;
             componentState[componentId].userToggled = false; // Mark as auto-expanded
             toggleCollapse(componentId);
@@ -858,6 +879,18 @@
 
           // Scroll the component into view
           section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          console.log('Scrolled component into view');
+          
+          // If this selection wasn't triggered by Figma, select the component in Figma
+          if (!fromFigma) {
+            console.log('Sending selectComponentInFigma message');
+            parent.postMessage({ pluginMessage: { type: 'selectComponentInFigma', componentId } }, '*');
+          }
+        } else {
+          console.log('Component section not found in the DOM. Available components:');
+          document.querySelectorAll('.component-section').forEach(section => {
+            console.log('Component ID:', section.getAttribute('data-id'));
+          });
         }
       }
 
@@ -868,7 +901,8 @@
         components.forEach((component, index) => {
             const section = document.createElement('div');
             section.className = 'component-section';
-            section.setAttribute('data-id', component.id);
+            // Make sure we store the component ID as a string for consistent comparison
+            section.setAttribute('data-id', String(component.id));
 
             // Collapsed state toggle
             componentState[component.id] = { 
@@ -955,7 +989,7 @@
               // Select in Figma
               parent.postMessage({ 
                 pluginMessage: { 
-                  type: 'select-component-in-figma',
+                  type: 'selectComponentInFigma',
                   componentId: component.id 
                 }
               }, '*');
@@ -1052,46 +1086,59 @@
             componentList.appendChild(section);
           });
         }
-        
+      
       // Listen for messages from the plugin code
-      window.onmessage = async (event) => {
+      window.onmessage = event => {
         const message = event.data.pluginMessage;
+        if (!message) return;
 
-        if (message.type === 'componentSelected') {
-          selectComponent(message.componentId);
-        } else if (message.type === 'loadComponents') {
+        if (message.type === 'loadComponents') {
+          // Store the component data
+          const components = message.components;
+          checkboxStates = message.checkboxStates || {};
+          allComponents = components;
+          
+          // Build the component list
           const componentList = document.getElementById('component-list');
           componentList.innerHTML = ''; // Clear existing list
-
-          // Store checkbox states globally for access by all functions
-          checkboxStates = message.checkboxStates || {};
-
-          let components = message.components;
-          allComponents = components;
-          updateComponentCount();
-
+          
           // Get the custom rules from the textarea and parse them
           const rules = parseRules(document.getElementById('custom-rules').value);
-          const totalRules = rules.totalRules;
-
-          // Add totalCategories to each component
-          components = components.map(component => ({
-            ...component,
-            totalCategories: totalRules
-          }));
           
           // Build the component list
           buildComponentList(components, checkboxStates, rules);
-        }
-        // Handle dynamic score updates when checkboxes are ticked/unticked
-        else if (message.type === 'updateScore') {
-          // Update the component's checked count in our local state
+          
+          // Update component count
+          updateComponentCount();
+          
+          // If a component is selected in Figma, select it in the UI
+          if (message.selectedComponentId) {
+            selectComponent(message.selectedComponentId, true);
+          }
+          
+          // Hide the loading indicator
+          document.getElementById('refresh-button').classList.remove('spin');
+        } else if (message.type === 'updateScore') {
+          // Update the score for a component
           const component = allComponents.find(c => c.id === message.componentId);
           if (component) {
             component.checkedCount = message.checkedCount;
             component.totalCategories = message.totalRules;
             updateScore(message.componentId, message.checkedCount);
             updateComponentCount(); // Refresh the component count
+          }
+        } else if (message.type === 'documentTitle') {
+          // Update the document title
+          document.getElementById('document-title').textContent = message.title;
+        } else if (message.type === 'componentSelected') {
+          // A component was selected in Figma
+          console.log('Component selected in Figma:', message.componentId);
+          if (message.componentId) {
+            // Select the component in the UI (with fromFigma=true to prevent infinite loop)
+            selectComponent(message.componentId, true);
+          } else {
+            // Clear selection
+            selectComponent(null);
           }
         }
       };

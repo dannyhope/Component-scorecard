@@ -146,6 +146,7 @@ async function loadComponents() {
   );
   
   console.log(`Found ${allComponents.length} total components, ${components.length} main components`);
+  console.log('Component IDs:', components.map(c => c.id));
 
   // Get all component states from storage
   const states = await storage.getAllComponentStates();
@@ -161,6 +162,12 @@ async function loadComponents() {
       return sum + Object.values(category).filter(state => state.checked).length;
     }, 0);
 
+    // Log each component we're sending to the UI
+    console.log('Sending component to UI:', {
+      id: component.id,
+      name: component.name
+    });
+
     return {
       id: component.id,
       name: component.name,
@@ -173,6 +180,10 @@ async function loadComponents() {
   // Get currently selected component if any
   const selectedNodes = figma.currentPage.selection;
   const selectedComponentId = selectedNodes.length === 1 && selectedNodes[0].type === 'COMPONENT' ? selectedNodes[0].id : null;
+  
+  if (selectedComponentId) {
+    console.log('Currently selected component:', selectedComponentId);
+  }
 
   // Send data to the UI
   figma.ui.postMessage({
@@ -219,6 +230,9 @@ async function main() {
   // Show the UI
   figma.showUI(__html__, { width: 400, height: 600 });
 
+  // Load all pages to enable document change handlers
+  await figma.loadAllPagesAsync();
+  
   // Load components initially
   await loadComponents();
 
@@ -275,10 +289,20 @@ async function main() {
 
   // Listen for selection changes
   figma.on('selectionchange', async () => {
+    console.log('Selection changed in Figma');
     const selectedNodes = figma.currentPage.selection;
+    console.log('Selected nodes:', selectedNodes.length);
     const selectedComponent = selectedNodes.find(node => node.type === 'COMPONENT');
     
     if (selectedComponent) {
+      console.log('Selected component in Figma:', selectedComponent.id, selectedComponent.name);
+      
+      // Log all components to help with debugging
+      const allComponents = figma.currentPage.findAllWithCriteria({
+        types: ['COMPONENT']
+      });
+      console.log('All components on page:', allComponents.map(c => c.id));
+      
       const usageData = await getComponentUsage(selectedComponent.id);
       figma.ui.postMessage({
         type: 'componentSelected',
@@ -286,6 +310,7 @@ async function main() {
         usage: usageData
       });
     } else {
+      console.log('No component selected in Figma');
       figma.ui.postMessage({
         type: 'componentSelected',
         componentId: null,
