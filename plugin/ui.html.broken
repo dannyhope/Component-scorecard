@@ -7,7 +7,7 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         padding: 4px 4px 40px 4px;
         background-color: white;
-        font-size: 12px;
+        font-size: 14px;
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -55,9 +55,18 @@
         z-index: 100;
       }
 
+      .build-number {
+        color: #888;
+        font-size: 10px;
+        position: absolute;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+
       .component-count {
         color: #666;
-        font-size: 12px;
+        font-size: 14px;
       }
 
       .settings-button svg {
@@ -78,7 +87,7 @@
 
       /* Component title bar */
       .component-title {
-        font-size: 12px;
+        font-size: 14px;
         font-weight: normal;
         margin-bottom: 4px;
         cursor: pointer; /* Entire title is clickable */
@@ -113,12 +122,12 @@
         margin-top: 8px;
         margin-bottom: 8px;
         color: #767676;
-        font-size: 13px;
+        font-size: 14px;
       }
 
       .checkbox-timestamp, .last-modified {
         color: #888;
-        font-size: 10px;
+        font-size: 11px;
         margin-left: 8px;
       }
 
@@ -156,7 +165,7 @@
 
       /* Custom rules section */
       .custom-heading {
-        font-size: 12px;
+        font-size: 14px;
         font-weight: bold;
         margin-bottom: 10px;
         color: black;
@@ -174,12 +183,23 @@
       }
 
       /* Checkbox groups and items */
-      .checkbox-group {
+      /* Component rules container */
+      .component-rules {
         margin-left: 16px;      /* Indent from title */
         margin-bottom: 8px;      /* Space between categories */
       }
+      
+      /* Individual category groups */
+      .category-group {
+        margin-left: 16px;      /* Indent from title */
+        margin-bottom: 8px;      /* Space between categories */
+      }
+      /* Hidden elements */
+      .component-rules.hidden {
+        display: none;
+      }
       .checkbox-group label {
-        font-size: 12px;
+        font-size: 14px;
         line-height: 16px;       /* Tight line spacing within items */
         display: flex;
         align-items: flex-start;  /* Align checkbox with first line */
@@ -239,7 +259,7 @@
         border: none;
         background: none;
         color: #333;
-        font-size: 12px;
+        font-size: 14px;
         text-align: left;
         cursor: pointer;
         text-decoration: none;
@@ -268,7 +288,7 @@
       textarea {
         width: 100%;
         height: 200px;
-        font-size: 12px;
+        font-size: 14px;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         padding: 8px;
         border: 1px solid #C7D0D4;
@@ -287,7 +307,7 @@
         padding: 4px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         z-index: 1000;
-        font-size: 12px;
+        font-size: 14px;
       }
 
       .context-menu-item {
@@ -306,7 +326,7 @@
 
       .component-usage {
         color: #7B858A;
-        font-size: 12px;
+        font-size: 14px;
         margin-left: 8px;
         cursor: pointer;
         padding: 2px 8px;
@@ -329,6 +349,7 @@
     <!-- Component count and settings row -->
     <div class="component-count-row">
       <span id="component-count">0 components need checking</span>
+      <span class="build-number">Build: 2025-04-17.1</span>
       <button class="settings-button" id="settings-button" title="Settings">
         <svg viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 2a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/>
@@ -396,52 +417,53 @@
     </div>
 
     <script>
-      const defaultRules = `Component quality criteria
+      // Debug info in the UI
+      console.log('Plugin UI initializing - Build 2025-04-17.1');
+      
+      // Add error handling to catch and log JavaScript errors
+      window.onerror = function(message, source, lineno, colno, error) {
+        console.error(`Error: ${message} at ${source}:${lineno}:${colno}`, error);
+        
+        // Display error in UI for debugging
+        const errorDiv = document.createElement('div');
+        errorDiv.style.color = 'red';
+        errorDiv.style.padding = '8px';
+        errorDiv.style.margin = '8px';
+        errorDiv.style.border = '1px solid red';
+        errorDiv.style.borderRadius = '4px';
+        errorDiv.style.backgroundColor = '#FEE';
+        errorDiv.innerHTML = `<strong>Error:</strong> ${message}<br>Check console for details`;
+        document.body.prepend(errorDiv);
+        return false;
+      };
+      // Default rules variable kept for reference but not used directly
+      const defaultRules = `Component Standards
 - [ ] Uses auto layout where appropriate
 - [ ] Spaces are variables
 - [ ] Any text uses text styles
 - [ ] Fills and strokes are styles or variables
 - [ ] WCAG2 AA contrast`;
 
-      // Set the default content in the textarea
-      document.getElementById('custom-rules').value = defaultRules;
+      // Set the default content in the textarea with proper category heading
+      const defaultRulesWithCategory = `Component Standards
+- [ ] Uses auto layout where appropriate
+- [ ] Spaces are variables
+- [ ] Any text uses text styles
+- [ ] Fills and strokes are styles or variables
+- [ ] WCAG2 AA contrast`;
       
-      // Function to rebuild component list when rules change
-      function rebuildComponentList() {
-        // Don't rebuild if there are no components yet
-        if (allComponents.length === 0) return;
-        
-        const componentList = document.getElementById('component-list');
-        componentList.innerHTML = ''; // Clear existing list
-        
-        // Get the updated rules
-        const rules = parseRules(document.getElementById('custom-rules').value);
-        const totalRules = rules.totalRules;
-        
-        // Update totalCategories for all components
-        allComponents = allComponents.map(component => ({
-          ...component,
-          totalCategories: totalRules
-        }));
-        
-        // Rebuild component list with new rules
-        buildComponentList(allComponents, checkboxStates, rules);
-        updateComponentCount();
-      }
-      
-      // Add debounced event listener to textarea for live updates
-      let rebuildTimeout;
-      document.getElementById('custom-rules').addEventListener('input', () => {
-        clearTimeout(rebuildTimeout);
-        rebuildTimeout = setTimeout(rebuildComponentList, 500); // Debounce 500ms
-      });
+      document.getElementById('custom-rules').value = defaultRulesWithCategory;
 
       // Function to parse rules from the textarea
       function parseRules(text) {
+        console.log('Parsing rules from text:', text);
         const lines = text.split('\n');
-        let currentCategory = '';
+        let currentCategory = 'Default Category'; // Provide a fallback category
         const rules = {};
         let totalRules = 0;
+        
+        // Initialize the default category
+        rules[currentCategory] = [];
 
         lines.forEach(line => {
           const trimmedLine = line.trim();
@@ -458,9 +480,13 @@
             currentCategory = trimmedLine;
             rules[currentCategory] = [];
           }
-        });
+        } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
 
-        rules.totalRules = totalRules; // Store total count
+        rules._totalRules = totalRules; // Store total count
+        console.log('Parsed rules:', rules);
         return rules;
       }
 
@@ -474,7 +500,10 @@
       function updateComponentCount() {
         const componentsNeedingCheck = allComponents.filter(component => {
           return component.checkedCount < component.totalCategories;
-        });
+        } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
         const count = componentsNeedingCheck.length;
         const countText = `${count} component${count !== 1 ? 's' : ''} need${count !== 1 ? '' : 's'} checking`;
         document.getElementById('component-count').textContent = countText;
@@ -500,6 +529,9 @@
       // Set up filter input handler
       document.getElementById('component-filter').addEventListener('input', (e) => {
         filterComponents(e.target.value);
+      } catch(error) {
+          console.error('Error processing message:', error);
+        }
       });
 
       // Set up settings button handler
@@ -507,6 +539,9 @@
         e.stopPropagation();
         const dropdown = document.getElementById('settings-dropdown');
         dropdown.classList.toggle('visible');
+      } catch(error) {
+          console.error('Error processing message:', error);
+        }
       });
 
       // Close dropdown when clicking outside
@@ -515,6 +550,9 @@
         const settingsButton = document.getElementById('settings-button');
         if (!dropdown.contains(e.target) && !settingsButton.contains(e.target)) {
           dropdown.classList.remove('visible');
+        }
+      } catch(error) {
+          console.error('Error processing message:', error);
         }
       });
 
@@ -593,14 +631,26 @@
               rules.push({
                 rule: checkbox.getAttribute('data-rule'),
                 id: checkbox.id
-              });
-            });
+              } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
+            } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
             
             categories.push({
               name: category,
               rules: rules
-            });
-          });
+            } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
+          } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
         }
         
         // Export the enhanced data structure
@@ -624,7 +674,10 @@
                   lastModified: checkboxStates[comp.id]?.[category.name]?.[rule.rule]?.timestamp
                 }))
               };
-            });
+            } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
             
             return {
               id: comp.id,
@@ -638,6 +691,9 @@
         };
         
         downloadJson(debugData, filename);
+      } catch(error) {
+          console.error('Error processing message:', error);
+        }
       });
 
       // Set up CSV download handler
@@ -665,9 +721,18 @@
               rule: ruleText,
               // Store the actual checkbox element for state verification
               checkbox: checkbox
-            });
-          });
-        });
+            } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
+          } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
+        } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
 
         // Create header row with escaped fields
         const headers = [
@@ -696,10 +761,16 @@
             // Use a checkmark if either the UI or stored state shows it's checked
             const isChecked = uiChecked || storedState?.checked === true;
             row.push(escapeCSVField(isChecked ? '✓' : ''));
-          });
+          } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
           
           csvRows.push(row.join(','));
-        });
+        } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
 
         // Create CSV content with UTF-8 BOM for Excel compatibility
         const csvContent = '\ufeff' + csvRows.join('\n');
@@ -736,21 +807,27 @@
         };
 
         window.addEventListener('message', messageHandler);
+      } catch(error) {
+          console.error('Error processing message:', error);
+        }
       });
 
-      // Function to handle component selection
-      function selectComponent(componentId) {
+      // Function to handle component selection in the UI
+      function highlightComponentInUI(componentId) {
         // Remove previous selection
         document.querySelectorAll('.component-section').forEach(section => {
           section.classList.remove('selected');
-        });
+        } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
 
         // If no component is selected (componentId is null), just clear selection
         if (!componentId) {
           // Close the last auto-expanded component if it wasn't user-toggled
           if (lastAutoExpandedId && !componentState[lastAutoExpandedId].userToggled && !componentState[lastAutoExpandedId].collapsed) {
             componentState[lastAutoExpandedId].collapsed = true;
-            toggleCollapse(lastAutoExpandedId);
+            toggleComponentVisibilityInUI(lastAutoExpandedId);
           }
           lastAutoExpandedId = null;
           return;
@@ -766,14 +843,14 @@
               !componentState[lastAutoExpandedId].userToggled && 
               !componentState[lastAutoExpandedId].collapsed) {
             componentState[lastAutoExpandedId].collapsed = true;
-            toggleCollapse(lastAutoExpandedId);
+            toggleComponentVisibilityInUI(lastAutoExpandedId);
           }
 
           // Expand the newly selected component if it's collapsed
           if (componentState[componentId].collapsed) {
             componentState[componentId].collapsed = false;
             componentState[componentId].userToggled = false; // Mark as auto-expanded
-            toggleCollapse(componentId);
+            toggleComponentVisibilityInUI(componentId);
             lastAutoExpandedId = componentId;
           }
 
@@ -782,11 +859,38 @@
         }
       }
 
-      // Function to build the component list
-      function buildComponentList(components, checkboxStates, rules) {
-        const componentList = document.getElementById('component-list');
-        
-        components.forEach((component, index) => {
+      // Listen for messages from the plugin code
+      window.onmessage = async (event) => {
+        console.log('Message received:', event.data.pluginMessage);
+        try {
+        const message = event.data.pluginMessage;
+
+        if (message.type === 'component-selected') {
+          highlightComponentInUI(message.componentId);
+        } else if (message.type === 'load-components') {
+          const componentList = document.getElementById('component-list');
+          componentList.innerHTML = ''; // Clear existing list
+
+          const checkboxStates = message.checkboxStates;
+
+          let components = message.components;
+          allComponents = components;
+          updateComponentCount();
+
+          // Get the custom rules from the textarea and parse them
+          // Get the custom rules from the textarea and parse them
+          const rulesText = document.getElementById('custom-rules').value;
+          console.log('Rules text from textarea:', rulesText);
+          const rules = parseRules(rulesText);
+          const totalRules = rules._totalRules;
+
+          // Add totalCategories to each component
+          components = components.map(component => ({
+            ...component,
+            totalCategories: totalRules
+          }));
+
+          components.forEach((component, index) => {
             const section = document.createElement('div');
             section.className = 'component-section';
             section.setAttribute('data-id', component.id);
@@ -871,7 +975,7 @@
               componentState[component.id].collapsed = !componentState[component.id].collapsed;
               componentState[component.id].userToggled = true; // Mark as user-toggled
               expandArrow.style.transform = componentState[component.id].collapsed ? 'rotate(-90deg)' : 'rotate(0)';
-              toggleCollapse(component.id);
+              toggleComponentVisibilityInUI(component.id);
 
               // Select in Figma
               parent.postMessage({ 
@@ -882,15 +986,15 @@
               }, '*');
             };
 
-            // Create the checkbox group
-            const checkboxGroup = document.createElement('div');
-            checkboxGroup.className = componentState[component.id].collapsed ? 'checkbox-group hidden' : 'checkbox-group';
+            // Create the component rules container (not to be confused with individual category groups)
+            const componentRules = document.createElement('div');
+            componentRules.className = componentState[component.id].collapsed ? 'component-rules hidden' : 'component-rules';
 
             // Populate checkboxes based on the parsed rules
             for (let category in rules) {
-              if (category === 'totalRules') continue; // Skip our internal property
+              if (category === '_totalRules') continue; // Skip our internal property
               const group = document.createElement('div');
-              group.className = 'checkbox-group';
+              group.className = 'category-group';
 
               const categoryTitle = document.createElement('div');
               categoryTitle.className = 'category-title';
@@ -961,51 +1065,30 @@
                   // Store the clicked item's info for the context menu
                   menu.dataset.category = category;
                   menu.dataset.ruleText = ruleText;
-                });
+                } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
                 
                 group.appendChild(checkboxLabel);
-              });
+              } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
 
-              checkboxGroup.appendChild(group);
+              componentRules.appendChild(group);
             }
 
-            section.appendChild(checkboxGroup);
+            section.appendChild(componentRules);
             componentList.appendChild(section);
-          });
+          } catch(error) {
+          console.error('Error processing message:', error);
         }
-        
-      // Listen for messages from the plugin code
-      window.onmessage = async (event) => {
-        const message = event.data.pluginMessage;
-
-        if (message.type === 'component-selected') {
-          selectComponent(message.componentId);
-        } else if (message.type === 'load-components') {
-          const componentList = document.getElementById('component-list');
-          componentList.innerHTML = ''; // Clear existing list
-
-          // Store checkbox states globally for access by all functions
-          checkboxStates = message.checkboxStates || {};
-
-          let components = message.components;
-          allComponents = components;
-          updateComponentCount();
-
-          // Get the custom rules from the textarea and parse them
-          const rules = parseRules(document.getElementById('custom-rules').value);
-          const totalRules = rules.totalRules;
-
-          // Add totalCategories to each component
-          components = components.map(component => ({
-            ...component,
-            totalCategories: totalRules
-          }));
-          
-          // Build the component list
-          buildComponentList(components, checkboxStates, rules);
+      });
         }
+
         // Handle dynamic score updates when checkboxes are ticked/unticked
-        else if (message.type === 'update-score') {
+        if (message.type === 'update-score') {
           // Update the component's checked count in our local state
           const component = allComponents.find(c => c.id === message.componentId);
           if (component) {
@@ -1058,10 +1141,16 @@
           
           // Update modification indicator after applying to all
           setTimeout(() => updateModificationIndicator(component.id), 100); // Small delay to ensure state is updated
-        });
+        } catch(error) {
+          console.error('Error processing message:', error);
+        }
+      });
 
         // Hide the menu
         menu.style.display = 'none';
+      } catch(error) {
+          console.error('Error processing message:', error);
+        }
       });
 
       // Hide context menu when clicking outside
@@ -1070,13 +1159,20 @@
         if (!menu.contains(e.target)) {
           menu.style.display = 'none';
         }
+      } catch(error) {
+          console.error('Error processing message:', error);
+        }
       });
 
       // Function to toggle the collapsed state of a component
-      function toggleCollapse(componentId) {
-        const checkboxGroup = document.querySelector(`#component-list div[data-id="${componentId}"] .checkbox-group`);
-        if (checkboxGroup) {
-          checkboxGroup.classList.toggle('hidden');
+      function toggleComponentVisibilityInUI(componentId) {
+        const componentEl = document.querySelector(`[data-id="${componentId}"]`);
+        const componentRules = componentEl.querySelector('.component-rules');
+        
+        if (componentState[componentId].collapsed) {
+          componentRules.classList.add('hidden');
+        } else {
+          componentRules.classList.remove('hidden');
         }
       }
 

@@ -77,6 +77,9 @@ async function calculateComponentScore(componentId) {
   if (totalRules === 0) {
     totalRules = 5; // Default number of rules in the template
   }
+  
+  // Log score calculation to console
+  console.log(`Score for component ${componentId}: ${checkedCount}/${totalRules}`);
 
   return { checkedCount, totalRules };
 }
@@ -133,6 +136,7 @@ async function analyzeComponents() {
 
 // Function to load components and send data to the UI
 async function loadComponents() {
+  console.log('Loading components');
   // Find all components in the document, excluding variants by default
   const components = figma.currentPage.findAll(node => 
     node.type === 'COMPONENT' && 
@@ -149,8 +153,9 @@ async function loadComponents() {
   const componentData = components.map(component => {
     // Get the checked count using the storage states
     const componentState = states[component.id] || {};
+    // Only count items that are actually checked
     const checkedCount = Object.values(componentState).reduce((sum, category) => {
-      return sum + Object.values(category).filter(state => state.checked).length;
+      return sum + Object.values(category).filter(state => state && state.checked === true).length;
     }, 0);
 
     return {
@@ -166,6 +171,8 @@ async function loadComponents() {
   const selectedNodes = figma.currentPage.selection;
   const selectedComponentId = selectedNodes.length === 1 && selectedNodes[0].type === 'COMPONENT' ? selectedNodes[0].id : null;
 
+  console.log(`Sending ${componentData.length} components to UI`);
+  
   // Send data to the UI
   figma.ui.postMessage({
     type: 'load-components',
@@ -319,6 +326,11 @@ figma.ui.onmessage = async msg => {
         figma.viewport.scrollAndZoomIntoView(instances);
       }
     }
+  } else if (msg.type === 'update-rule-count') {
+    // Log the update time and criteria count
+    console.log(`Criteria updated at ${new Date().toLocaleString()}, total criteria: ${msg.totalRules}`);
+    // Update all components with the new rule count
+    loadComponents(); // Reload all components with updated rule count
   }
 };
 
