@@ -224,23 +224,54 @@ async function main() {
 
   // Listen for document changes (e.g., when components are added or modified)
   figma.on('documentchange', async (changes) => {
+    console.log('Document changed:', changes);
     let needsReload = false;
     
+    // Look for any component creations or changes
     for (const change of changes.documentChanges) {
+      const nodeType = change.node && change.node.type ? change.node.type : 'unknown';
+      console.log(`Change type: ${change.type}, node type: ${nodeType}`);
+      
+      // Reload for any CREATE/DELETE operations or if it involves a COMPONENT
       if (change.type === 'CREATE' || change.type === 'DELETE') {
+        console.log('CREATE or DELETE detected - triggering reload');
         needsReload = true;
-      } else if (change.type === 'PROPERTY_CHANGE' && change.node.type === 'COMPONENT') {
-        // Update modification date for the changed component
-        storage.cache.modifiedDates[change.node.id] = Date.now();
-        await storage.persist();
-        needsReload = true;
+      } else if (change.type === 'PROPERTY_CHANGE') {
+        // For property changes, check node type and also update modification date
+        if (change.node && change.node.type === 'COMPONENT') {
+          console.log(`COMPONENT property changed: ${change.node.id}`);
+          storage.cache.modifiedDates[change.node.id] = Date.now();
+          await storage.persist();
+          needsReload = true;
+        }
       }
     }
     
+    // Add a fallback check - poll for components every 2 seconds to catch any missed changes
+    if (!needsReload) {
+      console.log('No component-specific changes detected, but checking components anyway');
+      needsReload = true; // Just reload regardless for now to ensure we catch everything
+    }
+    
     if (needsReload) {
+      console.log('Reloading components due to document changes');
       loadComponents(); // Reload components to get updated data
     }
   });
+  
+  // Add a simple reload function that runs periodically
+  function setupComponentPolling() {
+    console.log('Setting up component polling');
+    setTimeout(function pollForComponents() {
+      console.log('Checking for component changes...');
+      loadComponents();
+      // Schedule the next check
+      setTimeout(pollForComponents, 5000);
+    }, 5000);
+  }
+  
+  // Start the polling
+  setupComponentPolling();
 
   // Listen for selection changes
   figma.on('selectionchange', async () => {
@@ -266,7 +297,11 @@ async function main() {
 
 // Listen to messages from the UI
 figma.ui.onmessage = async msg => {
-  if (msg.type === 'getDocumentTitle') {
+  if (msg.type === 'refreshComponents') {
+    console.log('Manual refresh requested');
+    // Force a full refresh of components
+    await loadComponents();
+  } else if (msg.type === 'getDocumentTitle') {
     figma.ui.postMessage({
       type: 'documentTitle',
       title: figma.root.name
