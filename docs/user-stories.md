@@ -14,6 +14,24 @@
 **Then** the criteria are updated for all components  
 **And** existing scores are recalculated
 
+### Working with new components
+**Given** I have created new components in my Figma file  
+**When** I click the refresh button in the plugin  
+**Then** the new components appear in the list  
+**And** I can assess their quality immediately
+
+### Focusing on component quality
+**Given** I want to focus on component quality assessment  
+**When** I use the plugin  
+**Then** I see a simplified interface without distracting details  
+**And** I can concentrate on the quality criteria checklist
+
+### Reporting issues
+**Given** I encounter a problem while using the plugin  
+**When** I click the "Issues" link  
+**Then** I am taken to the GitHub Issues page  
+**And** I can easily report bugs or suggest improvements
+
 ## As a designer
 ### Finding component quality
 **Given** I'm looking for a component to use  
@@ -26,3 +44,21 @@
 **When** I review the checklist  
 **Then** I understand what quality criteria to aim for  
 **And** can track my progress towards meeting them
+
+### Using headingless criteria
+**Given** I want to use a simple checklist without categories  
+**When** I remove headings from my criteria list  
+**Then** the checklist items still display correctly  
+**And** I can still track quality without hierarchical organization
+
+### Exporting quality data
+**Given** I need to share component quality information with my team  
+**When** I use the export feature  
+**Then** I can download a CSV file with all component quality data  
+**And** I can analyze quality trends across the design system
+
+### Debugging plugin issues
+**Given** I encounter unexpected behavior in the plugin  
+**When** I need to troubleshoot  
+**Then** I can access debug information  
+**And** I can report detailed information to help fix the issue
