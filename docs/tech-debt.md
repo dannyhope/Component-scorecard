@@ -67,6 +67,14 @@
 
 This is done by setting `display: none` on the relevant CSS classes in `plugin/ui.html`. These changes are non-destructive and can be easily reverted by removing or commenting out the CSS rules.
 
+## Component Detection Issues (April 2025)
+🔴 The plugin doesn't reliably detect newly created components automatically:
+- The `documentchange` event doesn't consistently trigger for new component creation
+- We've tried using `findAllWithCriteria()` instead of `findAll()` but it's still unreliable
+- Added polling as a fallback, but it's not a perfect solution
+
+**Current workaround:** Added a manual refresh button that users can click after creating new components. This sends a direct message to the plugin to refresh the component list.
+
 3. **Component Architecture**
    - Separate UI components from state management
    - Create clear boundaries between plugin and UI code
