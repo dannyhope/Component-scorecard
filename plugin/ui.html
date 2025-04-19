@@ -1267,21 +1267,25 @@
 
       // Function to dynamically update score and score colour
       function updateScore(componentId, checkedCount) {
-        // Find the component in our stored array to get its total
-        const component = allComponents.find(c => c.id === componentId);
-        if (!component) return;
-
-        // Update the component's checked count
-        component.checkedCount = checkedCount;
-
-        const scorePercent = (checkedCount / component.totalCategories) * 100;
-        let scoreClass = '';
-        if (scorePercent <= 33) scoreClass = 'score-red';
-        else if (scorePercent <= 66) scoreClass = 'score-amber';
-        else scoreClass = 'score-green';
-
-        const nameSpan = document.querySelector(`[data-id="${componentId}"] .component-name`);
+        if (!window.domCache) window.domCache = {};
+        if (!window.domCache[componentId]) {
+          window.domCache[componentId] = document.querySelector(`[data-id='${componentId}'] .component-name`);
+        }
+        const nameSpan = window.domCache[componentId];
         if (nameSpan) {
+          // Find the component in our stored array to get its total
+          const component = allComponents.find(c => c.id === componentId);
+          if (!component) return;
+
+          // Update the component's checked count
+          component.checkedCount = checkedCount;
+
+          const scorePercent = (checkedCount / component.totalCategories) * 100;
+          let scoreClass = '';
+          if (scorePercent <= 33) scoreClass = 'score-red';
+          else if (scorePercent <= 66) scoreClass = 'score-amber';
+          else scoreClass = 'score-green';
+
           // Get all the elements after the score span
           const elements = nameSpan.innerHTML.split('</span>');
           const modifiedIndicator = elements[0].includes('modified-indicator') ? elements[0] + '</span>' : '';
