@@ -51,6 +51,17 @@ class Storage {
       figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates)
     ]);
   }
+
+  async updateModifiedDates(componentId, timestamp) {
+    if (!this.cache.modifiedDates) await this.init();
+    this.cache.modifiedDates[componentId] = timestamp;
+    await this.persist();
+  }
+
+  async getModifiedDates(componentId) {
+    if (!this.cache.modifiedDates) await this.init();
+    return this.cache.modifiedDates[componentId] || null;
+  }
 }
 
 // Create storage instance
@@ -172,7 +183,7 @@ async function loadComponents() {
       id: component.id,
       name: component.name,
       checkedCount,
-      lastModified: storage.cache.modifiedDates[component.id] || null,
+      lastModified: storage.getModifiedDates(component.id) || null,
       usageCount: usageCounts.get(component.id) || 0
     };
   });
@@ -193,8 +204,6 @@ async function loadComponents() {
     selectedComponentId
   });
 }
-
-
 
 // Function to get component usage data
 async function getComponentUsage(componentId) {
@@ -254,8 +263,7 @@ async function main() {
         // For property changes, check node type and also update modification date
         if (change.node && change.node.type === 'COMPONENT') {
           console.log(`COMPONENT property changed: ${change.node.id}`);
-          storage.cache.modifiedDates[change.node.id] = Date.now();
-          await storage.persist();
+          await storage.updateModifiedDates(change.node.id, Date.now());
           needsReload = true;
         }
       }
