@@ -31,3 +31,6 @@
 - Use `.designrules` from MCP server for design context.
 - Audit security (OAuth2.0, fileKey).
 - Align UI/metadata with Brand/Community Guidelines.
+
+## Misc
+- Figma plugins don't support CommonJS require statements
