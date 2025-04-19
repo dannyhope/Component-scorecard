@@ -2,7 +2,7 @@
 <html>
   <head>
     <style>
-      /* Base layout */
+      /* Layout and General Styles */
       body {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         padding: 4px 4px 40px 4px;
@@ -21,6 +21,7 @@
         gap: 8px;
       }
 
+      /* Filter input styles */
       .filter-input {
         display: none;
         width: 100%;
@@ -35,6 +36,7 @@
         border-color: #9B51E0; /* Match component title color */
       }
 
+      /* Button Styles */
       .settings-button {
         width: 28px;
         height: 28px;
@@ -49,6 +51,7 @@
       .settings-button:hover {
         background-color: rgba(0, 0, 0, 0.06);
       }
+
       .button-group {
         display: flex;
         gap: 8px;
@@ -82,32 +85,7 @@
         text-decoration: none !important;
       }
 
-      /* Component count section */
-      .component-count-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: white;
-        padding: 8px;
-        border-top: 1px solid #E6E7E8;
-        z-index: 100;
-      }
-
-      .component-count {
-        color: #666;
-        font-size: 12px;
-      }
-
-      .settings-button svg {
-        width: 16px;
-        height: 16px;
-      }
-
-      /* Component list items */
+      /* Component List Styles */
       .component-section {
         margin-bottom: 4px;
         padding: 2px 0;
@@ -118,7 +96,7 @@
         background-color: #E8F4FE !important;
       }
 
-      /* Component title bar */
+      /* Component Title Bar Styles */
       .component-title {
         font-size: 12px;
         font-weight: normal;
@@ -137,7 +115,7 @@
         font-weight: bold;
       }
 
-      /* Expand/collapse arrow */
+      /* Expand/Collapse Arrow Styles */
       .component-expand {
         cursor: pointer;
         padding: 4px;
@@ -149,7 +127,7 @@
         justify-content: center;
       }
 
-      /* Category titles */
+      /* Category Title Styles */
       .category-title {
         font-weight: 400;
         margin-top: 8px;
@@ -158,6 +136,7 @@
         font-size: 13px;
       }
 
+      /* Checkbox Styles */
       .checkbox-timestamp, .last-modified {
         color: #888;
         font-size: 10px;
@@ -187,16 +166,13 @@
         margin: 0 -12px;
         border-radius: 4px;
         cursor: default;
-
-
-
       }
 
       .checkbox-label:hover {
         background-color: #C4E2FC;
       }
 
-      /* Custom rules section */
+      /* Custom Rules Section Styles */
       .custom-heading {
         font-size: 12px;
         font-weight: bold;
@@ -204,7 +180,7 @@
         color: black;
       }
 
-      /* Score colors */
+      /* Score Colors */
       .score-red {
         color: red;      /* 0-33% complete */
       }
@@ -215,7 +191,7 @@
         color: green;    /* 67-100% complete */
       }
 
-      /* Checkbox groups and items */
+      /* Checkbox Group Styles */
       .checkbox-group {
         margin-left: 16px;      /* Indent from title */
         margin-bottom: 8px;      /* Space between categories */
@@ -236,7 +212,7 @@
         margin: 0;
       }
 
-      /* Settings dropdown styles */
+      /* Settings Dropdown Styles */
       .settings-dropdown {
         position: fixed;
         bottom: 48px;
@@ -298,12 +274,12 @@
         flex-shrink: 0;
       }
 
-      /* Utility classes */
+      /* Utility Classes */
       .hidden {
         display: none;
       }
 
-      /* Custom rules textarea */
+      /* Custom Rules Textarea Styles */
       #textarea-container {
         margin-top: 20px;
       }
@@ -320,7 +296,8 @@
         outline: none;
         border-color: #9B51E0;
       }
-      /* Context menu styles */
+
+      /* Context Menu Styles */
       .context-menu {
         position: fixed;
         background: white;
@@ -359,20 +336,47 @@
         background: #F3DAF4;
         color: #37006E;
       }
-    .component-name .score-red,
-    .component-name .score-orange,
-    .component-name .score-green {
-      display: none !important;
-    }
-    .component-name .component-usage {
-      display: none !important;
-    }
-    #component-count {
-      visibility: hidden;
-    }
-    #settings-dropdown .settings-section:nth-child(1) {
-      display: none !important;
-    }
+
+      /* Component Count Styles */
+      .component-count-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 8px;
+        border-top: 1px solid #E6E7E8;
+        z-index: 100;
+      }
+
+      .component-count {
+        color: #666;
+        font-size: 12px;
+      }
+
+      .settings-button svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Hide certain elements */
+      .component-name .score-red,
+      .component-name .score-orange,
+      .component-name .score-green {
+        display: none !important;
+      }
+      .component-name .component-usage {
+        display: none !important;
+      }
+      #component-count {
+        visibility: hidden;
+      }
+      #settings-dropdown .settings-section:nth-child(1) {
+        display: none !important;
+      }
     </style>
     <!-- Message handler is included directly in this file -->
   </head>
