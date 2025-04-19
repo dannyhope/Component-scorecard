@@ -530,6 +530,7 @@
       // Initialize global state
       let checkboxStates = {};
       const componentState = {};
+      let viewStates = {}; // Store component view states
       let lastAutoExpandedId = null; // Track which component was last auto-expanded
       let allComponents = []; // Store all components for filtering
 
@@ -908,10 +909,11 @@
             // Make sure we store the component ID as a string for consistent comparison
             section.setAttribute('data-id', String(component.id));
 
-            // Collapsed state toggle
+            // Collapsed state toggle - use saved view state if available
+            const savedViewState = viewStates[component.id];
             componentState[component.id] = { 
-              collapsed: index !== 0, // First component is expanded, others collapsed
-              userToggled: false // Track if the user manually toggled this component
+              collapsed: savedViewState ? savedViewState.collapsed : index !== 0, // Use saved state or default (first expanded, others collapsed)
+              userToggled: savedViewState ? savedViewState.userToggled : false // Track if the user manually toggled this component
             };
 
             // Colour code scores
@@ -989,6 +991,16 @@
               componentState[component.id].userToggled = true; // Mark as user-toggled
               expandArrow.style.transform = componentState[component.id].collapsed ? 'rotate(-90deg)' : 'rotate(0)';
               toggleCollapse(component.id);
+
+              // Save view state to storage
+              parent.postMessage({
+                pluginMessage: {
+                  type: 'saveViewState',
+                  componentId: component.id,
+                  collapsed: componentState[component.id].collapsed,
+                  userToggled: true
+                }
+              }, '*');
 
               // Select in Figma
               parent.postMessage({ 
@@ -1100,6 +1112,7 @@
           // Store the component data
           const components = message.components;
           checkboxStates = message.checkboxStates || {};
+          viewStates = message.viewStates || {};
           allComponents = components;
           
           // Build the component list

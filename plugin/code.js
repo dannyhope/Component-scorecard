@@ -5,18 +5,21 @@ class Storage {
   constructor() {
     this.cache = {
       checkboxStates: null,
-      modifiedDates: null
+      modifiedDates: null,
+      viewStates: null
     };
   }
 
   async init() {
-    const [checkboxStates, modifiedDates] = await Promise.all([
+    const [checkboxStates, modifiedDates, viewStates] = await Promise.all([
       figma.clientStorage.getAsync('checkboxStates'),
-      figma.clientStorage.getAsync('modifiedDates')
+      figma.clientStorage.getAsync('modifiedDates'),
+      figma.clientStorage.getAsync('viewStates')
     ]);
 
     this.cache.checkboxStates = checkboxStates || {};
     this.cache.modifiedDates = modifiedDates || {};
+    this.cache.viewStates = viewStates || {};
   }
 
   async getComponentState(componentId) {
@@ -48,7 +51,8 @@ class Storage {
   async persist() {
     await Promise.all([
       figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
-      figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates)
+      figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
+      figma.clientStorage.setAsync('viewStates', this.cache.viewStates)
     ]);
   }
 
@@ -61,6 +65,28 @@ class Storage {
   async getModifiedDates(componentId) {
     if (!this.cache.modifiedDates) await this.init();
     return this.cache.modifiedDates[componentId] || null;
+  }
+
+  async getViewState(componentId) {
+    if (!this.cache.viewStates) await this.init();
+    return this.cache.viewStates[componentId] || null;
+  }
+
+  async getAllViewStates() {
+    if (!this.cache.viewStates) await this.init();
+    return this.cache.viewStates;
+  }
+
+  async updateViewState(componentId, isCollapsed, userToggled = true) {
+    if (!this.cache.viewStates) await this.init();
+    
+    this.cache.viewStates[componentId] = {
+      collapsed: isCollapsed,
+      userToggled: userToggled
+    };
+    
+    await this.persist();
+    return this.cache.viewStates[componentId];
   }
 }
 
@@ -161,6 +187,9 @@ async function loadComponents() {
 
   // Get all component states from storage
   const states = await storage.getAllComponentStates();
+  
+  // Get all view states from storage
+  const viewStates = await storage.getAllViewStates();
 
   // Get component usage counts
   const usageCounts = await analyzeComponents();
@@ -199,6 +228,7 @@ async function loadComponents() {
   // Send data to the UI
   figma.ui.postMessage({
     type: 'loadComponents',
+    viewStates,
     components: componentData,
     checkboxStates: states,
     selectedComponentId
@@ -370,6 +400,10 @@ figma.ui.onmessage = async msg => {
       checkedCount: score.checkedCount,
       totalRules: score.totalRules
     });
+  } else if (msg.type === 'saveViewState') {
+    // Save the component view state
+    const { componentId, collapsed, userToggled } = msg;
+    await storage.updateViewState(componentId, collapsed, userToggled);
   } else if (msg.type === 'selectInstances') {
     const component = figma.getNodeById(msg.componentId);
     if (component) {
