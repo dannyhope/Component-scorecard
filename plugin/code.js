@@ -339,7 +339,7 @@ figma.ui.onmessage = async msg => {
       type: 'documentTitle',
       title: figma.root.name
     });
-  } else if (msg.type === 'selectComponentInFigma') {
+  } else if (msg.type === 'selectComponent') {
     // Find the component
     const component = figma.currentPage.findOne(node => 
       node.type === 'COMPONENT' && node.id === msg.componentId
@@ -352,7 +352,7 @@ figma.ui.onmessage = async msg => {
       // Scroll the component into view
       figma.viewport.scrollAndZoomIntoView([component]);
     }
-  } else if (msg.type === 'okCheckboxChanged') {
+  } else if (msg.type === 'checkboxChanged') {
     const { componentId, category, label, isChecked } = msg;
 
     // Update the checkbox state
