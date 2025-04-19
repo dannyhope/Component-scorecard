@@ -899,209 +899,268 @@
         }
       }
 
-      // Function to build the component list
+      // Function to escape HTML
+      function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      // Function to determine score class based on percentage
+      function getScoreClass(checkedCount, totalCategories) {
+        const scorePercent = (checkedCount / totalCategories) * 100;
+        if (scorePercent <= 33) return 'score-red';
+        if (scorePercent <= 66) return 'score-amber';
+        return 'score-green';
+      }
+
+      // Function to get the least recent check date
+      function getLeastRecentCheckDate(componentId, checkboxStates) {
+        if (!checkboxStates[componentId]) return null;
+
+        const timestamps = Object.values(checkboxStates[componentId])
+          .flatMap(category => Object.values(category))
+          .filter(state => state.checked && state.timestamp)
+          .map(state => new Date(state.timestamp));
+        
+        if (timestamps.length === 0) return null;
+        return new Date(Math.min(...timestamps));
+      }
+
+      // Function to create component title elements
+      function createComponentTitle(component, collapsed, scoreClass, lastModifiedDate, leastRecentCheckDate) {
+        const title = document.createElement('div');
+        title.className = 'component-title';
+        title.id = `component-title-${component.id}`;
+
+        // Create expand/collapse arrow
+        const expandArrow = document.createElement('span');
+        expandArrow.className = 'component-expand';
+        expandArrow.textContent = '▼';
+        expandArrow.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0)';
+        expandArrow.style.transition = 'transform 0.2s ease';
+
+        // Create component icon
+        const componentIcon = document.createElement('span');
+        componentIcon.className = 'component-icon';
+        componentIcon.textContent = '❖';
+        componentIcon.style.color = '#7C3DDD';
+        componentIcon.style.marginRight = '4px';
+
+        // Create component name element
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'component-name';
+        
+        // Determine if a modification indicator is needed
+        const showModifiedIndicator = lastModifiedDate && leastRecentCheckDate && 
+          lastModifiedDate > leastRecentCheckDate;
+        
+        const modifiedDot = showModifiedIndicator ? '<span class="modified-indicator"></span>' : '';
+        const formattedModifiedDate = lastModifiedDate ? formatDate(lastModifiedDate) : 'never';
+        
+        nameSpan.innerHTML = `${modifiedDot}${escapeHtml(component.name)} <span class="${scoreClass}">(${component.checkedCount}/${component.totalCategories})</span> <span class="last-modified" data-modified="${formattedModifiedDate}">edited ${formattedModifiedDate}</span> <span class="component-usage" onclick="selectInstances('${component.id}')" title="Click to select all instances">${component.usageCount} ${component.usageCount === 1 ? 'instance' : 'instances'}</span>`;
+
+        // Add elements to title
+        title.appendChild(expandArrow);
+        title.appendChild(componentIcon);
+        title.appendChild(nameSpan);
+
+        return { title, expandArrow };
+      }
+
+      // Function to setup component collapse/select behavior
+      function setupComponentToggle(component, title, expandArrow) {
+        title.onclick = () => {
+          // Toggle collapse state
+          componentState[component.id].collapsed = !componentState[component.id].collapsed;
+          componentState[component.id].userToggled = true; // Mark as user-toggled
+          expandArrow.style.transform = componentState[component.id].collapsed ? 'rotate(-90deg)' : 'rotate(0)';
+          toggleCollapse(component.id);
+
+          // Save view state to storage
+          parent.postMessage({
+            pluginMessage: {
+              type: 'saveViewState',
+              componentId: component.id,
+              collapsed: componentState[component.id].collapsed,
+              userToggled: true
+            }
+          }, '*');
+
+          // Select in Figma
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'selectComponent',
+              componentId: component.id 
+            }
+          }, '*');
+        };
+      }
+
+      // Function to handle checkbox state changes
+      function handleCheckboxChange(component, checkbox, checkboxLabel, category, ruleText) {
+        checkbox.onchange = () => {
+          const timestamp = checkbox.checked ? new Date() : null;
+          const timestampSpan = checkboxLabel.querySelector('.checkbox-timestamp');
+          
+          if (timestampSpan) {
+            timestampSpan.textContent = checkbox.checked ? formatDate(timestamp) : '';
+          }
+          
+          // Send message to update state
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'checkboxChanged', 
+              componentId: component.id, 
+              category, 
+              label: ruleText, 
+              isChecked: checkbox.checked 
+            } 
+          }, '*');
+          
+          // Update modification indicator after checkbox change
+          setTimeout(() => updateModificationIndicator(component.id), 100); // Small delay to ensure state is updated
+        };
+      }
+
+      // Function to create a checkbox item
+      function createCheckboxItem(component, category, ruleText, checkboxStates) {
+        const checkboxLabel = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+
+        // Set checkbox state from saved state
+        checkbox.checked = checkboxStates[component.id]
+          && checkboxStates[component.id][category]
+          && checkboxStates[component.id][category][ruleText]
+          && checkboxStates[component.id][category][ruleText].checked || false;
+
+        // Add data attributes for finding the checkbox later
+        checkbox.setAttribute('data-category', category);
+        checkbox.setAttribute('data-rule', ruleText);
+        
+        // Set up change handler
+        handleCheckboxChange(component, checkbox, checkboxLabel, category, ruleText);
+
+        checkboxLabel.className = 'checkbox-label';
+        checkboxLabel.appendChild(checkbox);
+        
+        const textSpan = document.createElement('span');
+        textSpan.textContent = ruleText;
+        checkboxLabel.appendChild(textSpan);
+
+        // Add timestamp span
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'checkbox-timestamp';
+        
+        // Set initial timestamp if exists
+        const state = checkboxStates[component.id]?.[category]?.[ruleText];
+        if (state?.checked && state?.timestamp) {
+            const date = new Date(state.timestamp);
+            timestampSpan.textContent = formatDate(date);
+        }
+        checkboxLabel.appendChild(timestampSpan);
+        
+        // Add right-click handler for context menu
+        setupContextMenu(checkboxLabel, category, ruleText);
+        
+        return checkboxLabel;
+      }
+
+      // Function to set up context menu for a checkbox label
+      function setupContextMenu(checkboxLabel, category, ruleText) {
+        checkboxLabel.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          const menu = document.getElementById('context-menu');
+          menu.style.display = 'block';
+          menu.style.left = `${e.pageX}px`;
+          menu.style.top = `${e.pageY}px`;
+          
+          // Store the clicked item's info for the context menu
+          menu.dataset.category = category;
+          menu.dataset.ruleText = ruleText;
+        });
+      }
+
+      // Function to create rule category groups with checkboxes
+      function createRuleCategories(component, rules, checkboxStates) {
+        const checkboxGroup = document.createElement('div');
+        checkboxGroup.className = componentState[component.id].collapsed ? 'checkbox-group hidden' : 'checkbox-group';
+
+        for (let category in rules) {
+          // Skip internal property
+          if (category === 'totalRules') continue;
+          
+          const group = document.createElement('div');
+          group.className = 'checkbox-group';
+
+          // Create category title
+          const categoryTitle = document.createElement('div');
+          categoryTitle.className = 'category-title';
+          categoryTitle.textContent = category;
+          group.appendChild(categoryTitle);
+
+          // Create checkboxes for each rule
+          rules[category].forEach(ruleText => {
+            const checkboxLabel = createCheckboxItem(component, category, ruleText, checkboxStates);
+            group.appendChild(checkboxLabel);
+          });
+
+          checkboxGroup.appendChild(group);
+        }
+
+        return checkboxGroup;
+      }
+
+      // Main function to build the component list
       function buildComponentList(components, checkboxStates, rules) {
         const componentList = document.getElementById('component-list');
         
         components.forEach((component, index) => {
-            const section = document.createElement('div');
-            section.className = 'component-section';
-            // Make sure we store the component ID as a string for consistent comparison
-            section.setAttribute('data-id', String(component.id));
+          // Create component section
+          const section = document.createElement('div');
+          section.className = 'component-section';
+          section.setAttribute('data-id', String(component.id));
 
-            // Collapsed state toggle - use saved view state if available
-            const savedViewState = viewStates[component.id];
-            componentState[component.id] = { 
-              collapsed: savedViewState ? savedViewState.collapsed : index !== 0, // Use saved state or default (first expanded, others collapsed)
-              userToggled: savedViewState ? savedViewState.userToggled : false // Track if the user manually toggled this component
-            };
+          // Initialize component state using saved view state if available
+          const savedViewState = viewStates[component.id];
+          componentState[component.id] = { 
+            collapsed: savedViewState ? savedViewState.collapsed : index !== 0,
+            userToggled: savedViewState ? savedViewState.userToggled : false
+          };
 
-            // Colour code scores
-            const scorePercent = (component.checkedCount / component.totalCategories) * 100;
-            let scoreClass = '';
-            if (scorePercent <= 33) scoreClass = 'score-red';
-            else if (scorePercent <= 66) scoreClass = 'score-amber';
-            else scoreClass = 'score-green';
-
-            // Create title container
-            const title = document.createElement('div');
-            title.className = `component-title`; // Title stays purple
-            title.id = `component-title-${component.id}`;
-
-            // Function to escape HTML
-            function escapeHtml(unsafe) {
-              return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-            }
-
-            // Create expand/collapse arrow
-            const expandArrow = document.createElement('span');
-            expandArrow.className = 'component-expand';
-            expandArrow.textContent = '▼';
-            expandArrow.style.transform = componentState[component.id].collapsed ? 'rotate(-90deg)' : 'rotate(0)';
-            expandArrow.style.transition = 'transform 0.2s ease';
-
-            // Create component icon
-            const componentIcon = document.createElement('span');
-            componentIcon.className = 'component-icon';
-            componentIcon.textContent = '❖';
-            componentIcon.style.color = '#7C3DDD';
-            componentIcon.style.marginRight = '4px';
-
-            // Create component name element
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'component-name';
-            const lastModifiedDate = component.lastModified ? new Date(component.lastModified) : null;
-            
-            // Find the least recent checkbox timestamp
-            let leastRecentCheckDate = null;
-            if (checkboxStates[component.id]) {
-              const timestamps = Object.values(checkboxStates[component.id])
-                .flatMap(category => Object.values(category))
-                .filter(state => state.checked && state.timestamp)
-                .map(state => new Date(state.timestamp));
-              if (timestamps.length > 0) {
-                leastRecentCheckDate = new Date(Math.min(...timestamps));
-              }
-            }
-            
-            // Show red dot if component was modified more recently than least recent check
-            const showModifiedIndicator = lastModifiedDate && leastRecentCheckDate && 
-              lastModifiedDate > leastRecentCheckDate;
-            
-            const modifiedDot = showModifiedIndicator ? '<span class="modified-indicator"></span>' : '';
-            const formattedModifiedDate = lastModifiedDate ? formatDate(lastModifiedDate) : 'never';
-            
-            nameSpan.innerHTML = `${modifiedDot}${escapeHtml(component.name)} <span class="${scoreClass}">(${component.checkedCount}/${component.totalCategories})</span> <span class="last-modified" data-modified="${formattedModifiedDate}">edited ${formattedModifiedDate}</span> <span class="component-usage" onclick="selectInstances('${component.id}')" title="Click to select all instances">${component.usageCount} ${component.usageCount === 1 ? 'instance' : 'instances'}</span>`;
-
-            // Add elements to title
-            title.appendChild(expandArrow);
-            title.appendChild(componentIcon);
-            title.appendChild(nameSpan);
-            section.appendChild(title);
-
-            // Click title to toggle collapse and select in Figma
-            title.onclick = () => {
-              // Toggle collapse state
-              componentState[component.id].collapsed = !componentState[component.id].collapsed;
-              componentState[component.id].userToggled = true; // Mark as user-toggled
-              expandArrow.style.transform = componentState[component.id].collapsed ? 'rotate(-90deg)' : 'rotate(0)';
-              toggleCollapse(component.id);
-
-              // Save view state to storage
-              parent.postMessage({
-                pluginMessage: {
-                  type: 'saveViewState',
-                  componentId: component.id,
-                  collapsed: componentState[component.id].collapsed,
-                  userToggled: true
-                }
-              }, '*');
-
-              // Select in Figma
-              parent.postMessage({ 
-                pluginMessage: { 
-                  type: 'selectComponent',
-                  componentId: component.id 
-                }
-              }, '*');
-            };
-
-            // Create the checkbox group
-            const checkboxGroup = document.createElement('div');
-            checkboxGroup.className = componentState[component.id].collapsed ? 'checkbox-group hidden' : 'checkbox-group';
-
-            // Populate checkboxes based on the parsed rules
-            for (let category in rules) {
-              if (category === 'totalRules') continue; // Skip our internal property
-              const group = document.createElement('div');
-              group.className = 'checkbox-group';
-
-              const categoryTitle = document.createElement('div');
-              categoryTitle.className = 'category-title';
-              categoryTitle.textContent = category;
-              group.appendChild(categoryTitle);
-
-              rules[category].forEach(ruleText => {
-                const checkboxLabel = document.createElement('label');
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-
-                // Set checkbox state from saved state
-                checkbox.checked = checkboxStates[component.id]
-                  && checkboxStates[component.id][category]
-                  && checkboxStates[component.id][category][ruleText]
-                  && checkboxStates[component.id][category][ruleText].checked || false;
-
-                // Add data attributes for finding the checkbox later
-                checkbox.setAttribute('data-category', category);
-                checkbox.setAttribute('data-rule', ruleText);
-                
-                checkbox.onchange = () => {
-                  const timestamp = checkbox.checked ? new Date() : null;
-                  if (checkbox.checked) {
-                    const timestampSpan = checkboxLabel.querySelector('.checkbox-timestamp');
-                    if (timestampSpan) {
-                      timestampSpan.textContent = formatDate(timestamp);
-                    }
-                  } else {
-                    const timestampSpan = checkboxLabel.querySelector('.checkbox-timestamp');
-                    if (timestampSpan) {
-                      timestampSpan.textContent = '';
-                    }
-                  }
-                  parent.postMessage({ pluginMessage: { type: 'checkboxChanged', componentId: component.id, category: category, label: ruleText, isChecked: checkbox.checked } }, '*');
-                  
-                  // Update modification indicator after checkbox change
-                  setTimeout(() => updateModificationIndicator(component.id), 100); // Small delay to ensure state is updated
-                };
-
-                checkboxLabel.className = 'checkbox-label';
-                checkboxLabel.appendChild(checkbox);
-                
-                const textSpan = document.createElement('span');
-                textSpan.textContent = ruleText;
-                checkboxLabel.appendChild(textSpan);
-
-                // Add timestamp span
-                const timestampSpan = document.createElement('span');
-                timestampSpan.className = 'checkbox-timestamp';
-                
-                // Set initial timestamp if exists
-                const state = checkboxStates[component.id]?.[category]?.[ruleText];
-                if (state?.checked && state?.timestamp) {
-                    const date = new Date(state.timestamp);
-                    timestampSpan.textContent = formatDate(date);
-                }
-                checkboxLabel.appendChild(timestampSpan);
-                
-                // Add right-click handler to the label
-                checkboxLabel.addEventListener('contextmenu', (e) => {
-                  e.preventDefault();
-                  const menu = document.getElementById('context-menu');
-                  menu.style.display = 'block';
-                  menu.style.left = `${e.pageX}px`;
-                  menu.style.top = `${e.pageY}px`;
-                  
-                  // Store the clicked item's info for the context menu
-                  menu.dataset.category = category;
-                  menu.dataset.ruleText = ruleText;
-                });
-                
-                group.appendChild(checkboxLabel);
-              });
-
-              checkboxGroup.appendChild(group);
-            }
-
-            section.appendChild(checkboxGroup);
-            componentList.appendChild(section);
-          });
-        }
+          // Get score class and dates for indicators
+          const scoreClass = getScoreClass(component.checkedCount, component.totalCategories);
+          const lastModifiedDate = component.lastModified ? new Date(component.lastModified) : null;
+          const leastRecentCheckDate = getLeastRecentCheckDate(component.id, checkboxStates);
+          
+          // Create the component title elements
+          const { title, expandArrow } = createComponentTitle(
+            component, 
+            componentState[component.id].collapsed, 
+            scoreClass, 
+            lastModifiedDate, 
+            leastRecentCheckDate
+          );
+          
+          // Set up title click event for collapse/expand
+          setupComponentToggle(component, title, expandArrow);
+          
+          // Add title to section
+          section.appendChild(title);
+          
+          // Create and add checkbox groups for rules
+          const checkboxGroup = createRuleCategories(component, rules, checkboxStates);
+          section.appendChild(checkboxGroup);
+          
+          // Add the component section to the list
+          componentList.appendChild(section);
+        });
+      }
       
       // Listen for messages from the plugin code
       window.onmessage = event => {
