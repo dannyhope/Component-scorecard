@@ -1285,7 +1285,7 @@
           const usageCount = elements[3] ? elements[3] + '</span>' : '';
           
           // Update with new score but preserve other elements
-          nameSpan.innerHTML = `${modifiedIndicator}${component.name} <span class="${scoreClass}">(${checkedCount}/${component.totalCategories})</span>${lastModified}${usageCount}`;
+          nameSpan.innerHTML = `${modifiedIndicator}${component.name} <span class="${scoreClass}" style="display: none !important;">(${checkedCount}/${component.totalCategories})</span>${lastModified}${usageCount}`;
         }
 
         // Update component count since the checked status changed
