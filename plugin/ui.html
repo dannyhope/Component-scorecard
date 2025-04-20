@@ -413,8 +413,8 @@
   </head>
   <body>
     <!-- Context menu -->
-    <div id="context-menu" class="context-menu" style="display: none;">
-      <div class="context-menu-item" id="apply-to-all">
+    <div id="context-menu" class="context-menu" style="display: none;" role="menu" aria-label="Checkbox options">
+      <div class="context-menu-item" id="apply-to-all" role="menuitem" tabindex="0">
         Apply to all components
       </div>
     </div>
@@ -483,12 +483,12 @@
     </div>
 
     <!-- Components List -->
-    <div id="component-list"></div>
+    <div id="component-list" role="list" aria-label="Components"></div>
 
     <!-- Text area for custom checkboxes -->
     <div id="textarea-container">
-      <div class="custom-heading">Define your checklist</div>
-      <textarea id="custom-rules"></textarea>
+      <label for="custom-rules" class="custom-heading">Define your checklist</label>
+      <textarea id="custom-rules" aria-label="Checklist rules" aria-description="Enter component rules in Markdown format"></textarea>
     </div>
 
     <script>
@@ -967,11 +967,17 @@
         const title = document.createElement('div');
         title.className = 'component-title';
         title.id = `component-title-${component.id}`;
+        title.setAttribute('role', 'button');
+        title.setAttribute('aria-expanded', !collapsed);
+        title.setAttribute('aria-controls', `component-content-${component.id}`);
+        title.setAttribute('tabindex', '0');
+        title.setAttribute('aria-label', `${component.name} component, ${component.checkedCount} of ${component.totalCategories} rules checked`);
 
         // Create expand/collapse arrow
         const expandArrow = document.createElement('span');
         expandArrow.className = 'component-expand';
         expandArrow.textContent = '▼';
+        expandArrow.setAttribute('aria-hidden', 'true');
         expandArrow.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0)';
         expandArrow.style.transition = 'transform 0.2s ease';
 
@@ -979,6 +985,7 @@
         const componentIcon = document.createElement('span');
         componentIcon.className = 'component-icon';
         componentIcon.textContent = '❖';
+        componentIcon.setAttribute('aria-hidden', 'true');
         componentIcon.style.color = '#7C3DDD';
         componentIcon.style.marginRight = '4px';
 
@@ -993,7 +1000,50 @@
         const modifiedDot = showModifiedIndicator ? '<span class="modified-indicator"></span>' : '';
         const formattedModifiedDate = lastModifiedDate ? formatDate(lastModifiedDate) : 'never';
         
-        nameSpan.innerHTML = `${modifiedDot}${escapeHtml(component.name)} <span class="${scoreClass}">(${component.checkedCount}/${component.totalCategories})</span> <span class="last-modified" data-modified="${formattedModifiedDate}">edited ${formattedModifiedDate}</span> <span class="component-usage" onclick="selectInstances('${component.id}')" title="Click to select all instances">${component.usageCount} ${component.usageCount === 1 ? 'instance' : 'instances'}</span>`;
+        // Create score span with proper accessibility
+        const scoreSpan = document.createElement('span');
+        scoreSpan.className = scoreClass;
+        scoreSpan.setAttribute('aria-label', `Score: ${component.checkedCount} of ${component.totalCategories} rules checked`);
+        scoreSpan.textContent = `(${component.checkedCount}/${component.totalCategories})`;
+        
+        // Create last modified span
+        const lastModifiedSpan = document.createElement('span');
+        lastModifiedSpan.className = 'last-modified';
+        lastModifiedSpan.setAttribute('data-modified', formattedModifiedDate);
+        lastModifiedSpan.textContent = `edited ${formattedModifiedDate}`;
+        
+        // Create usage span with proper accessibility
+        const usageSpan = document.createElement('span');
+        usageSpan.className = 'component-usage';
+        usageSpan.setAttribute('role', 'button');
+        usageSpan.setAttribute('tabindex', '0');
+        usageSpan.setAttribute('aria-label', `Select all ${component.usageCount} ${component.usageCount === 1 ? 'instance' : 'instances'} of this component`);
+        usageSpan.textContent = `${component.usageCount} ${component.usageCount === 1 ? 'instance' : 'instances'}`;
+        
+        // Add proper event listener instead of inline onclick
+        usageSpan.addEventListener('click', () => selectInstances(component.id));
+        usageSpan.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectInstances(component.id);
+          }
+        });
+        
+        // Add modification indicator if needed
+        if (showModifiedIndicator) {
+          const modifiedIndicator = document.createElement('span');
+          modifiedIndicator.className = 'modified-indicator';
+          modifiedIndicator.setAttribute('aria-label', 'Component modified since last check');
+          nameSpan.appendChild(modifiedIndicator);
+        }
+        
+        // Add component name text
+        nameSpan.appendChild(document.createTextNode(component.name + ' '));
+        nameSpan.appendChild(scoreSpan);
+        nameSpan.appendChild(document.createTextNode(' '));
+        nameSpan.appendChild(lastModifiedSpan);
+        nameSpan.appendChild(document.createTextNode(' '));
+        nameSpan.appendChild(usageSpan);
 
         // Add elements to title
         title.appendChild(expandArrow);
@@ -1005,12 +1055,18 @@
 
       // Function to setup component collapse/select behavior
       function setupComponentToggle(component, title, expandArrow) {
-        title.onclick = () => {
+        // Function to handle toggle action
+        const toggleAction = () => {
           // Toggle collapse state
           componentState[component.id].collapsed = !componentState[component.id].collapsed;
           componentState[component.id].userToggled = true; // Mark as user-toggled
+          
+          // Update visual state
           expandArrow.style.transform = componentState[component.id].collapsed ? 'rotate(-90deg)' : 'rotate(0)';
           toggleCollapse(component.id);
+          
+          // Update accessibility attributes
+          title.setAttribute('aria-expanded', !componentState[component.id].collapsed);
 
           // Save view state to storage
           parent.postMessage({
@@ -1030,6 +1086,17 @@
             }
           }, '*');
         };
+        
+        // Add click handler
+        title.onclick = toggleAction;
+        
+        // Add keyboard support
+        title.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleAction();
+          }
+        });
       }
 
       // Function to handle checkbox state changes
@@ -1063,6 +1130,10 @@
         const checkboxLabel = document.createElement('label');
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
+        
+        // Generate a unique ID for the checkbox for accessibility
+        const checkboxId = `checkbox-${component.id}-${category.replace(/\s+/g, '-')}-${ruleText.replace(/\s+/g, '-')}`;
+        checkbox.id = checkboxId;
 
         // Set checkbox state from saved state
         checkbox.checked = checkboxStates[component.id]
@@ -1073,18 +1144,20 @@
         // Add data attributes for finding the checkbox later
         checkbox.setAttribute('data-category', category);
         checkbox.setAttribute('data-rule', ruleText);
+        checkbox.setAttribute('aria-label', `${ruleText} for ${component.name}`);
         
         // Set up change handler
         handleCheckboxChange(component, checkbox, checkboxLabel, category, ruleText);
 
         checkboxLabel.className = 'checkbox-label';
+        checkboxLabel.setAttribute('for', checkboxId);
         checkboxLabel.appendChild(checkbox);
         
         const textSpan = document.createElement('span');
         textSpan.textContent = ruleText;
         checkboxLabel.appendChild(textSpan);
 
-        // Add timestamp span
+        // Add timestamp span with accessibility improvements
         const timestampSpan = document.createElement('span');
         timestampSpan.className = 'checkbox-timestamp';
         
@@ -1092,7 +1165,11 @@
         const state = checkboxStates[component.id]?.[category]?.[ruleText];
         if (state?.checked && state?.timestamp) {
             const date = new Date(state.timestamp);
-            timestampSpan.textContent = formatDate(date);
+            const formattedDate = formatDate(date);
+            timestampSpan.textContent = formattedDate;
+            timestampSpan.setAttribute('aria-label', `Last checked ${formattedDate}`);
+        } else {
+            timestampSpan.setAttribute('aria-hidden', 'true');
         }
         checkboxLabel.appendChild(timestampSpan);
         
@@ -1117,10 +1194,13 @@
         });
       }
 
-      // Function to create rule category groups with checkboxes
+      // Function to create rule categories with checkboxes
       function createRuleCategories(component, rules, checkboxStates) {
         const checkboxGroup = document.createElement('div');
         checkboxGroup.className = componentState[component.id].collapsed ? 'checkbox-group hidden' : 'checkbox-group';
+        checkboxGroup.id = `component-content-${component.id}`;
+        checkboxGroup.setAttribute('role', 'region');
+        checkboxGroup.setAttribute('aria-labelledby', `component-title-${component.id}`);
 
         for (let category in rules) {
           // Skip internal property
@@ -1128,19 +1208,32 @@
           
           const group = document.createElement('div');
           group.className = 'checkbox-group';
+          
+          // Create unique ID for the category
+          const categoryId = `category-${component.id}-${category.replace(/\s+/g, '-')}`;
+          group.id = categoryId;
 
           // Create category title
           const categoryTitle = document.createElement('div');
           categoryTitle.className = 'category-title';
+          categoryTitle.id = `${categoryId}-title`;
+          categoryTitle.setAttribute('role', 'heading');
+          categoryTitle.setAttribute('aria-level', '3');
           categoryTitle.textContent = category;
           group.appendChild(categoryTitle);
+
+          // Create fieldset for related checkboxes
+          const fieldset = document.createElement('div');
+          fieldset.setAttribute('role', 'group');
+          fieldset.setAttribute('aria-labelledby', `${categoryId}-title`);
 
           // Create checkboxes for each rule
           rules[category].forEach(ruleText => {
             const checkboxLabel = createCheckboxItem(component, category, ruleText, checkboxStates);
-            group.appendChild(checkboxLabel);
+            fieldset.appendChild(checkboxLabel);
           });
 
+          group.appendChild(fieldset);
           checkboxGroup.appendChild(group);
         }
 
@@ -1156,6 +1249,8 @@
           const section = document.createElement('div');
           section.className = 'component-section';
           section.setAttribute('data-id', String(component.id));
+          section.setAttribute('role', 'listitem');
+          section.setAttribute('aria-label', `${component.name} component`);
 
           // Initialize component state using saved view state if available
           const savedViewState = viewStates[component.id];
