@@ -34,3 +34,4 @@
 
 ## Misc
 - Figma plugins don't support CommonJS require statements
+- The Figma document I’m testing the plugin has only one page

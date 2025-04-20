@@ -21,6 +21,37 @@
         gap: 8px;
       }
 
+      /* Error message styles */
+      .error-message {
+        padding: 16px;
+        margin: 16px;
+        border-radius: 8px;
+        background-color: #fff;
+        border: 1px solid #E4003D;
+        color: #333;
+        text-align: center;
+      }
+      
+      .error-message h3 {
+        color: #E4003D;
+        margin-top: 0;
+      }
+      
+      .error-message .primary-button {
+        background-color: #E4003D;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        margin-top: 12px;
+      }
+      
+      .error-message .primary-button:hover {
+        background-color: #C9003A;
+      }
+      
       /* Filter input styles */
       .filter-input {
         display: none;
@@ -1108,7 +1139,32 @@
         const message = event.data.pluginMessage;
         if (!message) return;
 
-        if (message.type === 'loadComponents') {
+        if (message.type === 'loadError') {
+          console.error('Error loading components:', message.error);
+          // Show error message in the UI
+          const componentList = document.getElementById('component-list');
+          componentList.innerHTML = `
+            <div class="error-message">
+              <h3>Error loading components</h3>
+              <p>${message.error}</p>
+              <p>Try refreshing the plugin or restarting Figma.</p>
+              <button id="retry-button" class="primary-button">Retry</button>
+            </div>
+          `;
+          
+          // Add retry button handler
+          document.getElementById('retry-button').addEventListener('click', () => {
+            // Show loading state
+            const refreshButton = document.getElementById('refresh-button');
+            refreshButton.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor" class="spin">
+              <path d="M8 3a5 5 0 11-4.546 2.914.5.5 0 01-.908-.417A6 6 0 108 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 00-.41-.192L5.23 2.308a.25.25 0 000 .384l2.36 1.966A.25.25 0 008 4.466z"/>
+            </svg>`;
+            
+            // Send message to the plugin to refresh components
+            parent.postMessage({ pluginMessage: { type: 'refreshComponents' } }, '*');
+          });
+        } else if (message.type === 'loadComponents') {
           // Store the component data
           const components = message.components;
           checkboxStates = message.checkboxStates || {};

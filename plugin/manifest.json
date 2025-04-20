@@ -8,5 +8,5 @@
   "networkAccess": {
     "allowedDomains": ["none"]
   },
-  "documentAccess": "dynamic-page"
+  "documentAccess": "dynamic-document"
 }

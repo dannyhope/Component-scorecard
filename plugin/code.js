@@ -170,69 +170,100 @@ async function analyzeComponents() {
 
 // Function to load components and send data to the UI
 async function loadComponents() {
-  console.log('Loading components...');
-  
-  // Find all components in the document using the more reliable findAllWithCriteria
-  const allComponents = figma.currentPage.findAllWithCriteria({
-    types: ['COMPONENT']
-  });
-  
-  // Filter out components in component sets (variants)
-  const components = allComponents.filter(component => 
-    !component.parent || component.parent.type !== 'COMPONENT_SET'
-  );
-  
-  console.log(`Found ${allComponents.length} total components, ${components.length} main components`);
-  console.log('Component IDs:', components.map(c => c.id));
+  try {
+    console.log('Loading components...');
+    console.log('Document name:', figma.root.name);
+    console.log('Number of pages:', figma.root.children.length);
+    console.log('Current page name:', figma.currentPage.name);
+    
+    // Make sure all pages are loaded
+    await figma.loadAllPagesAsync();
+    console.log('All pages loaded successfully');
+    
+    // Find all components across all pages in the document
+    let allComponents = [];
+    for (const page of figma.root.children) {
+      console.log(`Searching for components on page: ${page.name}`);
+      const pageComponents = page.findAllWithCriteria({
+        types: ['COMPONENT']
+      });
+      console.log(`Found ${pageComponents.length} components on page ${page.name}`);
+      allComponents = allComponents.concat(pageComponents);
+    }
+    
+    console.log('Found components across all pages:', allComponents.length);
+    
+    // Filter out components in component sets (variants)
+    const components = allComponents.filter(component => 
+      !component.parent || component.parent.type !== 'COMPONENT_SET'
+    );
+    
+    console.log(`Found ${allComponents.length} total components, ${components.length} main components`);
+    if (components.length > 0) {
+      console.log('Component IDs:', components.map(c => c.id));
+    } else {
+      console.warn('No components found in the document. This might be because:');
+      console.warn('1. There are no components in the document');
+      console.warn('2. The plugin doesn\'t have access to the components');
+      console.warn('3. The components are in a library and not in the document');
+    }
 
-  // Get all component states from storage
-  const states = await storage.getAllComponentStates();
-  
-  // Get all view states from storage
-  const viewStates = await storage.getAllViewStates();
+    // Get all component states from storage
+    const states = await storage.getAllComponentStates();
+    
+    // Get all view states from storage
+    const viewStates = await storage.getAllViewStates();
 
-  // Get component usage counts
-  const usageCounts = await analyzeComponents();
+    // Get component usage counts
+    const usageCounts = await analyzeComponents();
 
-  // Send component data to the UI along with checkbox states
-  const componentData = components.map(component => {
-    // Get the checked count using the storage states
-    const componentState = states[component.id] || {};
-    const checkedCount = Object.values(componentState).reduce((sum, category) => {
-      return sum + Object.values(category).filter(state => state.checked).length;
-    }, 0);
+    // Send component data to the UI along with checkbox states
+    const componentData = components.map(component => {
+      // Get the checked count using the storage states
+      const componentState = states[component.id] || {};
+      const checkedCount = Object.values(componentState).reduce((sum, category) => {
+        return sum + Object.values(category).filter(state => state.checked).length;
+      }, 0);
 
-    // Log each component we're sending to the UI
-    console.log('Sending component to UI:', {
-      id: component.id,
-      name: component.name
+      // Log each component we're sending to the UI
+      console.log('Sending component to UI:', {
+        id: component.id,
+        name: component.name
+      });
+
+      return {
+        id: component.id,
+        name: component.name,
+        checkedCount,
+        lastModified: storage.getModifiedDates(component.id) || null,
+        usageCount: usageCounts.get(component.id) || 0
+      };
     });
 
-    return {
-      id: component.id,
-      name: component.name,
-      checkedCount,
-      lastModified: storage.getModifiedDates(component.id) || null,
-      usageCount: usageCounts.get(component.id) || 0
-    };
-  });
+    // Get currently selected component if any
+    const selectedNodes = figma.currentPage.selection;
+    const selectedComponentId = selectedNodes.length === 1 && selectedNodes[0].type === 'COMPONENT' ? selectedNodes[0].id : null;
+    
+    if (selectedComponentId) {
+      console.log('Currently selected component:', selectedComponentId);
+    }
 
-  // Get currently selected component if any
-  const selectedNodes = figma.currentPage.selection;
-  const selectedComponentId = selectedNodes.length === 1 && selectedNodes[0].type === 'COMPONENT' ? selectedNodes[0].id : null;
-  
-  if (selectedComponentId) {
-    console.log('Currently selected component:', selectedComponentId);
+    // Send data to the UI
+    figma.ui.postMessage({
+      type: 'loadComponents',
+      viewStates,
+      components: componentData,
+      checkboxStates: states,
+      selectedComponentId
+    });
+  } catch (error) {
+    console.error('Error loading components:', error);
+    // Send an error message to the UI
+    figma.ui.postMessage({
+      type: 'loadError',
+      error: error.message
+    });
   }
-
-  // Send data to the UI
-  figma.ui.postMessage({
-    type: 'loadComponents',
-    viewStates,
-    components: componentData,
-    checkboxStates: states,
-    selectedComponentId
-  });
 }
 
 // Function to get component usage data
@@ -420,7 +451,11 @@ figma.ui.onmessage = async msg => {
       }
 
       // Search through all pages
-      figma.root.children.forEach(traverse);
+      try {
+        figma.root.children.forEach(traverse);
+      } catch (error) {
+        console.error('Error finding instances:', error);
+      }
       
       if (instances.length > 0) {
         // Select all instances
