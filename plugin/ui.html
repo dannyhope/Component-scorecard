@@ -581,7 +581,10 @@
       let rebuildTimeout;
       document.getElementById('custom-rules').addEventListener('input', () => {
         clearTimeout(rebuildTimeout);
-        rebuildTimeout = setTimeout(rebuildComponentList, 500); // Debounce 500ms
+        rebuildTimeout = setTimeout(() => {
+          rebuildComponentList();
+          saveCustomRules(); // Save the rules when they change
+        }, 500); // Debounce 500ms
       });
 
       // Function to parse rules from the textarea
@@ -609,6 +612,17 @@
 
         rules.totalRules = totalRules; // Store total count
         return rules;
+      }
+
+      // Function to save custom rules to Figma client storage
+      function saveCustomRules() {
+        const customRules = document.getElementById('custom-rules').value;
+        parent.postMessage({
+          pluginMessage: {
+            type: 'saveCustomRules',
+            customRules: customRules
+          }
+        }, '*');
       }
 
       // Initialize global state
@@ -1609,6 +1623,13 @@
               }, 100); // Small delay to ensure UI is ready
             }
           }
+        }
+
+        // Load custom rules if available
+        if (message.customRules) {
+          document.getElementById('custom-rules').value = message.customRules;
+          // Rebuild component list with the loaded rules
+          rebuildComponentList();
         }
 
         if (message.type === 'loadError') {

@@ -7,22 +7,25 @@ class Storage {
       checkboxStates: null,
       modifiedDates: null,
       viewStates: null,
-      userPreferences: null
+      userPreferences: null,
+      customRules: null
     };
   }
 
   async init() {
-    const [checkboxStates, modifiedDates, viewStates, userPreferences] = await Promise.all([
+    const [checkboxStates, modifiedDates, viewStates, userPreferences, customRules] = await Promise.all([
       figma.clientStorage.getAsync('checkboxStates'),
       figma.clientStorage.getAsync('modifiedDates'),
       figma.clientStorage.getAsync('viewStates'),
-      figma.clientStorage.getAsync('userPreferences')
+      figma.clientStorage.getAsync('userPreferences'),
+      figma.clientStorage.getAsync('customRules')
     ]);
 
     this.cache.checkboxStates = checkboxStates || {};
     this.cache.modifiedDates = modifiedDates || {};
     this.cache.viewStates = viewStates || {};
     this.cache.userPreferences = userPreferences || { hideCompleted: false };
+    this.cache.customRules = customRules || null;
   }
 
   async getComponentState(componentId) {
@@ -56,7 +59,8 @@ class Storage {
       figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
       figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
       figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
-      figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences)
+      figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
+      figma.clientStorage.setAsync('customRules', this.cache.customRules)
     ]);
   }
 
@@ -106,6 +110,18 @@ class Storage {
     
     await this.persist();
     return this.cache.userPreferences;
+  }
+  
+  async getCustomRules() {
+    if (!this.cache.customRules) await this.init();
+    return this.cache.customRules;
+  }
+  
+  async saveCustomRules(customRules) {
+    if (!this.cache.customRules) await this.init();
+    this.cache.customRules = customRules;
+    await this.persist();
+    return this.cache.customRules;
   }
 }
 
@@ -233,6 +249,7 @@ async function loadComponents() {
     // Get all view states and user preferences
     const viewStates = await storage.getAllViewStates();
     const userPreferences = await storage.getUserPreferences();
+    const customRules = await storage.getCustomRules();
 
     // Get component usage counts
     const usageCounts = await analyzeComponents();
@@ -275,7 +292,8 @@ async function loadComponents() {
       components: componentData,
       checkboxStates: states,
       selectedComponentId,
-      userPreferences
+      userPreferences,
+      customRules
     });
   } catch (error) {
     console.error('Error loading components:', error);
@@ -513,6 +531,9 @@ figma.ui.onmessage = async msg => {
   } else if (msg.type === 'saveUserPreferences') {
     // Save user preferences
     await storage.updateUserPreferences(msg.preferences);
+  } else if (msg.type === 'saveCustomRules') {
+    console.log('Saving custom rules');
+    await storage.saveCustomRules(msg.customRules);
   } else if (msg.type === 'selectInstances') {
     const component = figma.getNodeById(msg.componentId);
     if (component) {
