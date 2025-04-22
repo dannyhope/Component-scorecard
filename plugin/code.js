@@ -306,55 +306,109 @@ async function main() {
   // Load components initially
   await loadComponents();
 
-  // Listen for document changes (e.g., when components are added or modified)
-  figma.on('documentchange', async (changes) => {
-    console.log('Document changed:', changes);
-    let needsReload = false;
+  // Track component IDs for change detection
+  let knownComponentIds = new Set();
+  
+  // Function to update known component IDs
+  async function updateKnownComponentIds() {
+    const components = [];
     
-    // Look for any component creations or changes
+    // Find all components across all pages
+    for (const page of figma.root.children) {
+      const pageComponents = page.findAllWithCriteria({
+        types: ['COMPONENT']
+      }).filter(component => 
+        !component.parent || component.parent.type !== 'COMPONENT_SET'
+      );
+      components.push(...pageComponents);
+    }
+    
+    // Update the set of known component IDs
+    knownComponentIds = new Set(components.map(c => c.id));
+    console.log(`Updated known component IDs, tracking ${knownComponentIds.size} components`);
+  }
+  
+  // Initialize the known component IDs
+  await updateKnownComponentIds();
+  
+  // Listen for document changes with targeted detection
+  figma.on('documentchange', async (changes) => {
+    console.log('Document changed, analyzing changes...');
+    let componentsChanged = false;
+    let needFullReload = false;
+    let changedComponentIds = new Set();
+    
+    // Process each change
     for (const change of changes.documentChanges) {
-      const nodeType = change.node && change.node.type ? change.node.type : 'unknown';
-      console.log(`Change type: ${change.type}, node type: ${nodeType}`);
+      const node = change.node;
+      const nodeType = node && node.type ? node.type : 'unknown';
+      const nodeId = node && node.id ? node.id : undefined;
       
-      // Reload for any CREATE/DELETE operations or if it involves a COMPONENT
-      if (change.type === 'CREATE' || change.type === 'DELETE') {
-        console.log('CREATE or DELETE detected - triggering reload');
-        needsReload = true;
+      // Track specific change types
+      if (change.type === 'CREATE') {
+        // If a component was created, we need to update our tracking
+        if (nodeType === 'COMPONENT') {
+          console.log(`New component created: ${nodeId}`);
+          componentsChanged = true;
+          changedComponentIds.add(nodeId);
+        } else if (nodeType === 'COMPONENT_SET') {
+          // Component sets might contain components we need to track
+          console.log(`New component set created, checking for components`);
+          needFullReload = true;
+        } else if (nodeType === 'FRAME' || nodeType === 'GROUP') {
+          // Frames or groups might contain components
+          console.log(`New ${nodeType} created, checking for nested components`);
+          needFullReload = true;
+        }
+      } else if (change.type === 'DELETE') {
+        // If a known component was deleted, we need to update
+        if (nodeType === 'COMPONENT' && knownComponentIds.has(nodeId)) {
+          console.log(`Known component deleted: ${nodeId}`);
+          componentsChanged = true;
+          knownComponentIds.delete(nodeId);
+        } else if (nodeType === 'COMPONENT_SET' || nodeType === 'FRAME' || nodeType === 'GROUP') {
+          // These might have contained components
+          console.log(`${nodeType} deleted, checking for component changes`);
+          needFullReload = true;
+        }
       } else if (change.type === 'PROPERTY_CHANGE') {
-        // For property changes, check node type and also update modification date
-        if (change.node && change.node.type === 'COMPONENT') {
-          console.log(`COMPONENT property changed: ${change.node.id}`);
-          await storage.updateModifiedDates(change.node.id, Date.now());
-          needsReload = true;
+        // If a component property changed, update its modification date
+        if (nodeType === 'COMPONENT') {
+          console.log(`Component property changed: ${nodeId}`);
+          await storage.updateModifiedDates(nodeId, Date.now());
+          componentsChanged = true;
+          changedComponentIds.add(nodeId);
+        }
+      } else if (change.type === 'CHILD_CHANGE') {
+        // Child changes might affect component structure
+        if (nodeType === 'COMPONENT' || nodeType === 'COMPONENT_SET') {
+          console.log(`Child change in ${nodeType}: ${nodeId}`);
+          componentsChanged = true;
+          if (nodeId) changedComponentIds.add(nodeId);
+        } else if (nodeType === 'FRAME' || nodeType === 'GROUP' || nodeType === 'PAGE') {
+          // These might contain components that were moved
+          console.log(`Child change in ${nodeType}, checking for component changes`);
+          needFullReload = true;
         }
       }
     }
     
-    // Add a fallback check - poll for components every 2 seconds to catch any missed changes
-    if (!needsReload) {
-      console.log('No component-specific changes detected, but checking components anyway');
-      needsReload = true; // Just reload regardless for now to ensure we catch everything
-    }
-    
-    if (needsReload) {
-      console.log('Reloading components due to document changes');
-      loadComponents(); // Reload components to get updated data
+    // If we detected specific component changes but don't need a full reload
+    if (componentsChanged && !needFullReload) {
+      console.log(`Detected changes to ${changedComponentIds.size} components`);
+      // If only a few components changed, we could implement partial updates here
+      // For now, we'll still do a full reload for consistency
+      loadComponents();
+    } 
+    // If we need a full reload (structure changes that might affect components)
+    else if (needFullReload) {
+      console.log('Structural changes detected, updating component tracking');
+      await updateKnownComponentIds();
+      loadComponents();
+    } else {
+      console.log('No component-related changes detected');
     }
   });
-  
-  // Add a simple reload function that runs periodically
-  function setupComponentPolling() {
-    console.log('Setting up component polling');
-    setTimeout(function pollForComponents() {
-      console.log('Checking for component changes...');
-      loadComponents();
-      // Schedule the next check
-      setTimeout(pollForComponents, 5000);
-    }, 5000);
-  }
-  
-  // Start the polling
-  setupComponentPolling();
 
   // Listen for selection changes
   figma.on('selectionchange', async () => {
