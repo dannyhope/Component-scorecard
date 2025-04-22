@@ -307,42 +307,6 @@
       .score-green {
         color: var(--color-score-green);    /* 67-100% complete */
       }
-      
-      /* Loading spinner styles */
-      .spinner-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(255, 255, 255, 0.7);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: var(--z-index-modal);
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity var(--timing-standard) ease, visibility var(--timing-standard) ease;
-      }
-      
-      .spinner-container.active {
-        opacity: 1;
-        visibility: visible;
-      }
-      
-      .spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid var(--color-border);
-        border-radius: 50%;
-        border-top-color: var(--color-accent);
-        animation: spin var(--timing-long) linear infinite;
-      }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
 
       /* Checkbox Group Styles */
       .checkbox-group {
@@ -534,10 +498,6 @@
     <!-- Message handler is included directly in this file -->
   </head>
   <body>
-    <!-- Loading spinner -->
-    <div class="spinner-container" id="loading-spinner">
-      <div class="spinner"></div>
-    </div>
     <script>
       // JavaScript Constants
       const SCORE_THRESHOLDS = {
@@ -551,15 +511,6 @@
         STANDARD_DELAY: 300,
         LONG_DELAY: 1000
       };
-      
-      // Loading spinner functions
-      function showSpinner() {
-        document.getElementById('loading-spinner').classList.add('active');
-      }
-      
-      function hideSpinner() {
-        document.getElementById('loading-spinner').classList.remove('active');
-      }
     </script>
     <!-- Context menu -->
     <div id="context-menu" class="context-menu" style="display: none;" role="menu" aria-label="Checkbox options">
@@ -757,12 +708,6 @@
       // Function to filter components based on search text and hide completed
       function filterComponents(searchText = '', hideCompleted = false, forceApplyFilter = false) {
         console.log(`Filtering components: searchText=${searchText}, hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
-        
-        // Show spinner for explicit filter applications (they can take longer)
-        if (forceApplyFilter) {
-          showSpinner();
-        }
-        
         const sections = document.querySelectorAll('.component-section');
         const now = new Date();
         
@@ -796,9 +741,6 @@
         
         // Update component count after filtering
         updateComponentCount();
-        
-        // Hide spinner if it was shown
-        hideSpinner();
       }
       
       // Helper function to handle filter mode (explicit application or normal interaction)
@@ -1803,11 +1745,6 @@
       window.onmessage = event => {
         const message = event.data.pluginMessage;
         if (!message) return;
-        
-        // Show spinner for operations that might take time
-        if (message.type === 'loadComponents' || message.type === 'refreshComponents') {
-          showSpinner();
-        }
         
         // Load user preferences if available
         if (message.userPreferences) {

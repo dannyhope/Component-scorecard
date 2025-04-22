@@ -255,6 +255,9 @@ async function loadComponents() {
     const usageCounts = await analyzeComponents();
 
     // Send component data to the UI along with checkbox states
+    // Note: Only components that currently exist in the document are sent to the UI
+    // Data for deleted components is preserved in storage but not shown in the UI
+    // This allows for restoration of data if a component is recreated (e.g., via undo)
     const componentData = components.map(component => {
       // Get the checked count using the storage states
       const componentState = states[component.id] || {};
@@ -388,6 +391,14 @@ async function main() {
         // If a component was created, we need to update our tracking
         if (nodeType === 'COMPONENT') {
           console.log(`New component created: ${nodeId}`);
+          
+          // Check if we have existing data for this component ID
+          // This would happen if a component was deleted and then recreated via undo
+          const existingData = await storage.getComponentState(nodeId);
+          if (Object.keys(existingData).length > 0) {
+            console.log(`Found existing data for component ${nodeId}, likely an undo operation`);
+          }
+          
           componentsChanged = true;
           changedComponentIds.add(nodeId);
         } else if (nodeType === 'COMPONENT_SET') {
@@ -403,7 +414,10 @@ async function main() {
         // If a known component was deleted, we need to update
         if (nodeType === 'COMPONENT' && knownComponentIds.has(nodeId)) {
           console.log(`Known component deleted: ${nodeId}`);
+          // Mark as changed so the UI will update (remove from list)
           componentsChanged = true;
+          // Remove from known components but DO NOT delete data from storage
+          // This allows the data to be preserved if the user undoes the deletion
           knownComponentIds.delete(nodeId);
         } else if (nodeType === 'COMPONENT_SET' || nodeType === 'FRAME' || nodeType === 'GROUP') {
           // These might have contained components
