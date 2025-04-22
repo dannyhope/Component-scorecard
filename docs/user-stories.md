@@ -49,6 +49,26 @@
 
 ### Debugging plugin issues
 **Given** I encounter unexpected behavior in the plugin  
+**When** I check the console logs  
+**Then** I can see detailed information about what's happening  
+**And** I can provide this information when reporting issues
+
+### Hiding completed items
+**Given** I want to focus on incomplete criteria  
+**When** I check the "Hide completed" checkbox  
+**Then** all checked criteria are hidden  
+**And** components with all criteria checked are hidden  
+**And** I only see components and criteria that need attention
+
+**Given** I have the "Hide completed" checkbox checked  
+**When** I check off a criterion  
+**Then** that criterion remains visible until I toggle the checkbox  
+**And** previously hidden criteria remain hidden
+
+**Given** I have the "Hide completed" checkbox checked  
+**When** I uncheck the "Hide completed" checkbox  
+**Then** all components and criteria become visible again  
+**And** I can see my complete progress
 **When** I need to troubleshoot  
 **Then** I can access debug information  
 **And** I can report detailed information to help fix the issue
