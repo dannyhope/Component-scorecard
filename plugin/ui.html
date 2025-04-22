@@ -813,6 +813,13 @@
           const componentId = section.getAttribute('data-id');
           if (!componentId) return;
           
+          // Skip hidden sections to prevent hiding components just because they
+          // were temporarily hidden during a name change or other non-completion event
+          if (section.style.display === 'none' && section.getAttribute('data-hidden-reason') !== 'completed') {
+            console.log(`Skipping ${componentId} because it's hidden for reasons other than completion`);
+            return;
+          }
+          
           // Create a set for this component if it doesn't exist
           if (!hiddenCheckboxes.has(componentId)) {
             hiddenCheckboxes.set(componentId, new Set());
@@ -830,12 +837,44 @@
         
       // Helper function to gather component data for filtering
       function gatherComponentData(sections) {
+        // Array to store component data
         const componentData = [];
         
+        // Process each component section
         for (const section of sections) {
           const componentId = section.getAttribute('data-id');
-          const component = allComponents.find(c => c.id === componentId);
-          if (!component) continue;
+          if (!componentId) continue;
+          
+          const component = Array.from(section.querySelectorAll('.component-title')).find(el => 
+            el.closest('.component-section') === section
+          );
+          
+          if (!component) {
+            console.log(`Warning: Could not find title element for component ${componentId}`);
+            continue;
+          }
+          
+          // Get component name - extract just the text content without any indicators
+          const nameEl = component.querySelector('.component-name');
+          if (!nameEl) continue;
+          
+          // Get the base component name without any indicators
+          let name = '';
+          // Use the first text node content as the name
+          for (const childNode of nameEl.childNodes) {
+            if (childNode.nodeType === Node.TEXT_NODE) {
+              name = childNode.textContent.trim();
+              break;
+            }
+          }
+          
+          // Fallback to full textContent if we couldn't extract from text nodes
+          if (!name) {
+            // Get full text but ignore content of child elements like indicators
+            name = nameEl.textContent.trim();
+          }
+          
+          if (!name) continue;
           
           // Get all checkboxes for this component
           const checkboxes = section.querySelectorAll('input[type="checkbox"]');
@@ -850,7 +889,7 @@
           
           componentData.push({
             id: componentId,
-            name: component.name,
+            name: name,
             element: section,
             checkedCount: checkedCount,
             totalRules: totalRules,
@@ -859,7 +898,7 @@
           });
           
           // Debug output for this specific component
-          console.log(`Component ${component.name}: checked=${checkedCount}, total=${totalRules}, expanded=${isExpanded}, fullyComplete=${isFullyComplete}`);
+          console.log(`Component ${name}: checked=${checkedCount}, total=${totalRules}, expanded=${isExpanded}, fullyComplete=${isFullyComplete}`);
         }
         
         console.log('Component data:', componentData);
@@ -892,8 +931,26 @@
         const section = compData.element;
         const componentName = section.querySelector('.component-name').textContent.toLowerCase();
         
+        // Get clean component name without indicators for matching
+        let cleanName = '';
+        const nameElement = section.querySelector('.component-name');
+        if (nameElement) {
+          // Extract just the text content (not from child elements)
+          for (const childNode of nameElement.childNodes) {
+            if (childNode.nodeType === Node.TEXT_NODE) {
+              cleanName += childNode.textContent;
+            }
+          }
+          cleanName = cleanName.toLowerCase().trim();
+        }
+        
+        // If we couldn't extract clean name, fallback to the original method
+        if (!cleanName) {
+          cleanName = componentName;
+        }
+        
         // Check if component name matches search text
-        const nameMatch = componentName.includes(searchText);
+        const nameMatch = cleanName.includes(searchText);
         
         // Check if component should be hidden based on completion
         const shouldHideBasedOnCompletion = shouldHideComponent(compData, hideCompleted, forceApplyFilter);
@@ -901,6 +958,12 @@
         // If either filter fails, hide the component and return early
         if (!nameMatch || shouldHideBasedOnCompletion) {
           section.style.display = 'none';
+          // Track why the component is hidden
+          if (shouldHideBasedOnCompletion) {
+            section.setAttribute('data-hidden-reason', 'completed');
+          } else if (!nameMatch) {
+            section.setAttribute('data-hidden-reason', 'name-filter');
+          }
           return { 
             isVisible: false, 
             hiddenDueToCompletion: shouldHideBasedOnCompletion 
@@ -909,6 +972,8 @@
         
         // Component passed both filters, show it
         section.style.display = '';
+        // Clear hidden reason
+        section.removeAttribute('data-hidden-reason');
         
         // Handle checkbox visibility if we're hiding completed items
         const hasVisibleCheckboxes = handleCheckboxVisibility(compData, hideCompleted, forceApplyFilter);
