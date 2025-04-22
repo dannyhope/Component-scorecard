@@ -642,12 +642,18 @@
         document.getElementById('component-count').textContent = countText;
       }
 
-      // Function to filter components
-      function filterComponents(searchText, hideCompleted = false) {
-        console.log('Filtering components, hideCompleted:', hideCompleted);
-        const componentList = document.getElementById('component-list');
-        const sections = componentList.getElementsByClassName('component-section');
+      // Function to filter components based on search text and hide completed
+      function filterComponents(searchText = '', hideCompleted = false, forceApplyFilter = false) {
+        console.log(`Filtering components: searchText=${searchText}, hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
+        const sections = document.querySelectorAll('.component-section');
         const now = new Date();
+        
+        // Debug what's triggering the filter
+        if (forceApplyFilter) {
+          console.log('Filter is being explicitly applied (plugin load or checkbox toggle)');
+        } else {
+          console.log('Normal filtering during user interaction - components will not be hidden');
+        }
         
         searchText = searchText.toLowerCase();
         
@@ -662,30 +668,16 @@
           const componentId = section.getAttribute('data-id');
           const component = allComponents.find(c => c.id === componentId);
           if (component) {
-            // Count checked items for this component
-            let checkedCount = 0;
-            let totalRules = 0;
-            
-            if (checkboxStates[componentId]) {
-              // Count all checked checkboxes across all categories
-              Object.values(checkboxStates[componentId]).forEach(category => {
-                Object.values(category).forEach(state => {
-                  if (state && state.checked) {
-                    checkedCount++;
-                  }
-                  totalRules++;
-                });
-              });
-            } else {
-              // If no checkbox states exist yet, count rules from the component's rules
-              // This handles components that haven't been interacted with yet
-              const checkboxes = section.querySelectorAll('input[type="checkbox"]');
-              totalRules = checkboxes.length;
-              checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-            }
+            // Get all checkboxes for this component
+            const checkboxes = section.querySelectorAll('input[type="checkbox"]');
+            const totalRules = checkboxes.length;
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
             
             // Check if the component is expanded
             const isExpanded = !section.querySelector('.checkbox-group')?.classList.contains('hidden');
+            
+            // A component is fully complete only if ALL checkboxes are checked
+            const isFullyComplete = totalRules > 0 && checkedCount === totalRules;
             
             componentData.push({
               id: componentId,
@@ -694,11 +686,11 @@
               checkedCount: checkedCount,
               totalRules: totalRules,
               isExpanded: isExpanded,
-              isFullyComplete: totalRules > 0 && checkedCount === totalRules
+              isFullyComplete: isFullyComplete
             });
             
             // Debug output for this specific component
-            console.log(`Component ${component.name}: checked=${checkedCount}, total=${totalRules}, expanded=${isExpanded}, fullyComplete=${totalRules > 0 && checkedCount === totalRules}`);
+            console.log(`Component ${component.name}: checked=${checkedCount}, total=${totalRules}, expanded=${isExpanded}, fullyComplete=${isFullyComplete}`);
           }
         }
         
@@ -729,39 +721,19 @@
           // Hide completed check for component
           let showBasedOnCompletion = true;
           if (hideCompleted) {
-            // Check if component is fully complete
+            // Only hide components when ALL criteria are ticked
             if (compData.isFullyComplete) {
-              // Check if any state changed recently
-              let hasRecentChanges = false;
-              if (checkboxStates[compData.id]) {
-                const recentChangeThreshold = 1 * 1000; // 1 second in milliseconds
-                
-                // Check all checkboxes for recent changes
-                Object.values(checkboxStates[compData.id]).forEach(category => {
-                  Object.values(category).forEach(state => {
-                    if (state && state.timestamp) {
-                      const stateChangeTime = new Date(state.timestamp);
-                      if ((now - stateChangeTime) < recentChangeThreshold) {
-                        hasRecentChanges = true;
-                      }
-                    }
-                  });
-                });
-              }
-              
-              // Only show if it has recent changes
-              showBasedOnCompletion = hasRecentChanges;
-              
-              if (!showBasedOnCompletion) {
+              // Only hide if we're explicitly applying the filter (toggle or load)
+              if (forceApplyFilter) {
+                showBasedOnCompletion = false;
                 hiddenDueToCompletion++;
+                console.log(`Component ${compData.name}: ALL criteria checked (${compData.checkedCount}/${compData.totalRules}), hiding component`);
+              } else {
+                console.log(`Component ${compData.name}: ALL criteria checked but not hiding during normal interaction`);
               }
-              
-              // Debug output
-              console.log(`Component ${compData.name}: isFullyComplete=${compData.isFullyComplete}, hasRecentChanges=${hasRecentChanges}, showBasedOnCompletion=${showBasedOnCompletion}`);
             } else {
-              // For components that aren't fully complete, check if they're expanded
-              // If expanded, we'll show them but hide completed criteria within them
-              console.log(`Component ${compData.name} is not fully complete, showing it.`);
+              // For components that aren't fully complete, always show them
+              console.log(`Component ${compData.name}: Not fully complete (${compData.checkedCount}/${compData.totalRules}), showing it.`);
             }
           }
           
@@ -779,25 +751,9 @@
               checkboxLabels.forEach(label => {
                 const checkbox = label.querySelector('input[type="checkbox"]');
                 if (checkbox && checkbox.checked) {
-                  // Check if checkbox was recently changed
-                  let wasRecentlyChanged = false;
-                  const category = checkbox.getAttribute('data-category');
-                  const rule = checkbox.getAttribute('data-rule');
-                  
-                  if (category && rule && 
-                      checkboxStates[compData.id] && 
-                      checkboxStates[compData.id][category] && 
-                      checkboxStates[compData.id][category][rule] && 
-                      checkboxStates[compData.id][category][rule].timestamp) {
-                    
-                    const stateChangeTime = new Date(checkboxStates[compData.id][category][rule].timestamp);
-                    if ((now - stateChangeTime) < 1000) { // 1 second threshold
-                      wasRecentlyChanged = true;
-                    }
-                  }
-                  
-                  // Hide completed checkbox unless it was recently changed
-                  if (!wasRecentlyChanged) {
+                  // Only hide checked items when filter is explicitly applied
+                  // (not during normal checkbox interactions)
+                  if (forceApplyFilter) {
                     label.style.display = 'none';
                   } else {
                     label.style.display = '';
@@ -840,7 +796,8 @@
       // Set up filter input handler
       document.getElementById('component-filter').addEventListener('input', (e) => {
         const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
-        filterComponents(e.target.value, hideCompleted);
+        // Don't force apply filter during search - just filter by name
+        filterComponents(e.target.value, hideCompleted, false);
       });
       
       // Set up hide completed checkbox handler
@@ -859,7 +816,8 @@
         // Force a re-render of the component list
         const searchText = document.getElementById('component-filter').value;
         // Apply the filter with the new checkbox state immediately
-        filterComponents(searchText, e.target.checked);
+        // Pass true for forceApplyFilter to ensure items are hidden when checkbox is toggled
+        filterComponents(searchText, e.target.checked, true);
         
         // Update the footer text to explain what's being hidden
         const hideCompletedLabel = document.querySelector('.footer-checkbox span');
@@ -1404,12 +1362,8 @@
           // Update the score
           updateScore(component.id, checkedCount);
           
-          // Apply hide completed filter if active
-          if (document.getElementById('hide-completed-checkbox').checked) {
-            console.log('Hide completed is active, refiltering...');
-            const searchText = document.getElementById('component-filter').value;
-            filterComponents(searchText, true);
-          }
+          // We don't hide criteria when they're checked - only when the Hide completed
+          // checkbox is toggled or when the plugin loads
           
           // Send message to update state
           parent.postMessage({ 
@@ -1619,7 +1573,8 @@
             // Apply the filter if hide completed is checked
             if (message.userPreferences.hideCompleted) {
               setTimeout(() => {
-                filterComponents(document.getElementById('component-filter').value, true);
+                // Pass true for forceApplyFilter to ensure items are hidden when plugin loads
+                filterComponents(document.getElementById('component-filter').value, true, true);
               }, 100); // Small delay to ensure UI is ready
             }
           }
