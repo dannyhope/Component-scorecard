@@ -757,6 +757,12 @@
       // Function to filter components based on search text and hide completed
       function filterComponents(searchText = '', hideCompleted = false, forceApplyFilter = false) {
         console.log(`Filtering components: searchText=${searchText}, hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
+        
+        // Show spinner for explicit filter applications (they can take longer)
+        if (forceApplyFilter) {
+          showSpinner();
+        }
+        
         const sections = document.querySelectorAll('.component-section');
         const now = new Date();
         
@@ -790,6 +796,9 @@
         
         // Update component count after filtering
         updateComponentCount();
+        
+        // Hide spinner if it was shown
+        hideSpinner();
       }
       
       // Helper function to handle filter mode (explicit application or normal interaction)
@@ -1794,6 +1803,11 @@
       window.onmessage = event => {
         const message = event.data.pluginMessage;
         if (!message) return;
+        
+        // Show spinner for operations that might take time
+        if (message.type === 'loadComponents' || message.type === 'refreshComponents') {
+          showSpinner();
+        }
         
         // Load user preferences if available
         if (message.userPreferences) {
