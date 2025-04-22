@@ -156,8 +156,10 @@ async function calculateComponentScore(componentId) {
 // Function to analyze component usage across the document
 async function analyzeComponents() {
   const usageCounts = new Map();
+  const dependencyCounts = new Map(); // Track how many components are used within each component
+  const componentDependencies = new Map(); // Track which components are used within each component
   
-  // First pass: collect main components and initialize usage counts
+  // First pass: collect main components and initialize counts
   for (const page of figma.root.children) {
     const pageComponents = page.findAllWithCriteria({
       types: ['COMPONENT']
@@ -167,44 +169,67 @@ async function analyzeComponents() {
       // Skip variants - only include main components
       if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
         usageCounts.set(component.id, 0);
+        dependencyCounts.set(component.id, 0);
+        componentDependencies.set(component.id, new Set());
       }
     });
   }
 
-  // Second pass: count instances, including those of variants
+  // Second pass: count instances and analyze dependencies
   for (const page of figma.root.children) {
+    // Track instances usage
     const instances = page.findAllWithCriteria({
       types: ['INSTANCE']
     });
     
     instances.forEach(instance => {
-      if (instance.mainComponent) {
-        let targetComponent = instance.mainComponent;
-        
-        // If this is a variant, get its parent component set's main component
-        if (targetComponent.parent && targetComponent.parent.type === 'COMPONENT_SET') {
-          const mainVariant = targetComponent.parent.defaultVariant;
-          if (mainVariant) {
-            targetComponent = mainVariant;
-          }
+      if (!instance.mainComponent) return;
+      
+      let targetComponent = instance.mainComponent;
+      
+      // If this is a variant, get its parent component set's main component
+      if (targetComponent.parent && targetComponent.parent.type === 'COMPONENT_SET') {
+        const mainVariant = targetComponent.parent.defaultVariant;
+        if (mainVariant) {
+          targetComponent = mainVariant;
         }
+      }
 
-        const mainComponentId = targetComponent.id;
-        if (usageCounts.has(mainComponentId)) {
-          usageCounts.set(
-            mainComponentId,
-            usageCounts.get(mainComponentId) + 1
-          );
+      const mainComponentId = targetComponent.id;
+      if (usageCounts.has(mainComponentId)) {
+        usageCounts.set(
+          mainComponentId,
+          usageCounts.get(mainComponentId) + 1
+        );
+      }
+      
+      // Find the parent component that contains this instance (if any)
+      let parent = instance.parent;
+      while (parent) {
+        if (parent.type === 'COMPONENT' && 
+            (!parent.parent || parent.parent.type !== 'COMPONENT_SET')) {
+          // Found a parent main component that contains this instance
+          // Add this as a dependency for that component
+          if (componentDependencies.has(parent.id)) {
+            componentDependencies.get(parent.id).add(targetComponent.id);
+          }
+          break;
         }
+        parent = parent.parent;
       }
     });
   }
+  
+  // Calculate final dependency counts
+  for (const [componentId, dependencies] of componentDependencies) {
+    dependencyCounts.set(componentId, dependencies.size);
+  }
 
-  return usageCounts;
+  return { usageCounts, dependencyCounts };
 }
 
 // Function to load components and send data to the UI
-async function loadComponents() {
+async function loadComponents(skipCache = false) {
   try {
     console.log('Loading components...');
     console.log('Document name:', figma.root.name);
@@ -251,8 +276,8 @@ async function loadComponents() {
     const userPreferences = await storage.getUserPreferences();
     const customRules = await storage.getCustomRules();
 
-    // Get component usage counts
-    const usageCounts = await analyzeComponents();
+    // Get component usage and dependency counts
+    const { usageCounts, dependencyCounts } = await analyzeComponents();
 
     // Send component data to the UI along with checkbox states
     // Note: Only components that currently exist in the document are sent to the UI
@@ -276,7 +301,8 @@ async function loadComponents() {
         name: component.name,
         checkedCount,
         lastModified: storage.getModifiedDates(component.id) || null,
-        usageCount: usageCounts.get(component.id) || 0
+        usageCount: usageCounts.get(component.id) || 0,
+        dependencyCount: dependencyCounts.get(component.id) || 0
       };
     });
 
@@ -409,6 +435,10 @@ async function main() {
           // Frames or groups might contain components
           console.log(`New ${nodeType} created, checking for nested components`);
           needFullReload = true;
+        } else if (nodeType === 'INSTANCE') {
+          // Instance creation might affect dependencies
+          console.log(`New instance created, will update dependencies`);
+          componentsChanged = true;
         }
       } else if (change.type === 'DELETE') {
         // If a known component was deleted, we need to update
@@ -423,6 +453,10 @@ async function main() {
           // These might have contained components
           console.log(`${nodeType} deleted, checking for component changes`);
           needFullReload = true;
+        } else if (nodeType === 'INSTANCE') {
+          // Instance deletion might affect dependencies
+          console.log(`Instance deleted, will update dependencies`);
+          componentsChanged = true;
         }
       } else if (change.type === 'PROPERTY_CHANGE') {
         // If a component property changed, update its modification date
@@ -431,6 +465,10 @@ async function main() {
           await storage.updateModifiedDates(nodeId, Date.now());
           componentsChanged = true;
           changedComponentIds.add(nodeId);
+        } else if (nodeType === 'INSTANCE') {
+          // Instance property change might affect dependencies
+          console.log(`Instance property changed, might affect dependencies`);
+          componentsChanged = true;
         }
       } else if (change.type === 'CHILD_CHANGE') {
         // Child changes might affect component structure
@@ -446,10 +484,28 @@ async function main() {
       }
     }
     
+    // Check for changes that might affect dependencies
+    const mightAffectDependencies = changes.documentChanges.some(change => 
+      ['CREATE', 'DELETE', 'PROPERTY_CHANGE'].includes(change.type) && 
+      change.node && change.node.type === 'INSTANCE'
+    );
+    
     // If we detected specific component changes but don't need a full reload
     if (componentsChanged && !needFullReload) {
       console.log(`Detected changes to ${changedComponentIds.size} components`);
-      // If only a few components changed, we could implement partial updates here
+      
+      // Update dependencies if there might be changes to instances
+      if (mightAffectDependencies) {
+        console.log('Detected changes that might affect component dependencies');
+        const { dependencyCounts } = await analyzeComponents();
+        
+        // Send updated dependency counts to the UI
+        figma.ui.postMessage({
+          type: 'dependencyCountsUpdated',
+          dependencyCounts: Object.fromEntries(dependencyCounts)
+        });
+      }
+      
       // For now, we'll still do a full reload for consistency
       loadComponents();
     } 
@@ -458,40 +514,18 @@ async function main() {
       console.log('Structural changes detected, updating component tracking');
       await updateKnownComponentIds();
       loadComponents();
-    } else {
-      console.log('No component-related changes detected');
-    }
-  });
-
-  // Listen for selection changes
-  figma.on('selectionchange', async () => {
-    console.log('Selection changed in Figma');
-    const selectedNodes = figma.currentPage.selection;
-    console.log('Selected nodes:', selectedNodes.length);
-    const selectedComponent = selectedNodes.find(node => node.type === 'COMPONENT');
-    
-    if (selectedComponent) {
-      console.log('Selected component in Figma:', selectedComponent.id, selectedComponent.name);
       
-      // Log all components to help with debugging
-      const allComponents = figma.currentPage.findAllWithCriteria({
-        types: ['COMPONENT']
-      });
-      console.log('All components on page:', allComponents.map(c => c.id));
-      
-      const usageData = await getComponentUsage(selectedComponent.id);
-      figma.ui.postMessage({
-        type: 'componentSelected',
-        componentId: selectedComponent.id,
-        usage: usageData
-      });
-    } else {
-      console.log('No component selected in Figma');
-      figma.ui.postMessage({
-        type: 'componentSelected',
-        componentId: null,
-        usage: null
-      });
+      // Also update dependencies if there might be changes to instances
+      if (mightAffectDependencies) {
+        console.log('Detected changes that might affect component dependencies');
+        const { dependencyCounts } = await analyzeComponents();
+        
+        // Send updated dependency counts to the UI
+        figma.ui.postMessage({
+          type: 'dependencyCountsUpdated',
+          dependencyCounts: Object.fromEntries(dependencyCounts)
+        });
+      }
     }
   });
 }

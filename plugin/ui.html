@@ -220,13 +220,28 @@
       }
 
       .modified-indicator {
-        display: none; /* Hide the indicator but keep the style for future use */
         width: 6px;
         height: 6px;
-        border-radius: 50%;
         background-color: #FF4058;
-        flex-shrink: 0;
-        margin-right: 4px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 2px;
+        vertical-align: middle;
+      }
+      
+      .dependency-indicator {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: 9px;
+        background-color: var(--color-accent);
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        margin-left: 4px;
       }
 
       .last-modified {
@@ -1420,6 +1435,17 @@
         
         // Add component name text
         nameSpan.appendChild(document.createTextNode(component.name + ' '));
+        
+        // Add dependency indicator if component uses subcomponents
+        if (component.dependencyCount > 0) {
+          const dependencyIndicator = document.createElement('span');
+          dependencyIndicator.className = 'dependency-indicator';
+          dependencyIndicator.textContent = component.dependencyCount;
+          dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${component.dependencyCount !== 1 ? 's' : ''}`);
+          nameSpan.appendChild(dependencyIndicator);
+          nameSpan.appendChild(document.createTextNode(' '));
+        }
+        
         nameSpan.appendChild(scoreSpan);
         nameSpan.appendChild(document.createTextNode(' '));
         nameSpan.appendChild(lastModifiedSpan);
@@ -1849,6 +1875,12 @@
             // Clear selection
             selectComponent(null);
           }
+        } else if (message.type === 'dependencyCountsUpdated') {
+          // Dependency counts have been updated, update the UI
+          console.log('Dependency counts updated:', message.dependencyCounts);
+          
+          // Update dependency indicators for all components
+          updateDependencyIndicators(message.dependencyCounts);
         }
       };
 
@@ -1962,14 +1994,67 @@
           
           if (showModifiedIndicator && !existingDot) {
             const dot = document.createElement('span');
-            dot.className = 'modified-indicator';
-            nameSpan.insertBefore(dot, nameSpan.firstChild);
+            // Set name with modified indicator if present
+            nameSpan.innerHTML = escapeHtml(component.name) + modifiedDot;
+        
+            // Add dependency indicator if component uses subcomponents
+            if (component.dependencyCount > 0) {
+              const dependencyIndicator = document.createElement('span');
+              dependencyIndicator.className = 'dependency-indicator';
+              dependencyIndicator.textContent = component.dependencyCount;
+              dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${component.dependencyCount !== 1 ? 's' : ''}`);
+              nameSpan.appendChild(dependencyIndicator);
+            }
           } else if (!showModifiedIndicator && existingDot) {
             existingDot.remove();
           }
         }
       }
 
+      // Function to update dependency indicators
+      function updateDependencyIndicators(dependencyCounts) {
+        // For each component, update its dependency indicator
+        for (const [componentId, count] of Object.entries(dependencyCounts)) {
+          const componentSection = document.querySelector(`[data-id='${componentId}']`);
+          if (!componentSection) continue;
+          
+          const nameSpan = componentSection.querySelector('.component-name');
+          if (!nameSpan) continue;
+          
+          // Look for existing dependency indicator
+          let dependencyIndicator = nameSpan.querySelector('.dependency-indicator');
+          
+          // If dependency count is 0, remove the indicator if it exists
+          if (count === 0) {
+            if (dependencyIndicator) {
+              dependencyIndicator.remove();
+            }
+            continue;
+          }
+          
+          // Create indicator if it doesn't exist
+          if (!dependencyIndicator) {
+            dependencyIndicator = document.createElement('span');
+            dependencyIndicator.className = 'dependency-indicator';
+            
+            // Find the score span to insert before it
+            const scoreSpan = nameSpan.querySelector('.score-red, .score-amber, .score-green');
+            if (scoreSpan) {
+              nameSpan.insertBefore(dependencyIndicator, scoreSpan);
+              nameSpan.insertBefore(document.createTextNode(' '), scoreSpan);
+            } else {
+              // Append to end if no score span
+              nameSpan.appendChild(dependencyIndicator);
+              nameSpan.appendChild(document.createTextNode(' '));
+            }
+          }
+          
+          // Update the indicator content and tooltip
+          dependencyIndicator.textContent = count;
+          dependencyIndicator.setAttribute('title', `Contains instances of ${count} component${count !== 1 ? 's' : ''}`);
+        }
+      }
+      
       // Function to dynamically update score and score colour
       function updateScore(componentId, checkedCount) {
         if (!window.domCache) window.domCache = {};
