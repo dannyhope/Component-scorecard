@@ -242,6 +242,41 @@
         font-size: 10px;
         font-weight: bold;
         margin-left: 4px;
+        cursor: help;
+      }
+
+      .dependency-indicator {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: 9px;
+        background-color: var(--color-accent);
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        margin-left: 4px;
+        cursor: help;
+      }
+
+      .dependency-indicator::before {
+        content: attr(title);
+        position: absolute;
+        background-color: #333;
+        color: #fff;
+        padding: 4px;
+        border-radius: 4px;
+        font-size: 10px;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .dependency-indicator:hover::before {
+        visibility: visible;
+        opacity: 1;
       }
 
       .last-modified {
@@ -1995,7 +2030,7 @@
           if (showModifiedIndicator && !existingDot) {
             const dot = document.createElement('span');
             // Set name with modified indicator if present
-            nameSpan.innerHTML = escapeHtml(component.name) + modifiedDot;
+            nameSpan.innerHTML = escapeHtml(component.name) + '<span class="modified-indicator"></span>';
         
             // Add dependency indicator if component uses subcomponents
             if (component.dependencyCount > 0) {
@@ -2036,6 +2071,7 @@
           if (!dependencyIndicator) {
             dependencyIndicator = document.createElement('span');
             dependencyIndicator.className = 'dependency-indicator';
+            dependencyIndicator.style.cursor = 'help';
             
             // Find the score span to insert before it
             const scoreSpan = nameSpan.querySelector('.score-red, .score-amber, .score-green');
