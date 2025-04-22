@@ -11,6 +11,7 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+        position: relative;
       }
 
       /* Search filter and settings section */
@@ -197,6 +198,45 @@
         margin: 0 -12px;
         border-radius: 4px;
         cursor: default;
+      }
+      
+      /* Footer styles */
+      .footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #e6e7e8;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 100;
+      }
+      
+      .footer-left {
+        display: flex;
+        align-items: center;
+      }
+      
+      .footer-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .footer-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #616e73;
+        cursor: pointer;
+      }
+      
+      .footer-checkbox input[type="checkbox"] {
+        margin: 0;
       }
 
       .checkbox-label:hover {
@@ -490,6 +530,19 @@
       <label for="custom-rules" class="custom-heading">Define your checklist</label>
       <textarea id="custom-rules" aria-label="Checklist rules" aria-description="Enter component rules in Markdown format"></textarea>
     </div>
+    
+    <!-- Footer with Hide completed checkbox and other controls -->
+    <div class="footer">
+      <div class="footer-left">
+        <label class="footer-checkbox">
+          <input type="checkbox" id="hide-completed-checkbox">
+          <span>Hide completed</span>
+        </label>
+      </div>
+      <div class="footer-right">
+        <a href="https://github.com/dannyhope/Component-scorecard/issues" target="_blank" class="settings-button" id="feedback-link" title="Submit Feedback">Feedback</a>
+      </div>
+    </div>
 
     <script>
       const defaultRules = `- [ ] Uses auto layout where appropriate
@@ -576,25 +629,133 @@
       }
 
       // Function to filter components
-      function filterComponents(searchText) {
+      function filterComponents(searchText, hideCompleted = false) {
+        console.log('Filtering components, hideCompleted:', hideCompleted);
         const componentList = document.getElementById('component-list');
         const sections = componentList.getElementsByClassName('component-section');
+        const now = new Date();
         
         searchText = searchText.toLowerCase();
         
+        // Track visible components for debugging
+        let visibleCount = 0;
+        let hiddenCount = 0;
+        let hiddenDueToCompletion = 0;
+        
+        // First, gather all component data for debugging
+        const componentData = [];
         for (const section of sections) {
-          const componentName = section.querySelector('.component-name').textContent.toLowerCase();
-          if (componentName.includes(searchText)) {
-            section.style.display = '';
-          } else {
-            section.style.display = 'none';
+          const componentId = section.getAttribute('data-id');
+          const component = allComponents.find(c => c.id === componentId);
+          if (component) {
+            // Count checked items for this component
+            let checkedCount = 0;
+            let totalRules = 0;
+            
+            if (checkboxStates[componentId]) {
+              // Count all checked checkboxes across all categories
+              Object.values(checkboxStates[componentId]).forEach(category => {
+                Object.values(category).forEach(state => {
+                  if (state && state.checked) {
+                    checkedCount++;
+                  }
+                  totalRules++;
+                });
+              });
+            }
+            
+            componentData.push({
+              id: componentId,
+              name: component.name,
+              element: section,
+              checkedCount: checkedCount,
+              totalRules: totalRules,
+              isFullyComplete: totalRules > 0 && checkedCount === totalRules
+            });
           }
         }
+        
+        console.log('Component data:', componentData);
+        
+        // Now apply filters
+        for (const compData of componentData) {
+          const section = compData.element;
+          const componentName = section.querySelector('.component-name').textContent.toLowerCase();
+          
+          // Name filter check
+          const nameMatch = componentName.includes(searchText);
+          
+          // Hide completed check
+          let showBasedOnCompletion = true;
+          if (hideCompleted && compData.isFullyComplete) {
+            // Check if any state changed recently
+            let hasRecentChanges = false;
+            if (checkboxStates[compData.id]) {
+              const recentChangeThreshold = 1 * 1000; // 1 second in milliseconds
+              
+              // Check all checkboxes for recent changes
+              Object.values(checkboxStates[compData.id]).forEach(category => {
+                Object.values(category).forEach(state => {
+                  if (state && state.timestamp) {
+                    const stateChangeTime = new Date(state.timestamp);
+                    if ((now - stateChangeTime) < recentChangeThreshold) {
+                      hasRecentChanges = true;
+                    }
+                  }
+                });
+              });
+            }
+            
+            // Only show if it has recent changes
+            showBasedOnCompletion = hasRecentChanges;
+            
+            if (!showBasedOnCompletion) {
+              hiddenDueToCompletion++;
+            }
+            
+            // Debug output
+            console.log(`Component ${compData.name}: isFullyComplete=${compData.isFullyComplete}, hasRecentChanges=${hasRecentChanges}, showBasedOnCompletion=${showBasedOnCompletion}`);
+          }
+          
+          // Apply both filters
+          if (nameMatch && showBasedOnCompletion) {
+            section.style.display = '';
+            visibleCount++;
+          } else {
+            section.style.display = 'none';
+            hiddenCount++;
+          }
+        }
+        
+        console.log(`Filter results: ${visibleCount} components visible, ${hiddenCount} hidden (${hiddenDueToCompletion} due to completion)`);
+        
+        // Update component count after filtering
+        updateComponentCount();
       }
 
       // Set up filter input handler
       document.getElementById('component-filter').addEventListener('input', (e) => {
-        filterComponents(e.target.value);
+        const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
+        filterComponents(e.target.value, hideCompleted);
+      });
+      
+      // Set up hide completed checkbox handler
+      document.getElementById('hide-completed-checkbox').addEventListener('change', (e) => {
+        console.log('Hide completed checkbox changed:', e.target.checked);
+        // Save the preference
+        parent.postMessage({
+          pluginMessage: {
+            type: 'saveUserPreferences',
+            preferences: {
+              hideCompleted: e.target.checked
+            }
+          }
+        }, '*');
+        
+        // Force a re-render of the component list
+        const searchText = document.getElementById('component-filter').value;
+        // Apply the filter with the new checkbox state immediately
+        filterComponents(searchText, e.target.checked);
       });
       
       // Set up refresh button handler
@@ -1102,11 +1263,42 @@
       // Function to handle checkbox state changes
       function handleCheckboxChange(component, checkbox, checkboxLabel, category, ruleText) {
         checkbox.onchange = () => {
+          console.log(`Checkbox changed for ${component.name}, category: ${category}, rule: ${ruleText}, checked: ${checkbox.checked}`);
           const timestamp = checkbox.checked ? new Date() : null;
           const timestampSpan = checkboxLabel.querySelector('.checkbox-timestamp');
           
           if (timestampSpan) {
             timestampSpan.textContent = checkbox.checked ? formatDate(timestamp) : '';
+          }
+          
+          // Update local state
+          if (!checkboxStates[component.id]) {
+            checkboxStates[component.id] = {};
+          }
+          if (!checkboxStates[component.id][category]) {
+            checkboxStates[component.id][category] = {};
+          }
+          
+          checkboxStates[component.id][category][ruleText] = {
+            checked: checkbox.checked,
+            timestamp: timestamp ? timestamp.toISOString() : null
+          };
+          
+          // Count checked items for this component
+          const checkedCount = Object.values(checkboxStates[component.id])
+            .flatMap(categoryState => Object.values(categoryState))
+            .filter(state => state && state.checked === true).length;
+          
+          console.log(`${component.name}: ${checkedCount} items checked`);
+          
+          // Update the score
+          updateScore(component.id, checkedCount);
+          
+          // Apply hide completed filter if active
+          if (document.getElementById('hide-completed-checkbox').checked) {
+            console.log('Hide completed is active, refiltering...');
+            const searchText = document.getElementById('component-filter').value;
+            filterComponents(searchText, true);
           }
           
           // Send message to update state
@@ -1116,7 +1308,8 @@
               componentId: component.id, 
               category, 
               label: ruleText, 
-              isChecked: checkbox.checked 
+              isChecked: checkbox.checked,
+              timestamp: timestamp ? timestamp.toISOString() : null
             } 
           }, '*');
           
@@ -1292,6 +1485,20 @@
       window.onmessage = event => {
         const message = event.data.pluginMessage;
         if (!message) return;
+        
+        // Load user preferences if available
+        if (message.userPreferences) {
+          const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+          if (hideCompletedCheckbox && message.userPreferences.hideCompleted !== undefined) {
+            hideCompletedCheckbox.checked = message.userPreferences.hideCompleted;
+            // Apply the filter if hide completed is checked
+            if (message.userPreferences.hideCompleted) {
+              setTimeout(() => {
+                filterComponents(document.getElementById('component-filter').value, true);
+              }, 100); // Small delay to ensure UI is ready
+            }
+          }
+        }
 
         if (message.type === 'loadError') {
           console.error('Error loading components:', message.error);
@@ -1517,6 +1724,12 @@
           
           // Update with new score but preserve other elements
           nameSpan.innerHTML = `${modifiedIndicator}${component.name} <span class="${scoreClass}" style="display: none !important;">(${checkedCount}/${component.totalCategories})</span>${lastModified}${usageCount}`;
+          
+          // If hide completed is checked, apply the filter
+          if (document.getElementById('hide-completed-checkbox').checked) {
+            const searchText = document.getElementById('component-filter').value;
+            filterComponents(searchText, true);
+          }
         }
 
         // Update component count since the checked status changed
