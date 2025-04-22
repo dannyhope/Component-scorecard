@@ -850,7 +850,7 @@
         // Update the footer text to explain what's being hidden
         const hideCompletedLabel = document.querySelector('.footer-checkbox span');
         if (hideCompletedLabel) {
-          hideCompletedLabel.textContent = e.target.checked ? 'Hide completed (items & components)' : 'Hide completed';
+          hideCompletedLabel.textContent = e.target.checked ? 'Hide completed' : 'Hide completed';
         }
       });
       
@@ -1599,7 +1599,7 @@
             // Update the label text based on the preference
             const hideCompletedLabel = document.querySelector('.footer-checkbox span');
             if (hideCompletedLabel) {
-              hideCompletedLabel.textContent = message.userPreferences.hideCompleted ? 'Hide completed (items & components)' : 'Hide completed';
+              hideCompletedLabel.textContent = message.userPreferences.hideCompleted ? 'Hide completed' : 'Hide completed';
             }
             
             // Apply the filter if hide completed is checked
