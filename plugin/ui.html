@@ -2,15 +2,59 @@
 <html>
   <head>
     <style>
+      /* CSS Variables for consistent values */
+      :root {
+        /* Brand Colors */
+        --color-primary: #E4003D;
+        --color-primary-dark: #C9003A;
+        --color-accent: #9B51E0;
+        
+        /* Text Colors */
+        --color-text-primary: #333;
+        --color-text-secondary: #666;
+        
+        /* UI Colors */
+        --color-border: #C7D0D4;
+        --color-background: white;
+        --color-hover: rgba(0, 0, 0, 0.06);
+        
+        /* Score Colors */
+        --color-score-red: #E4003D;
+        --color-score-amber: orange;
+        --color-score-green: green;
+        
+        /* Spacing */
+        --spacing-xs: 4px;
+        --spacing-sm: 6px;
+        --spacing-md: 8px;
+        --spacing-lg: 12px;
+        --spacing-xl: 16px;
+        
+        /* Sizes */
+        --icon-size: 28px;
+        --border-radius: 4px;
+        --border-radius-large: 8px;
+        
+        /* Z-indices */
+        --z-index-normal: 1;
+        --z-index-dropdown: 100;
+        --z-index-modal: 1000;
+        
+        /* Timing */
+        --timing-short: 100ms;
+        --timing-standard: 300ms;
+        --timing-long: 1000ms;
+      }
+      
       /* Layout and General Styles */
       body {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        padding: 4px 4px 40px 4px;
-        background-color: white;
+        padding: var(--spacing-xs) var(--spacing-xs) 40px var(--spacing-xs);
+        background-color: var(--color-background);
         font-size: 12px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: var(--spacing-md);
         position: relative;
       }
 
@@ -19,81 +63,81 @@
         position: relative;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: var(--spacing-md);
       }
 
       /* Error message styles */
       .error-message {
-        padding: 16px;
-        margin: 16px;
-        border-radius: 8px;
-        background-color: #fff;
-        border: 1px solid #E4003D;
-        color: #333;
+        padding: var(--spacing-xl);
+        margin: var(--spacing-xl);
+        border-radius: var(--border-radius-large);
+        background-color: var(--color-background);
+        border: 1px solid var(--color-primary);
+        color: var(--color-text-primary);
         text-align: center;
       }
       
       .error-message h3 {
-        color: #E4003D;
+        color: var(--color-primary);
         margin-top: 0;
       }
       
       .error-message .primary-button {
-        background-color: #E4003D;
-        color: white;
+        background-color: var(--color-primary);
+        color: var(--color-background);
         border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
+        padding: var(--spacing-md) var(--spacing-xl);
+        border-radius: var(--border-radius);
         cursor: pointer;
         font-weight: 500;
-        margin-top: 12px;
+        margin-top: var(--spacing-lg);
       }
       
       .error-message .primary-button:hover {
-        background-color: #C9003A;
+        background-color: var(--color-primary-dark);
       }
       
       /* Filter input styles */
       .filter-input {
         display: none;
         width: 100%;
-        padding: 6px 8px;
-        border: 1px solid #C7D0D4;
-        border-radius: 4px;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius);
         font-size: 12px;
-        background-color: white;
+        background-color: var(--color-background);
       }
       .filter-input:focus {
         outline: none;
-        border-color: #9B51E0; /* Match component title color */
+        border-color: var(--color-accent); /* Match component title color */
       }
 
       /* Button Styles */
       .settings-button {
-        width: 28px;
-        height: 28px;
-        padding: 6px;
+        width: var(--icon-size);
+        height: var(--icon-size);
+        padding: var(--spacing-sm);
         border: none;
         background: none;
         cursor: pointer;
-        color: #888;
+        color: var(--color-text-secondary);
         border-radius: 999px;
       }
 
       .settings-button:hover {
-        background-color: rgba(0, 0, 0, 0.06);
+        background-color: var(--color-hover);
       }
 
       .button-group {
         display: flex;
-        gap: 8px;
+        gap: var(--spacing-md);
         align-items: center;
       }
 
       #refresh-button {
-        width: 28px;
-        height: 28px;
-        padding: 6px;
+        width: var(--icon-size);
+        height: var(--icon-size);
+        padding: var(--spacing-sm);
       }
 
       #refresh-button svg {
@@ -212,7 +256,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        z-index: 100;
+        z-index: var(--z-index-dropdown);
       }
       
       .footer-left {
@@ -251,15 +295,17 @@
         color: black;
       }
 
-      /* Score Colors */
+      /* Score styles */
       .score-red {
-        color: red;      /* 0-33% complete */
+        color: var(--color-score-red);      /* 0-33% complete */
       }
+      
       .score-amber {
-        color: orange;   /* 34-66% complete */
+        color: var(--color-score-amber);   /* 34-66% complete */
       }
+      
       .score-green {
-        color: green;    /* 67-100% complete */
+        color: var(--color-score-green);    /* 67-100% complete */
       }
 
       /* Checkbox Group Styles */
@@ -293,7 +339,7 @@
         border: 1px solid #C7D0D4;
         border-radius: 6px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        z-index: 1000;
+        z-index: var(--z-index-modal);
         min-width: 220px;
         display: none;
       }
@@ -376,7 +422,7 @@
         border-radius: 6px;
         padding: 4px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        z-index: 1000;
+        z-index: var(--z-index-modal);
         font-size: 12px;
       }
 
@@ -420,7 +466,7 @@
         background: white;
         padding: 8px;
         border-top: 1px solid #E6E7E8;
-        z-index: 100;
+        z-index: var(--z-index-dropdown);
       }
 
       .component-count {
@@ -452,6 +498,20 @@
     <!-- Message handler is included directly in this file -->
   </head>
   <body>
+    <script>
+      // JavaScript Constants
+      const SCORE_THRESHOLDS = {
+        LOW: 33,
+        MEDIUM: 66,
+        HIGH: 100
+      };
+      
+      const TIMING = {
+        SHORT_DELAY: 100,
+        STANDARD_DELAY: 300,
+        LONG_DELAY: 1000
+      };
+    </script>
     <!-- Context menu -->
     <div id="context-menu" class="context-menu" style="display: none;" role="menu" aria-label="Checkbox options">
       <div class="context-menu-item" id="apply-to-all" role="menuitem" tabindex="0">
@@ -582,9 +642,9 @@
       document.getElementById('custom-rules').addEventListener('input', () => {
         clearTimeout(rebuildTimeout);
         rebuildTimeout = setTimeout(() => {
+          saveCustomRules();
           rebuildComponentList();
-          saveCustomRules(); // Save the rules when they change
-        }, 500); // Debounce 500ms
+        }, TIMING.STANDARD_DELAY + TIMING.SHORT_DELAY); // Debounce for 400ms
       });
 
       // Function to parse rules from the textarea
@@ -642,6 +702,9 @@
         document.getElementById('component-count').textContent = countText;
       }
 
+      // Keep track of which checkboxes should be hidden
+      let hiddenCheckboxes = new Map(); // Map of componentId -> Set of checkboxIds
+      
       // Function to filter components based on search text and hide completed
       function filterComponents(searchText = '', hideCompleted = false, forceApplyFilter = false) {
         console.log(`Filtering components: searchText=${searchText}, hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
@@ -651,6 +714,31 @@
         // Debug what's triggering the filter
         if (forceApplyFilter) {
           console.log('Filter is being explicitly applied (plugin load or checkbox toggle)');
+          
+          // If we're explicitly applying the filter, update the hidden checkboxes map
+          if (hideCompleted) {
+            // Find all checked checkboxes and mark them as hidden
+            sections.forEach(section => {
+              const componentId = section.getAttribute('data-id');
+              if (!componentId) return;
+              
+              // Create a set for this component if it doesn't exist
+              if (!hiddenCheckboxes.has(componentId)) {
+                hiddenCheckboxes.set(componentId, new Set());
+              }
+              
+              // Find all checked checkboxes in this component
+              const checkboxes = section.querySelectorAll('input[type="checkbox"]');
+              checkboxes.forEach(checkbox => {
+                if (checkbox.checked && checkbox.id) {
+                  hiddenCheckboxes.get(componentId).add(checkbox.id);
+                }
+              });
+            });
+          } else {
+            // If hide completed is turned off, clear the hidden checkboxes map
+            hiddenCheckboxes.clear();
+          }
         } else {
           console.log('Normal filtering during user interaction - components will not be hidden');
         }
@@ -751,9 +839,16 @@
               checkboxLabels.forEach(label => {
                 const checkbox = label.querySelector('input[type="checkbox"]');
                 if (checkbox && checkbox.checked) {
-                  // Only hide checked items when filter is explicitly applied
-                  // (not during normal checkbox interactions)
-                  if (forceApplyFilter) {
+                  // Hide checked items in two cases:
+                  // 1. When filter is explicitly applied (plugin load or checkbox toggle)
+                  // 2. When the checkbox is already in our hidden map
+                  const componentId = compData.id;
+                  const checkboxId = checkbox.id;
+                  
+                  if (forceApplyFilter || 
+                      (hiddenCheckboxes.has(componentId) && 
+                       checkboxId && 
+                       hiddenCheckboxes.get(componentId).has(checkboxId))) {
                     label.style.display = 'none';
                   } else {
                     label.style.display = '';
@@ -763,6 +858,13 @@
                   // Always show unchecked checkboxes
                   label.style.display = '';
                   visibleCheckboxes++;
+                  
+                  // Remove from hidden set if it exists
+                  const componentId = compData.id;
+                  const checkboxId = checkbox.id;
+                  if (hiddenCheckboxes.has(componentId) && checkboxId) {
+                    hiddenCheckboxes.get(componentId).delete(checkboxId);
+                  }
                 }
               });
               
@@ -844,7 +946,7 @@
             <path d="M8 3a5 5 0 11-4.546 2.914.5.5 0 01-.908-.417A6 6 0 108 2v1z"/>
             <path d="M8 4.466V.534a.25.25 0 00-.41-.192L5.23 2.308a.25.25 0 000 .384l2.36 1.966A.25.25 0 008 4.466z"/>
           </svg>`;
-        }, 1000);
+        }, TIMING.LONG_DELAY);
       });
 
       // Set up settings button handler
@@ -1173,8 +1275,8 @@
       // Function to determine score class based on percentage
       function getScoreClass(checkedCount, totalCategories) {
         const scorePercent = (checkedCount / totalCategories) * 100;
-        if (scorePercent <= 33) return 'score-red';
-        if (scorePercent <= 66) return 'score-amber';
+        if (scorePercent <= SCORE_THRESHOLDS.LOW) return 'score-red';
+        if (scorePercent <= SCORE_THRESHOLDS.MEDIUM) return 'score-amber';
         return 'score-green';
       }
 
@@ -1362,8 +1464,44 @@
           // Update the score
           updateScore(component.id, checkedCount);
           
-          // We don't hide criteria when they're checked - only when the Hide completed
-          // checkbox is toggled or when the plugin loads
+          // When a checkbox is checked, we need to track if it should be hidden
+          // but we don't actually hide it until the filter is applied
+          if (checkbox.checked && document.getElementById('hide-completed-checkbox').checked) {
+            // If Hide completed is active, add this checkbox to the hidden map
+            // but don't actually hide it yet
+            const componentId = component.id;
+            if (!hiddenCheckboxes.has(componentId)) {
+              hiddenCheckboxes.set(componentId, new Set());
+            }
+            if (checkbox.id) {
+              // Don't add the checkbox we just clicked
+              // This ensures it stays visible until the filter is toggled
+              // hiddenCheckboxes.get(componentId).add(checkbox.id);
+            }
+            
+            // Make sure all OTHER checked checkboxes in this component stay hidden
+            const section = checkboxLabel.closest('.component-section');
+            if (section) {
+              const allCheckboxLabels = section.querySelectorAll('.checkbox-label');
+              allCheckboxLabels.forEach(label => {
+                if (label !== checkboxLabel) { // Don't hide the one we just clicked
+                  const cb = label.querySelector('input[type="checkbox"]');
+                  if (cb && cb.checked && cb.id) {
+                    // Keep other checked checkboxes hidden if they're in our map
+                    if (hiddenCheckboxes.get(componentId).has(cb.id)) {
+                      label.style.display = 'none';
+                    }
+                  }
+                }
+              });
+            }
+          } else if (!checkbox.checked) {
+            // If a checkbox is unchecked, remove it from the hidden map
+            const componentId = component.id;
+            if (hiddenCheckboxes.has(componentId) && checkbox.id) {
+              hiddenCheckboxes.get(componentId).delete(checkbox.id);
+            }
+          }
           
           // Send message to update state
           parent.postMessage({ 
@@ -1378,7 +1516,7 @@
           }, '*');
           
           // Update modification indicator after checkbox change
-          setTimeout(() => updateModificationIndicator(component.id), 100); // Small delay to ensure state is updated
+          setTimeout(() => updateModificationIndicator(component.id), TIMING.SHORT_DELAY); // Small delay to ensure state is updated
         };
       }
 
@@ -1575,7 +1713,7 @@
               setTimeout(() => {
                 // Pass true for forceApplyFilter to ensure items are hidden when plugin loads
                 filterComponents(document.getElementById('component-filter').value, true, true);
-              }, 100); // Small delay to ensure UI is ready
+              }, TIMING.SHORT_DELAY); // Small delay to ensure UI is ready
             }
           }
         }
@@ -1704,7 +1842,7 @@
           }, '*');
           
           // Update modification indicator after applying to all
-          setTimeout(() => updateModificationIndicator(component.id), 100); // Small delay to ensure state is updated
+          setTimeout(() => updateModificationIndicator(component.id), TIMING.SHORT_DELAY); // Small delay to ensure state is updated
         });
 
         // Hide the menu
@@ -1799,8 +1937,8 @@
 
           const scorePercent = (checkedCount / component.totalCategories) * 100;
           let scoreClass = '';
-          if (scorePercent <= 33) scoreClass = 'score-red';
-          else if (scorePercent <= 66) scoreClass = 'score-amber';
+          if (scorePercent <= SCORE_THRESHOLDS.LOW) scoreClass = 'score-red';
+          else if (scorePercent <= SCORE_THRESHOLDS.MEDIUM) scoreClass = 'score-amber';
           else scoreClass = 'score-green';
 
           // Get all the elements after the score span

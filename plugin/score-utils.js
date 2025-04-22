@@ -1,5 +1,12 @@
 // Shared utilities for score calculation and formatting
 
+// Score threshold constants
+const SCORE_THRESHOLDS = {
+  LOW: 33,
+  MEDIUM: 66,
+  HIGH: 100
+};
+
 /**
  * Calculate component score metrics from component state
  * @param {Object} componentState - Component's checkbox state object
@@ -36,9 +43,9 @@ function calculateScoreMetrics(componentState, defaultTotal = 5) {
   const percentage = (checkedCount / totalRules) * 100;
   let colorClass = 'score-red';
   
-  if (percentage > 66) {
+  if (percentage > SCORE_THRESHOLDS.MEDIUM) {
     colorClass = 'score-green';
-  } else if (percentage > 33) {
+  } else if (percentage > SCORE_THRESHOLDS.LOW) {
     colorClass = 'score-amber';
   }
 
