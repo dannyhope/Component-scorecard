@@ -334,32 +334,6 @@ async function loadComponents(skipCache = false) {
   }
 }
 
-// Function to get component usage data
-async function getComponentUsage(componentId) {
-  try {
-    const component = figma.getNodeById(componentId);
-    if (component && component.remote) {
-      return {
-        usageCount: component.remote.instances.length,
-        files: component.remote.instances.reduce((acc, instance) => {
-          const fileKey = instance.fileKey;
-          if (!acc[fileKey]) {
-            acc[fileKey] = {
-              name: instance.fileName || 'Unnamed File',
-              count: 0
-            };
-          }
-          acc[fileKey].count++;
-          return acc;
-        }, {})
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error('Error getting component usage:', error);
-    return null;
-  }
-}
 
 async function main() {
   // Initialize storage

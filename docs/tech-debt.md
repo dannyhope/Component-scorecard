@@ -6,6 +6,14 @@
 🟡 In Progress
 🔴 To Do
 
+## Code Organization and Cleanliness
+
+### Unused Code and Files 🟢
+- ~~Unused `getComponentUsage` function in code.js~~ Fixed: Removed unused function
+- ~~Unused `event-bus.js` file that wasn't imported anywhere~~ Fixed: Removed unused file
+- ~~Redundant `ui-message-handler.js` file with functionality duplicated in ui.html~~ Fixed: Removed redundant file
+- ~~Various unused variables throughout the codebase~~ Fixed: Removed unused variables
+
 ## Document and Memory Structure Issues
 
 ### Component State Management 🔴
