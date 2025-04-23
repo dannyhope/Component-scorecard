@@ -17,8 +17,8 @@
 
 ### Working with new components
 **Given** I have created new components in my Figma file  
-**When** I click the refresh button in the plugin  
-**Then** the new components appear in the list  
+**When** I open the plugin  
+**Then** the new components automatically appear in the list  
 **And** I can assess their quality immediately
 
 ### Focusing on component quality
@@ -29,9 +29,21 @@
 
 ### Reporting issues
 **Given** I encounter a problem while using the plugin  
-**When** I click the "Issues" link  
+**When** I click the "Feedback" link  
 **Then** I am taken to the GitHub Issues page  
 **And** I can easily report bugs or suggest improvements
+
+### Tracking component changes
+**Given** I have checked criteria for a component  
+**When** that component is modified in Figma  
+**Then** I see "needs updating" tags next to criteria that were checked before the modification  
+**And** I can identify which criteria need to be re-verified
+
+### Monitoring non-compliant dependencies
+**Given** I have components that contain instances of other components  
+**When** I view the component list  
+**Then** I see a dependency indicator showing the number of non-compliant component instances  
+**And** I can hover to see a tooltip explaining the non-compliant dependencies
 
 ## As a designer
 
@@ -69,6 +81,19 @@
 **When** I uncheck the "Hide completed" checkbox  
 **Then** all components and criteria become visible again  
 **And** I can see my complete progress
-**When** I need to troubleshoot  
-**Then** I can access debug information  
-**And** I can report detailed information to help fix the issue
+
+### Filtering by selection
+**Given** I have selected one or more components in Figma  
+**When** I view the plugin  
+**Then** I only see the selected components in the list  
+**And** I can focus on assessing just those components
+
+**Given** I have filtered the list to show only selected components  
+**When** I change my selection in Figma  
+**Then** the component list updates automatically to reflect my new selection
+
+### Tracking component changes over time
+**Given** I have checked criteria for a component  
+**When** I view the component  
+**Then** I can see when each criterion was last checked  
+**And** I can identify criteria that need updating due to component changes
