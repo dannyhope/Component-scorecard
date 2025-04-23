@@ -205,15 +205,7 @@
         margin-left: 8px;
       }
 
-      .modified-indicator {
-        width: 6px;
-        height: 6px;
-        background-color: #FF4058;
-        border-radius: 50%;
-        display: inline-block;
-        margin-left: 2px;
-        vertical-align: middle;
-      }
+      /* Removed modified-indicator dot as per user request */
       
       .needs-updating-tag {
         display: inline-block;
@@ -1147,10 +1139,37 @@
         parent.postMessage({ pluginMessage: { type: 'refreshComponents' } }, '*');
       };
       
-      // Auto-refresh on load to ensure components are displayed
+      // Completely restart the plugin UI on load to ensure components are displayed
       setTimeout(() => {
-        console.log('Auto-refreshing components on load...');
-        window.refreshComponents();
+        console.log('Performing full refresh to restore component list...');
+        
+        // Clear any potential errors in the UI
+        const componentList = document.getElementById('component-list');
+        if (componentList) {
+          componentList.innerHTML = '<div class="loading-message">Loading components...</div>';
+        }
+        
+        // Force a complete refresh of all components
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'refreshComponents',
+            fullRefresh: true 
+          } 
+        }, '*');
+        
+        // Add a second retry attempt if needed
+        setTimeout(() => {
+          const list = document.getElementById('component-list');
+          if (list && (!list.children.length || list.children.length === 1 && list.children[0].className === 'loading-message')) {
+            console.log('Second refresh attempt to restore component list...');
+            parent.postMessage({ 
+              pluginMessage: { 
+                type: 'refreshComponents',
+                fullRefresh: true 
+              } 
+            }, '*');
+          }
+        }, 2000);
       }, 500);
 
       // Set up settings button handler
@@ -1532,7 +1551,8 @@
         const showModifiedIndicator = lastModifiedDate && leastRecentCheckDate && 
           lastModifiedDate > leastRecentCheckDate;
         
-        const modifiedDot = showModifiedIndicator ? '<span class="modified-indicator"></span>' : '';
+        // No longer showing the red dot indicator
+        const modifiedDot = '';
         const formattedModifiedDate = lastModifiedDate ? formatDate(lastModifiedDate) : 'never';
         
         // Create score span with proper accessibility
@@ -1885,7 +1905,16 @@
       
       // Main function to build the component list
       function buildComponentList(components, checkboxStates, rules) {
+        console.log('Building component list with components:', components);
         const componentList = document.getElementById('component-list');
+        if (!componentList) {
+          console.error('Component list element not found, creating one...');
+          const newList = document.createElement('div');
+          newList.id = 'component-list';
+          newList.setAttribute('role', 'list');
+          newList.setAttribute('aria-label', 'Components');
+          document.body.appendChild(newList);
+        }
         componentList.innerHTML = ''; // Clear existing components
         
         // Add hidden components button after component list (will be shown/hidden based on filtering)
@@ -1956,18 +1985,31 @@
         });
       }
       
-      // Add a debug log to track component list initialization
+      // Add diagnostic info to help debug
       console.log('UI initialized, waiting for component data...');
       
-      // Ensure the component list container exists
-      if (!document.getElementById('component-list')) {
-        console.error('Component list container not found, creating one...');
-        const listContainer = document.createElement('div');
-        listContainer.id = 'component-list';
-        listContainer.setAttribute('role', 'list');
-        listContainer.setAttribute('aria-label', 'Components');
-        document.body.appendChild(listContainer);
+      // Make sure the component list and its parent elements are properly displayed
+      const componentList = document.getElementById('component-list');
+      if (componentList) {
+        componentList.style.display = 'block';
+        console.log('Component list container found, setting styles...');
+        
+        // Ensure container is visible and has proper styles
+        componentList.style.minHeight = '200px';
+        componentList.style.width = '100%';
+        componentList.style.overflow = 'auto';
+        componentList.style.paddingTop = '8px';
+        componentList.innerHTML = '<div class="component-message">Loading components...</div>';
+      } else {
+        console.error('Component list container not found!');
       }
+      
+      // Force UI refresh
+      setTimeout(() => {
+        console.log('UI refresh triggered');
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }, 200);
       
       // Listen for messages from the plugin code
       window.onmessage = event => {
@@ -2195,36 +2237,36 @@
             .filter(state => state.checked && state.timestamp)
             .map(state => new Date(state.timestamp));
           if (timestamps.length > 0) {
-            leastRecentCheckDate = new Date(Math.min(...timestamps));
           }
         }
-        
-        // Show red dot if component was modified more recently than least recent check
-        const showModifiedIndicator = lastModifiedDate && leastRecentCheckDate && 
-          lastModifiedDate > leastRecentCheckDate;
 
         // Update the UI
         const componentSection = document.querySelector(`[data-id="${componentId}"]`);
         if (componentSection) {
-          const existingDot = componentSection.querySelector('.modified-indicator');
+          // Get the name span for this component
           const nameSpan = componentSection.querySelector('.component-name');
-          
-          if (showModifiedIndicator && !existingDot) {
-            const dot = document.createElement('span');
-            // Set name with modified indicator if present
-            nameSpan.innerHTML = escapeHtml(component.name) + '<span class="modified-indicator"></span>';
-        
-            // Add dependency indicator if component uses subcomponents
-            if (component.dependencyCount > 0) {
-              const dependencyIndicator = document.createElement('span');
-              dependencyIndicator.className = 'dependency-indicator';
-              dependencyIndicator.textContent = component.dependencyCount;
-              dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${component.dependencyCount !== 1 ? 's' : ''}`);
-              nameSpan.appendChild(dependencyIndicator);
-            }
-          } else if (!showModifiedIndicator && existingDot) {
-            existingDot.remove();
+          if (!nameSpan) {
+            console.log('Name span not found for component', componentId);
+            return;
           }
+          
+          // Add dependency indicator if component uses subcomponents
+          if (component.dependencyCount > 0) {
+            // Remove any existing indicators first
+            const existingIndicator = nameSpan.querySelector('.dependency-indicator');
+            if (existingIndicator) {
+              existingIndicator.remove();
+            }
+            
+            // Add the dependency indicator
+            const dependencyIndicator = document.createElement('span');
+            dependencyIndicator.className = 'dependency-indicator';
+            dependencyIndicator.textContent = component.dependencyCount;
+            dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${component.dependencyCount !== 1 ? 's' : ''}`);
+            nameSpan.appendChild(dependencyIndicator);
+          }
+        } else {
+          console.log('Component section not found for component', componentId);
         }
       }
 
@@ -2296,7 +2338,8 @@
 
           // Get all the elements after the score span
           const elements = nameSpan.innerHTML.split('</span>');
-          const modifiedIndicator = elements[0].includes('modified-indicator') ? elements[0] + '</span>' : '';
+          // No longer using the modified-indicator
+          const modifiedIndicator = '';
           const lastModified = elements[2] ? elements[2] + '</span>' : '';
           const usageCount = elements[3] ? elements[3] + '</span>' : '';
           

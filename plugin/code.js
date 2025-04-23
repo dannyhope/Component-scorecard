@@ -258,12 +258,23 @@ async function loadComponents(skipCache = false) {
     
     console.log('Found components across all pages:', allComponents.length);
     
-    // Filter out components in component sets (variants)
-    const components = allComponents.filter(component => 
-      !component.parent || component.parent.type !== 'COMPONENT_SET'
-    );
+    // Filter out components in component sets (variants) and deduplicate by ID
+    const componentMap = new Map();
     
-    console.log(`Found ${allComponents.length} total components, ${components.length} main components`);
+    // First pass - filter out variants and collect components
+    allComponents
+      .filter(component => !component.parent || component.parent.type !== 'COMPONENT_SET')
+      .forEach(component => {
+        // Only add this component if we haven't seen its ID before
+        if (!componentMap.has(component.id)) {
+          componentMap.set(component.id, component);
+        }
+      });
+      
+    // Convert back to array
+    const components = Array.from(componentMap.values());
+    
+    console.log(`Found ${allComponents.length} total components, ${components.length} unique main components`);
     if (components.length > 0) {
       console.log('Component IDs:', components.map(c => c.id));
     } else {
@@ -359,15 +370,24 @@ async function loadComponents(skipCache = false) {
 async function main() {
   // Initialize storage
   await storage.init();
-
-  // Show the UI
   figma.showUI(__html__, { width: 400, height: 600 });
-
-  // Load all pages to enable document change handlers
+  
+  // Make sure all pages are loaded first
+  console.log('Loading all pages...');
   await figma.loadAllPagesAsync();
   
-  // Load components initially
-  await loadComponents();
+  // Initial component load with clean state
+  console.log('Initial component load...');
+  try {
+    await loadComponents(true); // Force a refresh on startup
+    console.log('Initial component load successful');
+  } catch (error) {
+    console.error('Error during initial component load:', error);
+    figma.ui.postMessage({
+      type: 'loadError',
+      error: 'Failed to load components: ' + error.message
+    });
+  }
   
   // Listen for document changes
   figma.on('documentchange', async (event) => {
@@ -386,7 +406,11 @@ async function main() {
     }
     
     // Reload components to reflect any changes
-    await loadComponents();
+    try {
+      await loadComponents();
+    } catch (error) {
+      console.error('Error reloading components after document change:', error);
+    }
   });
   
   // Listen for selection changes
@@ -625,9 +649,9 @@ async function main() {
 // Listen to messages from the UI
 figma.ui.onmessage = async msg => {
   if (msg.type === 'refreshComponents') {
-    console.log('Manual refresh requested');
-    // Force a full refresh of components
-    await loadComponents();
+    console.log('Refresh requested, fullRefresh:', msg.fullRefresh);
+    // If fullRefresh is true, we'll do a complete reload of all components
+    await loadComponents(msg.fullRefresh === true);
   } else if (msg.type === 'getDocumentTitle') {
     figma.ui.postMessage({
       type: 'documentTitle',
