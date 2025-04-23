@@ -347,6 +347,83 @@ async function main() {
   
   // Load components initially
   await loadComponents();
+  
+  // Add selection change handler
+  figma.on('selectionchange', async () => {
+    console.log('Selection changed, checking relevant components...');
+    await handleSelectionChange();
+  });
+  
+  // Function to handle selection changes and filter components accordingly
+  async function handleSelectionChange() {
+    const selection = figma.currentPage.selection;
+    
+    // If nothing is selected, show all components
+    if (selection.length === 0) {
+      console.log('Nothing selected, showing all components');
+      figma.ui.postMessage({
+        type: 'filterBySelection',
+        selectedComponentIds: null // null means show all
+      });
+      return;
+    }
+    
+    // Case 1: Two or more components are directly selected
+    const selectedComponents = selection.filter(node => node.type === 'COMPONENT');
+    if (selectedComponents.length >= 2) {
+      console.log(`${selectedComponents.length} components directly selected`);
+      const componentIds = selectedComponents.map(comp => comp.id);
+      figma.ui.postMessage({
+        type: 'filterBySelection',
+        selectedComponentIds: componentIds
+      });
+      return;
+    }
+    
+    // Case 2 & 3: Section or frame containing components is selected
+    const containedComponentIds = [];
+    
+    // Process each selected node
+    for (const node of selection) {
+      // Only check SECTION or FRAME nodes
+      if (node.type !== 'SECTION' && node.type !== 'FRAME') continue;
+      
+      // Find all components within this node
+      const findComponents = (parent) => {
+        if (!parent.children) return;
+        
+        for (const child of parent.children) {
+          if (child.type === 'COMPONENT') {
+            containedComponentIds.push(child.id);
+          }
+          
+          // Recursively check children
+          if (child.children) {
+            findComponents(child);
+          }
+        }
+      };
+      
+      // Find components in this node
+      findComponents(node);
+    }
+    
+    // If we found components in the selection, filter to show only those
+    if (containedComponentIds.length > 0) {
+      console.log(`Found ${containedComponentIds.length} components in selected frames/sections`);
+      figma.ui.postMessage({
+        type: 'filterBySelection',
+        selectedComponentIds: containedComponentIds
+      });
+      return;
+    }
+    
+    // If no special criteria met, show all components
+    figma.ui.postMessage({
+      type: 'filterBySelection',
+      selectedComponentIds: null
+    });
+  }
 
   // Track component IDs for change detection
   let knownComponentIds = new Set();

@@ -134,21 +134,7 @@
         align-items: center;
       }
 
-      #refresh-button {
-        width: var(--icon-size);
-        height: var(--icon-size);
-        padding: var(--spacing-sm);
-      }
-
-      #refresh-button svg {
-        width: 16px;
-        height: 16px;
-      }
-
-      #refresh-button.spin svg {
-        animation: spin 1s linear infinite;
-      }
-
+      /* Spinner animation - kept for other loading indicators */
       @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
@@ -529,6 +515,12 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+      }
+      
+      /* Selection filter indicator - now hidden permanently */
+      .selectionFilterIndicator {
+        display: none !important; /* Permanently hidden */
+      
         position: fixed;
         bottom: 0;
         left: 0;
@@ -588,18 +580,9 @@
         Apply to all components
       </div>
     </div>
-    <!-- Component count and settings row -->
+    <!-- Component count row -->
     <div class="component-count-row">
       <span id="component-count">No components need checking</span>
-      <div class="button-group">
-        <button class="settings-button" id="refresh-button" title="Refresh component list">
-          <svg viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 3a5 5 0 11-4.546 2.914.5.5 0 01-.908-.417A6 6 0 108 2v1z"/>
-            <path d="M8 4.466V.534a.25.25 0 00-.41-.192L5.23 2.308a.25.25 0 000 .384l2.36 1.966A.25.25 0 008 4.466z"/>
-          </svg>
-        </button>
-        <a href="https://github.com/dannyhope/Component-scorecard/issues" target="_blank" class="settings-button" id="feedback-link" title="Submit Feedback">Feedback</a>
-      </div>
     </div>
     <!-- Filter section (hidden) -->
     <div class="filter-section">
@@ -759,6 +742,7 @@
       let checkboxStates = {};
       const componentState = {};
       let viewStates = {}; // Store component view states
+      let selectedComponentIds = null; // Track which components are selected in Figma
       let lastAutoExpandedId = null; // Track which component was last auto-expanded
       let allComponents = []; // Store all components for filtering
 
@@ -775,11 +759,15 @@
       // Keep track of which checkboxes should be hidden
       let hiddenCheckboxes = new Map(); // Map of componentId -> Set of checkboxIds
       
-      // Function to filter components based on search text and hide completed
+      // Function to filter components based on search text, hide completed, and selection
       function filterComponents(searchText = '', hideCompleted = false, forceApplyFilter = false) {
         console.log(`Filtering components: searchText=${searchText}, hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
+        console.log(`Selected component IDs:`, selectedComponentIds);
         const sections = document.querySelectorAll('.component-section');
         const now = new Date();
+        
+        // Update selection filter indicator
+        updateSelectionFilterIndicator();
         
         // Handle filter application mode
         handleFilterMode(forceApplyFilter, hideCompleted, sections);
@@ -986,14 +974,28 @@
         // Check if component should be hidden based on completion
         const shouldHideBasedOnCompletion = shouldHideComponent(compData, hideCompleted, forceApplyFilter);
         
-        // If either filter fails, hide the component and return early
-        if (!nameMatch || shouldHideBasedOnCompletion) {
+        // Check if component should be hidden based on selection filtering
+        const shouldHideBasedOnSelection = shouldHideComponentBySelection(compData.id);
+        
+        // Function to check if component should be hidden due to selection filtering
+        function shouldHideComponentBySelection(componentId) {
+          // If no selection filtering is active, don't hide anything
+          if (!selectedComponentIds) return false;
+          
+          // Hide component if it's not in the selection filter list
+          return !selectedComponentIds.includes(componentId);
+        }
+        
+        // If any filter fails, hide the component and return early
+        if (!nameMatch || shouldHideBasedOnCompletion || shouldHideBasedOnSelection) {
           section.style.display = 'none';
           // Track why the component is hidden
           if (shouldHideBasedOnCompletion) {
             section.setAttribute('data-hidden-reason', 'completed');
           } else if (!nameMatch) {
             section.setAttribute('data-hidden-reason', 'name-filter');
+          } else if (shouldHideBasedOnSelection) {
+            section.setAttribute('data-hidden-reason', 'selection-filter');
           }
           return { 
             isVisible: false, 
@@ -1124,26 +1126,18 @@
         }
       });
       
-      // Set up refresh button handler
-      document.getElementById('refresh-button').addEventListener('click', () => {
-        // Show loading state
-        const refreshButton = document.getElementById('refresh-button');
-        refreshButton.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor" class="spin">
-          <path d="M8 3a5 5 0 11-4.546 2.914.5.5 0 01-.908-.417A6 6 0 108 2v1z"/>
-          <path d="M8 4.466V.534a.25.25 0 00-.41-.192L5.23 2.308a.25.25 0 000 .384l2.36 1.966A.25.25 0 008 4.466z"/>
-        </svg>`;
-        
+      // Add manual refresh function and automatically refresh on load
+      window.refreshComponents = function() {
+        console.log('Manually refreshing components...');
         // Send message to the plugin to refresh components
         parent.postMessage({ pluginMessage: { type: 'refreshComponents' } }, '*');
-        
-        // Reset button after a short delay
-        setTimeout(() => {
-          refreshButton.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 3a5 5 0 11-4.546 2.914.5.5 0 01-.908-.417A6 6 0 108 2v1z"/>
-            <path d="M8 4.466V.534a.25.25 0 00-.41-.192L5.23 2.308a.25.25 0 000 .384l2.36 1.966A.25.25 0 008 4.466z"/>
-          </svg>`;
-        }, TIMING.LONG_DELAY);
-      });
+      };
+      
+      // Auto-refresh on load to ensure components are displayed
+      setTimeout(() => {
+        console.log('Auto-refreshing components on load...');
+        window.refreshComponents();
+      }, 500);
 
       // Set up settings button handler
       // document.getElementById('settings-button').addEventListener('click', (e) => {
@@ -1850,6 +1844,12 @@
         return container;
       }
 
+      // Function to update the selection filter indicator (now a no-op since we're hiding the indicator)
+      function updateSelectionFilterIndicator() {
+        // Do nothing - we're not showing the indicator anymore
+        return;
+      }
+      
       // Main function to build the component list
       function buildComponentList(components, checkboxStates, rules) {
         const componentList = document.getElementById('component-list');
@@ -1923,10 +1923,26 @@
         });
       }
       
+      // Add a debug log to track component list initialization
+      console.log('UI initialized, waiting for component data...');
+      
+      // Ensure the component list container exists
+      if (!document.getElementById('component-list')) {
+        console.error('Component list container not found, creating one...');
+        const listContainer = document.createElement('div');
+        listContainer.id = 'component-list';
+        listContainer.setAttribute('role', 'list');
+        listContainer.setAttribute('aria-label', 'Components');
+        document.body.appendChild(listContainer);
+      }
+      
       // Listen for messages from the plugin code
       window.onmessage = event => {
         const message = event.data.pluginMessage;
         if (!message) return;
+        
+        // Log message for debugging
+        console.log('Message received:', message.type);
         
         // Load user preferences if available
         if (message.userPreferences) {
@@ -1972,15 +1988,18 @@
           
           // Add retry button handler
           document.getElementById('retry-button').addEventListener('click', () => {
-            // Show loading state
-            const refreshButton = document.getElementById('refresh-button');
-            refreshButton.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor" class="spin">
-              <path d="M8 3a5 5 0 11-4.546 2.914.5.5 0 01-.908-.417A6 6 0 108 2v1z"/>
-              <path d="M8 4.466V.534a.25.25 0 00-.41-.192L5.23 2.308a.25.25 0 000 .384l2.36 1.966A.25.25 0 008 4.466z"/>
-            </svg>`;
+            // Show loading state by updating the button text
+            const retryButton = document.getElementById('retry-button');
+            const originalText = retryButton.textContent;
+            retryButton.textContent = 'Loading...';
             
             // Send message to the plugin to refresh components
             parent.postMessage({ pluginMessage: { type: 'refreshComponents' } }, '*');
+            
+            // Reset button text after a delay
+            setTimeout(() => {
+              retryButton.textContent = originalText;
+            }, 2000);
           });
         } else if (message.type === 'loadComponents') {
           // Store the component data
@@ -2006,9 +2025,6 @@
           if (message.selectedComponentId) {
             selectComponent(message.selectedComponentId, true);
           }
-          
-          // Hide the loading indicator
-          document.getElementById('refresh-button').classList.remove('spin');
         } else if (message.type === 'updateScore') {
           // Update the score for a component
           const component = allComponents.find(c => c.id === message.componentId);
@@ -2031,6 +2047,18 @@
             // Clear selection
             selectComponent(null);
           }
+        } else if (message.type === 'filterBySelection') {
+          // Update component filtering based on selection in Figma
+          console.log('Filtering by selection:', message.selectedComponentIds);
+          selectedComponentIds = message.selectedComponentIds; // Could be null (show all) or array of IDs
+          
+          // Apply filtering with current filter state
+          const searchText = document.getElementById('component-filter').value;
+          const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
+          filterComponents(searchText, hideCompleted, true); // Force apply the filter
+          
+          // Show/hide selection filter indicator
+          updateSelectionFilterIndicator();
         } else if (message.type === 'dependencyCountsUpdated') {
           // Dependency counts have been updated, update the UI
           console.log('Dependency counts updated:', message.dependencyCounts);
