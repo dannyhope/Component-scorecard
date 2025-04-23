@@ -503,6 +503,26 @@
         background: #F3DAF4;
         color: #37006E;
       }
+      
+      /* Hidden components button */
+      .hiddenComponentsButton {
+        display: none; /* Hidden by default */
+        width: 100%;
+        text-align: center;
+        padding: 8px;
+        margin-top: 12px;
+        border: none;
+        background-color: #f0f0f0;
+        color: #666;
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+      
+      .hiddenComponentsButton:hover {
+        background-color: #e0e0e0;
+      }
 
       /* Component Count Styles */
       .component-count-row {
@@ -788,6 +808,17 @@
         }
         
         console.log(`Filter results: ${visibleCount} components visible, ${hiddenCount} hidden (${hiddenDueToCompletion} due to completion)`);
+        
+        // Show or hide the "Show hidden components" button based on filter results
+        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
+        if (hiddenComponentsButton) {
+          if (hiddenDueToCompletion > 0) {
+            hiddenComponentsButton.style.display = 'block';
+            hiddenComponentsButton.textContent = `Show ${hiddenDueToCompletion} hidden component${hiddenDueToCompletion !== 1 ? 's' : ''}`;
+          } else {
+            hiddenComponentsButton.style.display = 'none';
+          }
+        }
         
         // Update component count after filtering
         updateComponentCount();
@@ -1822,6 +1853,31 @@
       // Main function to build the component list
       function buildComponentList(components, checkboxStates, rules) {
         const componentList = document.getElementById('component-list');
+        componentList.innerHTML = ''; // Clear existing components
+        
+        // Add hidden components button after component list (will be shown/hidden based on filtering)
+        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
+        if (!hiddenComponentsButton) {
+          const newButton = document.createElement('button');
+          newButton.id = 'hiddenComponentsButton';
+          newButton.className = 'hiddenComponentsButton';
+          newButton.setAttribute('aria-live', 'polite');
+          newButton.setAttribute('tabindex', '0');
+          newButton.setAttribute('title', 'Show all components that are currently hidden');
+          newButton.addEventListener('click', () => {
+            // When button is clicked, uncheck 'Hide completed' and show all components
+            const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+            if (hideCompletedCheckbox) {
+              hideCompletedCheckbox.checked = false;
+              // Trigger the change event to update the UI
+              const event = new Event('change');
+              hideCompletedCheckbox.dispatchEvent(event);
+            }
+          });
+          
+          // Insert after component list
+          componentList.parentNode.insertBefore(newButton, componentList.nextSibling);
+        }
         
         components.forEach((component, index) => {
           // Create component section
