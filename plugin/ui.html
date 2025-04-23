@@ -215,6 +215,20 @@
         vertical-align: middle;
       }
       
+      .needs-updating-tag {
+        display: inline-block;
+        margin-left: 4px;
+        font-size: 9px;
+        padding: 1px 4px;
+        border-radius: 3px;
+        background-color: #ffecec;
+        color: #E4003D;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.2px;
+        cursor: help;
+      }
+      
       .dependency-indicator {
         display: inline-flex;
         align-items: center;
@@ -1550,13 +1564,7 @@
           }
         });
         
-        // Add modification indicator if needed
-        if (showModifiedIndicator) {
-          const modifiedIndicator = document.createElement('span');
-          modifiedIndicator.className = 'modified-indicator';
-          modifiedIndicator.setAttribute('aria-label', 'Component modified since last check');
-          nameSpan.appendChild(modifiedIndicator);
-        }
+        // No longer showing the red dot indicator as per user request
         
         // Add component name text
         nameSpan.appendChild(document.createTextNode(component.name + ' '));
@@ -1732,10 +1740,8 @@
         checkbox.id = checkboxId;
 
         // Set checkbox state from saved state
-        checkbox.checked = checkboxStates[component.id]
-          && checkboxStates[component.id][category]
-          && checkboxStates[component.id][category][ruleText]
-          && checkboxStates[component.id][category][ruleText].checked || false;
+        const state = checkboxStates[component.id]?.[category]?.[ruleText];
+        checkbox.checked = state?.checked || false;
 
         // Add data attributes for finding the checkbox later
         checkbox.setAttribute('data-category', category);
@@ -1758,12 +1764,39 @@
         timestampSpan.className = 'checkbox-timestamp';
         
         // Set initial timestamp if exists
-        const state = checkboxStates[component.id]?.[category]?.[ruleText];
         if (state?.checked && state?.timestamp) {
-            const date = new Date(state.timestamp);
-            const formattedDate = formatDate(date);
+            const checkDate = new Date(state.timestamp);
+            const formattedDate = formatDate(checkDate);
             timestampSpan.textContent = formattedDate;
             timestampSpan.setAttribute('aria-label', `Last checked ${formattedDate}`);
+            
+            // Debug: Log component and checkbox timestamps
+            console.log(`Debug - ${component.name} - ${ruleText} - Check date:`, checkDate);
+            
+            // Check if the component was modified after this checkbox was checked
+            if (component.lastModified) {
+                const modifiedDate = new Date(component.lastModified);
+                console.log(`Debug - ${component.name} - Last modified:`, modifiedDate);
+                
+                // Calculate time difference
+                const needsUpdate = checkDate < modifiedDate && checkbox.checked;
+                console.log(`Debug - ${component.name} - Needs update:`, needsUpdate, 
+                            '(Check time:', checkDate.toISOString(), 
+                            'Modified time:', modifiedDate.toISOString(), ')');
+                
+                if (needsUpdate) {
+                    // Create and add the 'needs updating' tag
+                    const needsUpdateTag = document.createElement('span');
+                    needsUpdateTag.className = 'needs-updating-tag';
+                    needsUpdateTag.textContent = 'needs updating';
+                    needsUpdateTag.setAttribute('title', 'The component has changed since this was checked');
+                    timestampSpan.appendChild(document.createTextNode(' '));
+                    timestampSpan.appendChild(needsUpdateTag);
+                    console.log(`Debug - Added 'needs updating' tag to ${component.name} - ${ruleText}`);
+                }
+            } else {
+                console.log(`Debug - ${component.name} has no lastModified date`);
+            }
         } else {
             timestampSpan.setAttribute('aria-hidden', 'true');
         }

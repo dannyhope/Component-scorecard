@@ -74,6 +74,11 @@ class Storage {
     if (!this.cache.modifiedDates) await this.init();
     return this.cache.modifiedDates[componentId] || null;
   }
+  
+  async getAllModifiedDates() {
+    if (!this.cache.modifiedDates) await this.init();
+    return this.cache.modifiedDates;
+  }
 
   async getViewState(componentId) {
     if (!this.cache.viewStates) await this.init();
@@ -283,6 +288,22 @@ async function loadComponents(skipCache = false) {
     // Note: Only components that currently exist in the document are sent to the UI
     // Data for deleted components is preserved in storage but not shown in the UI
     // This allows for restoration of data if a component is recreated (e.g., via undo)
+    
+    // First get all the modification dates at once (since this is async)
+    const modifiedDates = await storage.getAllModifiedDates();
+    
+    // Update current modification dates for all components if needed
+    for (const component of components) {
+      // If component doesn't have a modified date or we need to refresh it
+      if (!modifiedDates[component.id] || skipCache) {
+        // Set the current time as the modification date
+        await storage.updateModifiedDates(component.id, new Date().toISOString());
+      }
+    }
+    
+    // Now get the updated dates
+    const updatedModifiedDates = await storage.getAllModifiedDates();
+    
     const componentData = components.map(component => {
       // Get the checked count using the storage states
       const componentState = states[component.id] || {};
@@ -300,7 +321,7 @@ async function loadComponents(skipCache = false) {
         id: component.id,
         name: component.name,
         checkedCount,
-        lastModified: storage.getModifiedDates(component.id) || null,
+        lastModified: updatedModifiedDates[component.id] || null,
         usageCount: usageCounts.get(component.id) || 0,
         dependencyCount: dependencyCounts.get(component.id) || 0
       };
@@ -348,7 +369,27 @@ async function main() {
   // Load components initially
   await loadComponents();
   
-  // Add selection change handler
+  // Listen for document changes
+  figma.on('documentchange', async (event) => {
+    console.log('Document changed:', event);
+    
+    // Check if any components were modified in this change
+    if (event && event.documentChanges) {
+      for (const change of event.documentChanges) {
+        // If a node was modified and it's a component
+        if (change.type === 'PROPERTY_CHANGE' && change.node && change.node.type === 'COMPONENT') {
+          console.log('Component modified:', change.node.name);
+          // Update the component's last modified date
+          await storage.updateModifiedDates(change.node.id, new Date().toISOString());
+        }
+      }
+    }
+    
+    // Reload components to reflect any changes
+    await loadComponents();
+  });
+  
+  // Listen for selection changes
   figma.on('selectionchange', async () => {
     console.log('Selection changed, checking relevant components...');
     await handleSelectionChange();
