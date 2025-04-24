@@ -752,26 +752,27 @@
       function filterComponents(searchText = '', hideCompleted = false, forceApplyFilter = false) {
         console.log(`Filtering components: searchText=${searchText}, hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
         console.log(`Selected component IDs:`, selectedComponentIds);
+        
         const sections = document.querySelectorAll('.component-section');
         if (sections.length === 0) return;
         
-        // Update selection filter indicator
+        // Process filtering in sequence
         updateSelectionFilterIndicator();
-        
-        // Handle filter application mode
         handleFilterMode(forceApplyFilter, hideCompleted, sections);
-        
-        // Prepare for filtering
+        const results = processComponentFiltering(searchText, hideCompleted, forceApplyFilter, sections);
+        updateUIAfterFiltering(results.hiddenDueToCompletion);
+      }
+      
+      // Helper function to process component filtering
+      function processComponentFiltering(searchText, hideCompleted, forceApplyFilter, sections) {
         const normalizedSearchText = searchText.toLowerCase();
         const componentData = gatherComponentData(sections);
-        
-        // Apply filters and track results
-        const results = applyFiltersToAllComponents(componentData, normalizedSearchText, hideCompleted, forceApplyFilter);
-        
-        // Update UI based on filter results
-        updateHiddenComponentsButton(results.hiddenDueToCompletion);
-        
-        // Update component count after filtering
+        return applyFiltersToAllComponents(componentData, normalizedSearchText, hideCompleted, forceApplyFilter);
+      }
+      
+      // Helper function to update UI after filtering
+      function updateUIAfterFiltering(hiddenDueToCompletion) {
+        updateHiddenComponentsButton(hiddenDueToCompletion);
         updateComponentCount();
       }
       
@@ -1009,7 +1010,32 @@
       function applyFiltersToComponent(compData, searchText, hideCompleted, forceApplyFilter) {
         const section = compData.element;
         
-        // Get clean component name for text matching
+        // Check if component should be hidden based on filters
+        const filterResult = checkComponentFilters(compData, searchText, hideCompleted, forceApplyFilter);
+        if (filterResult.shouldHide) {
+          setComponentVisibility(section, false, filterResult.reason);
+          return { 
+            isVisible: false, 
+            hiddenDueToCompletion: filterResult.reason === 'completed' 
+          };
+        }
+        
+        // Component passed all filters, show it
+        setComponentVisibility(section, true);
+        
+        // Check if component should be hidden due to no visible checkboxes
+        if (shouldHideComponentDueToNoVisibleCheckboxes(compData, hideCompleted, forceApplyFilter)) {
+          console.log(`Hiding ${compData.name} because it has no visible checkboxes after filtering`);
+          setComponentVisibility(section, false, 'completed');
+          return { isVisible: false, hiddenDueToCompletion: true };
+        }
+        
+        return { isVisible: true, hiddenDueToCompletion: false };
+      }
+      
+      // Helper function to check if component should be hidden based on filters
+      function checkComponentFilters(compData, searchText, hideCompleted, forceApplyFilter) {
+        const section = compData.element;
         const cleanName = getCleanComponentName(section);
         
         // Check all filter conditions
@@ -1017,39 +1043,28 @@
         const shouldHideBasedOnCompletion = shouldHideComponent(compData, hideCompleted, forceApplyFilter);
         const shouldHideBasedOnSelection = shouldHideComponentBySelection(compData.id);
         
-        // If any filter fails, hide the component and return early
-        if (!nameMatch || shouldHideBasedOnCompletion || shouldHideBasedOnSelection) {
-          // Determine the reason for hiding
-          let reason = null;
-          if (shouldHideBasedOnCompletion) {
-            reason = 'completed';
-          } else if (!nameMatch) {
-            reason = 'name-filter';
-          } else if (shouldHideBasedOnSelection) {
-            reason = 'selection-filter';
-          }
-          
-          setComponentVisibility(section, false, reason);
-          return { 
-            isVisible: false, 
-            hiddenDueToCompletion: shouldHideBasedOnCompletion 
-          };
+        // Determine if component should be hidden and why
+        if (shouldHideBasedOnCompletion) {
+          return { shouldHide: true, reason: 'completed' };
         }
         
-        // Component passed all filters, show it
-        setComponentVisibility(section, true);
+        if (!nameMatch) {
+          return { shouldHide: true, reason: 'name-filter' };
+        }
         
-        // Handle checkbox visibility if we're hiding completed items
+        if (shouldHideBasedOnSelection) {
+          return { shouldHide: true, reason: 'selection-filter' };
+        }
+        
+        return { shouldHide: false };
+      }
+      
+      // Helper function to check if component should be hidden due to no visible checkboxes
+      function shouldHideComponentDueToNoVisibleCheckboxes(compData, hideCompleted, forceApplyFilter) {
+        if (!hideCompleted || !compData.isExpanded) return false;
+        
         const hasVisibleCheckboxes = handleCheckboxVisibility(compData, hideCompleted, forceApplyFilter);
-        
-        // If no checkboxes are visible after filtering and component is expanded, hide it
-        if (hideCompleted && compData.isExpanded && !hasVisibleCheckboxes) {
-          console.log(`Hiding ${compData.name} because it has no visible checkboxes after filtering`);
-          setComponentVisibility(section, false, 'completed');
-          return { isVisible: false, hiddenDueToCompletion: true };
-        }
-        
-        return { isVisible: true, hiddenDueToCompletion: false };
+        return !hasVisibleCheckboxes;
       }
       
       // Helper function to determine if a component should be hidden based on completion
