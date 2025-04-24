@@ -871,11 +871,34 @@
             console.error('Error loading initial state:', error);
           });
           
+          // Subscribe to component state changes
+          stateManager.subscribe('components', (components) => {
+            console.log('Components updated in state manager');
+            
+            // Update local components array for backward compatibility
+            allComponents = Array.from(components.values());
+            
+            // We don't rebuild the entire UI here as that would be disruptive
+            // Instead, we just update specific properties that might have changed
+            allComponents.forEach(component => {
+              // Update modification indicators
+              updateModificationIndicator(component.id);
+              
+              // Update dependency indicators if needed
+              if (component.dependencies) {
+                updateDependencyIndicators(component.dependencies);
+              }
+            });
+            
+            // Update component count
+            updateComponentCount();
+          });
+          
           // Subscribe to filter changes
           stateManager.subscribe('filters', (filters) => {
             console.log('Filters updated in state manager:', filters);
             // Update UI based on new filter state
-            const searchInput = document.getElementById('search-input');
+            const searchInput = document.getElementById('component-filter');
             if (searchInput && searchInput.value !== filters.search) {
               searchInput.value = filters.search;
             }
@@ -883,6 +906,19 @@
             const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
             if (hideCompletedCheckbox && hideCompletedCheckbox.checked !== !filters.showChecked) {
               hideCompletedCheckbox.checked = !filters.showChecked;
+            }
+            
+            // Update selection if needed
+            if (filters.selectedComponentIds && filters.selectedComponentIds.length > 0) {
+              const componentId = filters.selectedComponentIds[0];
+              // Only update UI if the selection actually changed
+              const currentSelectedElement = document.querySelector('.component-title.selected');
+              const currentSelectedId = currentSelectedElement ? 
+                currentSelectedElement.closest('.component-section').getAttribute('data-id') : null;
+                
+              if (currentSelectedId !== componentId) {
+                selectComponent(componentId, true);
+              }
             }
             
             // Apply filters
@@ -1709,6 +1745,14 @@
       // Function to handle component selection
       function selectComponent(componentId, fromFigma = false) {
         console.log('Selecting component in UI:', componentId, 'fromFigma:', fromFigma);
+        
+        // Update state manager if available and not called from Figma already
+        if (window.stateManager && !fromFigma) {
+          // Update selected component in state manager
+          stateManager.setFilters({
+            selectedComponentIds: componentId ? [componentId] : []
+          });
+        }
         
         // Remove previous selection
         document.querySelectorAll('.component-section').forEach(section => {
@@ -2618,6 +2662,30 @@
           const components = message.components;
           checkboxStates = message.checkboxStates || {};
           viewStates = message.viewStates || {};
+          
+          // Use state manager if available
+          if (window.stateManager) {
+            // Update components in state manager
+            stateManager.setComponents(components);
+            
+            // Update checkbox states if not already loaded
+            if (Object.keys(checkboxStates).length > 0) {
+              // We'll update the state manager with any checkbox states received from the plugin
+              // This ensures we have all states, even if loadInitialState hasn't completed yet
+              const existingStates = stateManager.getCheckboxStates();
+              const combinedStates = { ...existingStates, ...checkboxStates };
+              
+              // Only trigger an update if there are actually changes
+              if (JSON.stringify(existingStates) !== JSON.stringify(combinedStates)) {
+                // We're manually updating the internal state without triggering storage operations
+                // This is a special case for initial load
+                stateManager._state.checkboxStates = combinedStates;
+                stateManager._notifyListeners('checkboxes');
+              }
+            }
+          }
+          
+          // Keep local reference for backward compatibility
           allComponents = components;
           
           // Build the component list
@@ -2635,6 +2703,12 @@
           
           // If a component is selected in Figma, select it in the UI
           if (message.selectedComponentId) {
+            // Update selection in state manager
+            if (window.stateManager) {
+              stateManager.setFilters({
+                selectedComponentIds: [message.selectedComponentId]
+              });
+            }
             selectComponent(message.selectedComponentId, true);
           }
         } else if (message.type === 'updateScore') {
@@ -2842,7 +2916,23 @@
 
       // Function to update dependency indicators
       function updateDependencyIndicators(dependencyCounts) {
-        // For each component, update its dependency indicator
+        // Update component dependencies in the state manager if available
+        if (window.stateManager) {
+          const components = stateManager.getComponents();
+          
+          // Update dependencies in components
+          for (const [componentId, count] of Object.entries(dependencyCounts)) {
+            const component = components.get(componentId);
+            if (component) {
+              // Update component with dependency information
+              stateManager.updateComponent(componentId, {
+                dependencies: count
+              });
+            }
+          }
+        }
+        
+        // For each component, update its dependency indicator in the UI
         for (const [componentId, count] of Object.entries(dependencyCounts)) {
           const componentSection = document.querySelector(`[data-id='${componentId}']`);
           if (!componentSection) continue;
