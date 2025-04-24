@@ -6,8 +6,6 @@
 🔴 To Do
 🔴🔴 Requires Build Process
 
-## Current Issues
-
 ### Architecture and Performance
 
 #### 🔴 Structural Complexity
@@ -41,19 +39,7 @@
 
 ### UI and Codebase Structure
 
-#### 🔴 Accessibility Issues
-- Missing ARIA attributes for better screen reader support
-- No keyboard navigation support for component selection and checkboxes
-- Color contrast issues with score indicators (red/amber/green)
-- Text size may be too small for some users (12px)
-- No focus management for component list
-
-#### 🔴 Missing Features
-- No settings page for configuration
-- Missing visual debug information
-- No keyboard shortcuts for common operations
-
-#### 🔴 Component Detection Issues (April 2025)
+#### Component Detection Issues (April 2025)
 - The plugin doesn't reliably detect newly created components automatically:
   - The `documentchange` event doesn't consistently trigger for new component creation
   - We've tried using `findAllWithCriteria()` instead of `findAll()` but it's still unreliable
@@ -68,7 +54,14 @@
 
 This is done by setting `display: none` on the relevant CSS classes in `plugin/ui.html`. These changes are non-destructive and can be easily reverted by removing or commenting out the CSS rules.
 
-## 🔴🔴 Requires Build Process to be Setup
+
+
+
+
+
+
+
+## 🔴 Requires Build Process to be Setup
 
 ### UI Modernization
 
@@ -103,6 +96,11 @@ This is done by setting `display: none` on the relevant CSS classes in `plugin/u
 
 #### Build Features
 - Add build/version number in UI (mentioned in ideas.md)
+
+
+
+
+
 
 ## Pending Architecture Improvements
 
