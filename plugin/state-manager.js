@@ -6,6 +6,12 @@
  * for reading and writing state data.
  */
 
+// Score thresholds for determining score colors
+const SCORE_THRESHOLDS = {
+  LOW: 33, // Below this is red
+  MEDIUM: 66 // Below this is amber, above is green
+};
+
 class StateManager {
   constructor() {
     // Private state storage
@@ -244,6 +250,22 @@ class StateManager {
     const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
     return { checked, total, percentage };
   }
+  
+  /**
+   * Get the score class (color) based on the score percentage
+   * @param {number} checkedCount - Number of checked items
+   * @param {number} totalCount - Total number of items
+   * @returns {string} The CSS class for the score
+   */
+  getScoreClass(checkedCount, totalCount) {
+    if (totalCount === 0) return 'score-red';
+    
+    const percentage = (checkedCount / totalCount) * 100;
+    
+    if (percentage <= SCORE_THRESHOLDS.LOW) return 'score-red';
+    if (percentage <= SCORE_THRESHOLDS.MEDIUM) return 'score-amber';
+    return 'score-green';
+  }
 
   /**
    * Subscribe to state changes
@@ -318,6 +340,8 @@ class StateManager {
   }
 }
 
-// Create and export a singleton instance
+// Create a singleton instance
 const stateManager = new StateManager();
-export default stateManager;
+
+// Make it available globally
+window.stateManager = stateManager;

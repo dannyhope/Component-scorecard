@@ -652,6 +652,8 @@
       }
     </style>
     <!-- Message handler is included directly in this file -->
+    <!-- Include state manager for centralized state management -->
+    <script src="state-manager.js"></script>
   </head>
   <body>
     <!-- Notification container for storage retries and errors -->
@@ -846,6 +848,41 @@
       let selectedComponentIds = null; // Track which components are selected in Figma
       let lastAutoExpandedId = null; // Track which component was last auto-expanded
       let allComponents = []; // Store all components for filtering
+      let rules = null; // Rules for component evaluation
+      
+      // Setup state manager initialization
+      window.addEventListener('load', () => {
+        // Initialize filters in state manager
+        if (window.stateManager) {
+          console.log('Setting up state manager integration');
+          stateManager.setFilters({
+            search: '',
+            showChecked: true,
+            showUnchecked: true,
+            selectedComponentIds: []
+          });
+          
+          // Subscribe to filter changes
+          stateManager.subscribe('filters', (filters) => {
+            console.log('Filters updated in state manager:', filters);
+            // Update UI based on new filter state
+            const searchInput = document.getElementById('search-input');
+            if (searchInput && searchInput.value !== filters.search) {
+              searchInput.value = filters.search;
+            }
+            
+            const hideCompletedCheckbox = document.getElementById('hide-completed');
+            if (hideCompletedCheckbox && hideCompletedCheckbox.checked !== !filters.showChecked) {
+              hideCompletedCheckbox.checked = !filters.showChecked;
+            }
+            
+            // Apply filters
+            debouncedFilterComponents(filters.search, !filters.showChecked, false);
+          });
+        } else {
+          console.warn('State manager not available');
+        }
+      });
 
       // Update component count in UI
       function updateComponentCount() {
@@ -1344,6 +1381,15 @@
         const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
         // Show immediate visual feedback that filtering will happen
         document.getElementById('component-list').classList.add('filtering');
+        
+        // Update state manager with search filter
+        if (window.stateManager) {
+          stateManager.setFilters({
+            search: e.target.value,
+            showChecked: !hideCompleted
+          });
+        }
+        
         // Don't force apply filter during search - just filter by name
         debouncedFilterComponents(e.target.value, hideCompleted, false);
       });
@@ -1360,6 +1406,13 @@
             }
           }
         }, '*');
+        
+        // Update state manager with checkbox state
+        if (window.stateManager) {
+          stateManager.setFilters({
+            showChecked: !e.target.checked
+          });
+        }
         
         // Force a re-render of the component list
         const searchText = document.getElementById('component-filter').value;
@@ -1704,6 +1757,12 @@
 
       // Function to determine score class based on percentage
       function getScoreClass(checkedCount, totalCategories) {
+        // Use state manager if available
+        if (window.stateManager) {
+          return stateManager.getScoreClass(checkedCount, totalCategories);
+        }
+        
+        // Fallback to local calculation if state manager not available
         const scorePercent = (checkedCount / totalCategories) * 100;
         if (scorePercent <= SCORE_THRESHOLDS.LOW) return 'score-red';
         if (scorePercent <= SCORE_THRESHOLDS.MEDIUM) return 'score-amber';
@@ -2757,12 +2816,18 @@
 
           // Update the component's checked count
           component.checkedCount = checkedCount;
-
-          const scorePercent = (checkedCount / component.totalCategories) * 100;
+          
+          // Use state manager to get score class if available
           let scoreClass = '';
-          if (scorePercent <= SCORE_THRESHOLDS.LOW) scoreClass = 'score-red';
-          else if (scorePercent <= SCORE_THRESHOLDS.MEDIUM) scoreClass = 'score-amber';
-          else scoreClass = 'score-green';
+          if (window.stateManager) {
+            scoreClass = stateManager.getScoreClass(checkedCount, component.totalCategories);
+          } else {
+            // Fallback to original calculation if state manager not available
+            const scorePercent = (checkedCount / component.totalCategories) * 100;
+            if (scorePercent <= SCORE_THRESHOLDS.LOW) scoreClass = 'score-red';
+            else if (scorePercent <= SCORE_THRESHOLDS.MEDIUM) scoreClass = 'score-amber';
+            else scoreClass = 'score-green';
+          }
 
           // Get all the elements after the score span
           const elements = nameSpan.innerHTML.split('</span>');
