@@ -26,9 +26,16 @@ class StateManager {
       },
       ui: {
         loading: false,
-        notifications: []
+        notifications: [],
+        debug: false,
+        collapsedComponents: {}
       }
     };
+    
+    // Debug settings
+    this._debugMode = false;
+    this._stateHistory = [];
+    this._maxHistoryLength = 50;
 
     // Event listeners
     this._listeners = {
@@ -292,6 +299,11 @@ class StateManager {
    * @private
    */
   _notifyListeners(type) {
+    // Capture state for debugging if enabled
+    if (this._debugMode) {
+      this._trackStateChange(type);
+    }
+    
     // Notify specific listeners
     if (this._listeners[type]) {
       this._listeners[type].forEach(listener => {
@@ -316,6 +328,110 @@ class StateManager {
         console.error('Error in global listener:', error);
       }
     });
+  }
+  
+  /**
+   * Enable or disable debug mode
+   * @param {boolean} enabled - Whether debug mode should be enabled
+   */
+  setDebugMode(enabled) {
+    this._debugMode = enabled;
+    this._state.ui.debug = enabled;
+    
+    // Clear history when disabling to free memory
+    if (!enabled) {
+      this._stateHistory = [];
+    }
+    
+    // Notify UI of debug mode change
+    this._notifyListeners('ui');
+    
+    console.log(`Debug mode ${enabled ? 'enabled' : 'disabled'}`);
+    return enabled;
+  }
+  
+  /**
+   * Get debug information
+   * @returns {Object} Debug information including state history
+   */
+  getDebugInfo() {
+    return {
+      debugMode: this._debugMode,
+      stateHistory: this._stateHistory.slice(), // Return a copy
+      currentState: {
+        components: {
+          count: this._state.components.size,
+          ids: Array.from(this._state.components.keys())
+        },
+        checkboxStates: {
+          componentCount: Object.keys(this._state.checkboxStates).length,
+          totalChecked: this._countTotalCheckedBoxes()
+        },
+        filters: this._state.filters,
+        ui: this._state.ui
+      }
+    };
+  }
+  
+  /**
+   * Track state changes for debugging
+   * @param {string} type - The type of state that changed
+   * @private
+   */
+  _trackStateChange(type) {
+    // Don't track UI state changes in history to avoid recursion (debug mode is in UI state)
+    if (type === 'ui' && this._state.ui.debug) return;
+    
+    const timestamp = new Date().toISOString();
+    let stateSnapshot;
+    
+    switch (type) {
+      case 'components':
+        stateSnapshot = {
+          count: this._state.components.size,
+          // Only include a sample for performance
+          sample: Array.from(this._state.components.entries()).slice(0, 3)
+        };
+        break;
+      case 'checkboxes':
+        stateSnapshot = {
+          componentCount: Object.keys(this._state.checkboxStates).length,
+          totalChecked: this._countTotalCheckedBoxes()
+        };
+        break;
+      default:
+        stateSnapshot = this._getStateForType(type);
+    }
+    
+    this._stateHistory.unshift({
+      type,
+      timestamp,
+      state: stateSnapshot
+    });
+    
+    // Limit history length
+    if (this._stateHistory.length > this._maxHistoryLength) {
+      this._stateHistory.pop();
+    }
+  }
+  
+  /**
+   * Count total checked boxes across all components
+   * @returns {number} Total number of checked boxes
+   * @private
+   */
+  _countTotalCheckedBoxes() {
+    let total = 0;
+    
+    Object.values(this._state.checkboxStates).forEach(component => {
+      Object.values(component).forEach(category => {
+        Object.values(category).forEach(rule => {
+          if (rule.checked) total++;
+        });
+      });
+    });
+    
+    return total;
   }
 
   /**
@@ -343,5 +459,17 @@ class StateManager {
 // Create a singleton instance
 const stateManager = new StateManager();
 
-// Make it available globally
-window.stateManager = stateManager;
+// Make the state manager available globally for Figma's environment
+// This needs to be done differently depending on whether we're in the plugin code or UI code
+try {
+  // Try to make it available in the UI context (window exists)
+  if (typeof window !== 'undefined') {
+    window.stateManager = stateManager;
+    console.log('State manager attached to window object');
+  }
+} catch (e) {
+  console.error('Error making state manager available globally:', e);
+}
+
+// Also expose it for direct inclusion in HTML
+var stateManager = stateManager;

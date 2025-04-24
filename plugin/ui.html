@@ -194,10 +194,10 @@
         padding: var(--spacing-xl);
         margin: var(--spacing-xl);
         border-radius: var(--border-radius-large);
-        background-color: var(--color-background);
-        border: 1px solid var(--color-primary);
+        background-color: #ffebeb;
         color: var(--color-text-primary);
-        text-align: center;
+        border: 1px solid #f8d7da;
+        position: relative;
       }
       
       .error-message h3 {
@@ -218,6 +218,103 @@
       
       .error-message .primary-button:hover {
         background-color: var(--color-primary-dark);
+      }
+      
+      .error-message .context-menu-item:hover {
+        background-color: var(--color-hover);
+      }
+      
+      /* Debug panel styles */
+      #debug-panel {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 600px;
+        max-height: 80vh;
+        background-color: #f8f9fa;
+        border: 1px solid #c7d0d4;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      
+      .debug-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background-color: #e6e7e8;
+        border-bottom: 1px solid #c7d0d4;
+      }
+      
+      .debug-header h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: #343f44;
+      }
+      
+      #debug-close {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        color: #616e73;
+      }
+      
+      .debug-controls {
+        display: flex;
+        padding: 8px;
+        gap: 8px;
+        border-bottom: 1px solid #e6e7e8;
+      }
+      
+      .debug-controls button,
+      .debug-controls select {
+        padding: 4px 8px;
+        font-size: 12px;
+        border: 1px solid #c7d0d4;
+        border-radius: 3px;
+        background-color: white;
+      }
+      
+      .debug-content {
+        flex: 1;
+        overflow: auto;
+        padding: 8px;
+        font-family: monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        max-height: 60vh;
+      }
+      
+      #debug-data {
+        margin: 0;
+        white-space: pre-wrap;
+        color: #343f44;
+      }
+      
+      .debug-info {
+        padding: 4px 8px;
+        font-size: 10px;
+        color: #616e73;
+        background-color: #f0f2f2;
+        border-top: 1px solid #e6e7e8;
+        text-align: right;
+      }
+      
+      #debug-toggle {
+        opacity: 0.7;
+        transition: opacity 0.2s;
+      }
+      
+      #debug-toggle:hover {
+        opacity: 1;
       }
       
       /* Filter input styles */
@@ -264,6 +361,14 @@
       }
 
       #feedback-link {
+        width: auto !important;
+        height: auto !important;
+        padding: 4px 8px !important;
+        text-decoration: none !important;
+        margin-left: 8px;
+      }
+      
+      #debug-toggle {
         width: auto !important;
         height: auto !important;
         padding: 4px 8px !important;
@@ -652,12 +757,501 @@
       }
     </style>
     <!-- Message handler is included directly in this file -->
-    <!-- Include state manager for centralized state management -->
-    <script src="state-manager.js"></script>
+    <!-- State manager is now included directly in this file for Figma compatibility -->
+    <script>
+      /**
+       * State Manager for Component Scorecard
+       * 
+       * This module provides a centralized state management system for the Component Scorecard plugin.
+       * It creates a single source of truth for component states and provides a consistent API
+       * for reading and writing state data.
+       */
+      
+      // Score thresholds for determining score colors
+      const SCORE_THRESHOLDS = {
+        LOW: 33, // Below this is red
+        MEDIUM: 66 // Below this is amber, above is green
+      };
+      
+      class StateManager {
+        constructor() {
+          // Private state storage
+          this._state = {
+            components: new Map(),
+            checkboxStates: {},
+            filters: {
+              search: '',
+              showChecked: true,
+              showUnchecked: true,
+              selectedComponentIds: []
+            },
+            ui: {
+              loading: false,
+              notifications: [],
+              debug: false,
+              collapsedComponents: {}
+            }
+          };
+          
+          // Debug settings
+          this._debugMode = false;
+          this._stateHistory = [];
+          this._maxHistoryLength = 50;
+      
+          // Event listeners
+          this._listeners = {
+            components: new Set(),
+            checkboxes: new Set(),
+            filters: new Set(),
+            ui: new Set(),
+            all: new Set()
+          };
+      
+          // Storage manager reference (will be set during initialization)
+          this._storage = null;
+        }
+      
+        /**
+         * Initialize the state manager with the storage manager
+         * @param {Object} storageManager - The storage manager instance
+         */
+        initialize(storageManager) {
+          this._storage = storageManager;
+          console.log('StateManager initialized with storage manager');
+        }
+      
+        /**
+         * Load initial state from storage
+         * @returns {Promise<void>}
+         */
+        async loadInitialState() {
+          if (!this._storage) {
+            console.warn('StateManager not initialized with storage manager');
+            return Promise.resolve();
+          }
+      
+          try {
+            // Load checkbox states from storage
+            const checkboxStates = await this._storage.getStorageWithFallback('checkboxStates', {});
+            this._state.checkboxStates = checkboxStates;
+            
+            // Notify listeners
+            this._notifyListeners('checkboxes');
+            console.log('Initial state loaded from storage');
+          } catch (error) {
+            console.error('Error loading initial state:', error);
+            // Don't throw the error, just log it
+          }
+        }
+      
+        /**
+         * Get components state
+         * @returns {Map} The components map
+         */
+        getComponents() {
+          return new Map(this._state.components);
+        }
+      
+        /**
+         * Set components state
+         * @param {Array|Map} components - The components to set
+         */
+        setComponents(components) {
+          if (Array.isArray(components)) {
+            // Convert array to Map for O(1) lookups
+            const componentsMap = new Map();
+            components.forEach(component => {
+              componentsMap.set(component.id, component);
+            });
+            this._state.components = componentsMap;
+          } else if (components instanceof Map) {
+            this._state.components = new Map(components);
+          } else {
+            console.warn('Components must be an array or Map');
+            return;
+          }
+          
+          this._notifyListeners('components');
+        }
+      
+        /**
+         * Get a component by ID
+         * @param {string} componentId - The component ID
+         * @returns {Object|undefined} The component or undefined if not found
+         */
+        getComponent(componentId) {
+          return this._state.components.get(componentId);
+        }
+      
+        /**
+         * Update a component
+         * @param {string} componentId - The component ID
+         * @param {Object} updates - The updates to apply
+         */
+        updateComponent(componentId, updates) {
+          const component = this._state.components.get(componentId);
+          if (!component) {
+            console.warn(`Component ${componentId} not found`);
+            return;
+          }
+      
+          this._state.components.set(componentId, { ...component, ...updates });
+          this._notifyListeners('components');
+        }
+      
+        /**
+         * Get checkbox states
+         * @returns {Object} The checkbox states
+         */
+        getCheckboxStates() {
+          return { ...this._state.checkboxStates };
+        }
+      
+        /**
+         * Get checkbox state for a specific component, category, and rule
+         * @param {string} componentId - The component ID
+         * @param {string} category - The category
+         * @param {string} ruleText - The rule text
+         * @returns {Object|undefined} The checkbox state or undefined if not found
+         */
+        getCheckboxState(componentId, category, ruleText) {
+          if (!this._state.checkboxStates[componentId]) return undefined;
+          if (!this._state.checkboxStates[componentId][category]) return undefined;
+          return this._state.checkboxStates[componentId][category][ruleText];
+        }
+      
+        /**
+         * Set checkbox state
+         * @param {string} componentId - The component ID
+         * @param {string} category - The category
+         * @param {string} ruleText - The rule text
+         * @param {boolean} checked - Whether the checkbox is checked
+         * @returns {Promise<void>}
+         */
+        async setCheckboxState(componentId, category, ruleText, checked) {
+          // Create nested structure if it doesn't exist
+          if (!this._state.checkboxStates[componentId]) {
+            this._state.checkboxStates[componentId] = {};
+          }
+          
+          if (!this._state.checkboxStates[componentId][category]) {
+            this._state.checkboxStates[componentId][category] = {};
+          }
+      
+          // Update state with timestamp
+          const timestamp = checked ? new Date().toISOString() : null;
+          this._state.checkboxStates[componentId][category][ruleText] = {
+            checked,
+            timestamp
+          };
+      
+          // Notify listeners before storage operation
+          this._notifyListeners('checkboxes');
+      
+          // Persist to storage
+          if (this._storage) {
+            try {
+              await this._storage.set('checkboxStates', this._state.checkboxStates);
+            } catch (error) {
+              console.error('Error saving checkbox state:', error);
+              throw error;
+            }
+          }
+        }
+      
+        /**
+         * Get filters
+         * @returns {Object} The filters
+         */
+        getFilters() {
+          return { ...this._state.filters };
+        }
+      
+        /**
+         * Set filters
+         * @param {Object} filters - The filters to set
+         */
+        setFilters(filters) {
+          this._state.filters = { ...this._state.filters, ...filters };
+          this._notifyListeners('filters');
+        }
+      
+        /**
+         * Get UI state
+         * @returns {Object} The UI state
+         */
+        getUIState() {
+          return { ...this._state.ui };
+        }
+      
+        /**
+         * Set UI state
+         * @param {Object} uiState - The UI state to set
+         */
+        setUIState(uiState) {
+          this._state.ui = { ...this._state.ui, ...uiState };
+          this._notifyListeners('ui');
+        }
+        
+        /**
+         * Calculate component score
+         * @param {string} componentId - The component ID
+         * @returns {Object} The score information { checked, total, percentage }
+         */
+        calculateComponentScore(componentId) {
+          const componentState = this._state.checkboxStates[componentId];
+          if (!componentState) {
+            return { checked: 0, total: 0, percentage: 0 };
+          }
+      
+          let checked = 0;
+          let total = 0;
+      
+          // Count checked and total checkboxes
+          Object.values(componentState).forEach(category => {
+            Object.values(category).forEach(rule => {
+              total++;
+              if (rule.checked) {
+                checked++;
+              }
+            });
+          });
+      
+          const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
+          return { checked, total, percentage };
+        }
+        
+        /**
+         * Get the score class (color) based on the score percentage
+         * @param {number} checkedCount - Number of checked items
+         * @param {number} totalCount - Total number of items
+         * @returns {string} The CSS class for the score
+         */
+        getScoreClass(checkedCount, totalCount) {
+          if (totalCount === 0) return 'score-red';
+          
+          const percentage = (checkedCount / totalCount) * 100;
+          
+          if (percentage <= SCORE_THRESHOLDS.LOW) return 'score-red';
+          if (percentage <= SCORE_THRESHOLDS.MEDIUM) return 'score-amber';
+          return 'score-green';
+        }
+      
+        /**
+         * Enable or disable debug mode
+         * @param {boolean} enabled - Whether debug mode should be enabled
+         */
+        setDebugMode(enabled) {
+          this._debugMode = enabled;
+          this._state.ui.debug = enabled;
+          
+          // Clear history when disabling to free memory
+          if (!enabled) {
+            this._stateHistory = [];
+          }
+          
+          // Notify UI of debug mode change
+          this._notifyListeners('ui');
+          
+          console.log(`Debug mode ${enabled ? 'enabled' : 'disabled'}`);
+          return enabled;
+        }
+        
+        /**
+         * Get debug information
+         * @returns {Object} Debug information including state history
+         */
+        getDebugInfo() {
+          return {
+            debugMode: this._debugMode,
+            stateHistory: this._stateHistory.slice(), // Return a copy
+            currentState: {
+              components: {
+                count: this._state.components.size,
+                ids: Array.from(this._state.components.keys())
+              },
+              checkboxStates: {
+                componentCount: Object.keys(this._state.checkboxStates).length,
+                totalChecked: this._countTotalCheckedBoxes()
+              },
+              filters: this._state.filters,
+              ui: this._state.ui
+            }
+          };
+        }
+      
+        /**
+         * Subscribe to state changes
+         * @param {string} type - The type of state to subscribe to ('components', 'checkboxes', 'filters', 'ui', 'all')
+         * @param {Function} listener - The listener function
+         * @returns {Function} Unsubscribe function
+         */
+        subscribe(type, listener) {
+          if (!this._listeners[type]) {
+            throw new Error(`Invalid subscription type: ${type}`);
+          }
+      
+          this._listeners[type].add(listener);
+      
+          // Return unsubscribe function
+          return () => {
+            this._listeners[type].delete(listener);
+          };
+        }
+      
+        /**
+         * Notify listeners of state changes
+         * @param {string} type - The type of state that changed
+         * @private
+         */
+        _notifyListeners(type) {
+          // Capture state for debugging if enabled
+          if (this._debugMode) {
+            this._trackStateChange(type);
+          }
+          
+          // Notify specific listeners
+          if (this._listeners[type]) {
+            this._listeners[type].forEach(listener => {
+              try {
+                listener(this._getStateForType(type));
+              } catch (error) {
+                console.error(`Error in ${type} listener:`, error);
+              }
+            });
+          }
+      
+          // Notify 'all' listeners
+          this._listeners.all.forEach(listener => {
+            try {
+              listener({
+                components: this.getComponents(),
+                checkboxStates: this.getCheckboxStates(),
+                filters: this.getFilters(),
+                ui: this.getUIState()
+              });
+            } catch (error) {
+              console.error('Error in global listener:', error);
+            }
+          });
+        }
+        
+        /**
+         * Track state changes for debugging
+         * @param {string} type - The type of state that changed
+         * @private
+         */
+        _trackStateChange(type) {
+          // Don't track UI state changes in history to avoid recursion (debug mode is in UI state)
+          if (type === 'ui' && this._state.ui.debug) return;
+          
+          const timestamp = new Date().toISOString();
+          let stateSnapshot;
+          
+          switch (type) {
+            case 'components':
+              stateSnapshot = {
+                count: this._state.components.size,
+                // Only include a sample for performance
+                sample: Array.from(this._state.components.entries()).slice(0, 3)
+              };
+              break;
+            case 'checkboxes':
+              stateSnapshot = {
+                componentCount: Object.keys(this._state.checkboxStates).length,
+                totalChecked: this._countTotalCheckedBoxes()
+              };
+              break;
+            default:
+              stateSnapshot = this._getStateForType(type);
+          }
+          
+          this._stateHistory.unshift({
+            type,
+            timestamp,
+            state: stateSnapshot
+          });
+          
+          // Limit history length
+          if (this._stateHistory.length > this._maxHistoryLength) {
+            this._stateHistory.pop();
+          }
+        }
+        
+        /**
+         * Count total checked boxes across all components
+         * @returns {number} Total number of checked boxes
+         * @private
+         */
+        _countTotalCheckedBoxes() {
+          let total = 0;
+          
+          Object.values(this._state.checkboxStates).forEach(component => {
+            Object.values(component).forEach(category => {
+              Object.values(category).forEach(rule => {
+                if (rule.checked) total++;
+              });
+            });
+          });
+          
+          return total;
+        }
+      
+        /**
+         * Get state for a specific type
+         * @param {string} type - The type of state
+         * @returns {*} The state for the specified type
+         * @private
+         */
+        _getStateForType(type) {
+          switch (type) {
+            case 'components':
+              return this.getComponents();
+            case 'checkboxes':
+              return this.getCheckboxStates();
+            case 'filters':
+              return this.getFilters();
+            case 'ui':
+              return this.getUIState();
+            default:
+              return null;
+          }
+        }
+      }
+      
+      // Create a singleton instance
+      window.stateManager = new StateManager();
+      
+      // Make it accessible to the debug console
+      console.log('State manager initialized and available as window.stateManager');
+    </script>
   </head>
   <body>
     <!-- Notification container for storage retries and errors -->
     <div id="notification-container"></div>
+    
+    <!-- Debug panel for state visualization -->
+    <div id="debug-panel" style="display: none;">
+      <div class="debug-header">
+        <h3>State Manager Debug</h3>
+        <button id="debug-close">×</button>
+      </div>
+      <div class="debug-controls">
+        <button id="debug-refresh">Refresh</button>
+        <select id="debug-view-select">
+          <option value="currentState">Current State</option>
+          <option value="history">State History</option>
+        </select>
+      </div>
+      <div class="debug-content">
+        <pre id="debug-data"></pre>
+      </div>
+      <div class="debug-info">
+        <span id="debug-build-time">Build time: Current</span>
+      </div>
+    </div>
+    
+    <!-- Debug button removed; using footer link instead -->
     
     <!-- Footer with build version -->
     <div id="footer" style="position: fixed; bottom: 0; left: 0; width: 100%; padding: 4px 8px; font-size: 9px; color: #616E73; background-color: #F8F9FA; text-align: right; border-top: 1px solid #E6E7E8;">
@@ -756,6 +1350,7 @@
         </label>
       </div>
       <div class="footer-right">
+        <a href="#" id="debug-toggle" class="settings-button" title="Toggle Debug Panel">Debug</a>
         <a href="https://github.com/dannyhope/Component-scorecard/issues" target="_blank" class="settings-button" id="feedback-link" title="Submit Feedback">Feedback</a>
       </div>
     </div>
@@ -2591,6 +3186,103 @@
           return id;
         }
       };
+      
+      // Debug panel functionality
+      const debugPanel = {
+        isVisible: false,
+        currentView: 'currentState',
+        refreshInterval: null,
+        
+        // Initialize debug panel
+        init() {
+          // Set up event listeners
+          document.getElementById('debug-toggle').addEventListener('click', () => this.togglePanel());
+          document.getElementById('debug-close').addEventListener('click', () => this.hidePanel());
+          document.getElementById('debug-refresh').addEventListener('click', () => this.refreshData());
+          document.getElementById('debug-view-select').addEventListener('change', (e) => {
+            this.currentView = e.target.value;
+            this.refreshData();
+          });
+          
+          // Set build time in the debug info
+          const buildDate = new Date();
+          document.getElementById('debug-build-time').textContent = 
+            `Build time: ${buildDate.toLocaleString()}`;
+            
+          console.log('Debug panel initialized');
+        },
+        
+        // Toggle debug panel visibility
+        togglePanel() {
+          if (this.isVisible) {
+            this.hidePanel();
+          } else {
+            this.showPanel();
+          }
+        },
+        
+        // Show debug panel
+        showPanel() {
+          if (!window.stateManager) {
+            alert('State manager not available. Debug panel cannot be displayed.');
+            return;
+          }
+          
+          document.getElementById('debug-panel').style.display = 'flex';
+          this.isVisible = true;
+          
+          // Enable debug mode in state manager
+          window.stateManager.setDebugMode(true);
+          
+          // Refresh data immediately
+          this.refreshData();
+          
+          // Set up auto-refresh interval
+          this.refreshInterval = setInterval(() => this.refreshData(), 2000);
+        },
+        
+        // Hide debug panel
+        hidePanel() {
+          document.getElementById('debug-panel').style.display = 'none';
+          this.isVisible = false;
+          
+          // Disable debug mode in state manager
+          if (window.stateManager) {
+            window.stateManager.setDebugMode(false);
+          }
+          
+          // Clear auto-refresh interval
+          if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+          }
+        },
+        
+        // Refresh debug data
+        refreshData() {
+          if (!window.stateManager) return;
+          
+          const debugInfo = window.stateManager.getDebugInfo();
+          const debugDataElement = document.getElementById('debug-data');
+          
+          // Format data based on current view
+          let formattedData;
+          if (this.currentView === 'currentState') {
+            formattedData = JSON.stringify(debugInfo.currentState, null, 2);
+          } else { // history view
+            formattedData = JSON.stringify(debugInfo.stateHistory, null, 2);
+          }
+          
+          // Update debug data display
+          debugDataElement.textContent = formattedData;
+        }
+      };
+      
+      // Initialize debug panel when window loads
+      window.addEventListener('load', () => {
+        // Wait a bit to make sure stateManager is initialized
+        setTimeout(() => debugPanel.init(), 1000);
+      });
       
       // Listen for messages from the plugin code
       window.onmessage = event => {
