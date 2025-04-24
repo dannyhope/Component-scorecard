@@ -737,11 +737,26 @@
 
       // Update component count in UI
       function updateComponentCount() {
-        const componentsNeedingCheck = allComponents.filter(component => {
-          return component.checkedCount < component.totalCategories;
-        });
-        const count = componentsNeedingCheck.length;
-        const countText = `${count} component${count !== 1 ? 's' : ''} need${count !== 1 ? '' : 's'} checking`;
+        const count = getComponentsNeedingCheckCount();
+        const countText = formatComponentCountText(count);
+        updateComponentCountDisplay(countText);
+      }
+      
+      // Helper function to get the count of components needing checking
+      function getComponentsNeedingCheckCount() {
+        const componentsNeedingCheck = allComponents.filter(component => 
+          component.checkedCount < component.totalCategories
+        );
+        return componentsNeedingCheck.length;
+      }
+      
+      // Helper function to format the component count text
+      function formatComponentCountText(count) {
+        return `${count} component${count !== 1 ? 's' : ''} need${count !== 1 ? '' : 's'} checking`;
+      }
+      
+      // Helper function to update the component count display
+      function updateComponentCountDisplay(countText) {
         document.getElementById('component-count').textContent = countText;
       }
 
@@ -1087,14 +1102,24 @@
       
       // Helper function to handle checkbox visibility
       function handleCheckboxVisibility(compData, hideCompleted, forceApplyFilter) {
+        // Show all checkboxes if not hiding completed
         if (!hideCompleted) {
-          // Show all checkboxes if not hiding completed
-          const checkboxLabels = compData.element.querySelectorAll('.checkbox-label');
-          checkboxLabels.forEach(label => label.style.display = '');
-          return true;
+          return showAllCheckboxes(compData);
         }
         
-        // Find all checkboxes in this component and hide the completed ones
+        // Process checkboxes when hiding completed items
+        return processCheckboxesWithHiding(compData, forceApplyFilter);
+      }
+      
+      // Helper function to show all checkboxes
+      function showAllCheckboxes(compData) {
+        const checkboxLabels = compData.element.querySelectorAll('.checkbox-label');
+        checkboxLabels.forEach(label => label.style.display = '');
+        return true;
+      }
+      
+      // Helper function to process checkboxes with hiding logic
+      function processCheckboxesWithHiding(compData, forceApplyFilter) {
         const checkboxLabels = compData.element.querySelectorAll('.checkbox-label');
         let visibleCheckboxes = 0;
         
@@ -1103,24 +1128,34 @@
           if (!checkbox) return;
           
           if (checkbox.checked) {
-            // Handle checked checkboxes
-            if (shouldHideCheckbox(compData.id, checkbox.id, forceApplyFilter)) {
-              label.style.display = 'none';
-            } else {
-              label.style.display = '';
-              visibleCheckboxes++;
-            }
+            visibleCheckboxes += processCheckedCheckbox(compData.id, checkbox.id, label, forceApplyFilter);
           } else {
-            // Always show unchecked checkboxes
-            label.style.display = '';
-            visibleCheckboxes++;
-            
-            // Remove from hidden set if it exists
-            removeFromHiddenCheckboxes(compData.id, checkbox.id);
+            visibleCheckboxes += processUncheckedCheckbox(compData.id, checkbox.id, label);
           }
         });
         
         return visibleCheckboxes > 0;
+      }
+      
+      // Helper function to process a checked checkbox
+      function processCheckedCheckbox(componentId, checkboxId, label, forceApplyFilter) {
+        if (shouldHideCheckbox(componentId, checkboxId, forceApplyFilter)) {
+          label.style.display = 'none';
+          return 0;
+        }
+        
+        label.style.display = '';
+        return 1;
+      }
+      
+      // Helper function to process an unchecked checkbox
+      function processUncheckedCheckbox(componentId, checkboxId, label) {
+        // Always show unchecked checkboxes
+        label.style.display = '';
+        
+        // Remove from hidden set if it exists
+        removeFromHiddenCheckboxes(componentId, checkboxId);
+        return 1;
       }
       
       // Helper function to determine if a checkbox should be hidden
@@ -1523,78 +1558,99 @@
 
       // Function to create component title elements
       function createComponentTitle(component, collapsed, scoreClass, lastModifiedDate, leastRecentCheckDate) {
+        // Create main title container with accessibility attributes
+        const title = createTitleContainer(component, collapsed);
+
+        // Create UI elements
+        const expandArrow = createExpandArrow(collapsed);
+        const componentIcon = createComponentIcon();
+        const nameSpan = createComponentNameSpan(component, lastModifiedDate);
+
+        // Assemble the title
+        title.appendChild(expandArrow);
+        title.appendChild(componentIcon);
+        title.appendChild(nameSpan);
+
+        return { title, expandArrow };
+      }
+      
+      // Helper function to create the title container
+      function createTitleContainer(component, collapsed) {
         const title = document.createElement('div');
         title.className = 'component-title';
         title.id = `component-title-${component.id}`;
+        
+        // Set accessibility attributes
         title.setAttribute('role', 'button');
         title.setAttribute('aria-expanded', !collapsed);
         title.setAttribute('aria-controls', `component-content-${component.id}`);
         title.setAttribute('tabindex', '0');
         title.setAttribute('aria-label', `${component.name} component, ${component.checkedCount} of ${component.totalCategories} rules checked`);
-
-        // Create expand/collapse arrow
+        
+        return title;
+      }
+      
+      // Helper function to create expand/collapse arrow
+      function createExpandArrow(collapsed) {
         const expandArrow = document.createElement('span');
         expandArrow.className = 'component-expand';
         expandArrow.textContent = '▼';
         expandArrow.setAttribute('aria-hidden', 'true');
         expandArrow.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0)';
         expandArrow.style.transition = 'transform 0.2s ease';
-
-        // Create component icon
+        return expandArrow;
+      }
+      
+      // Helper function to create component icon
+      function createComponentIcon() {
         const componentIcon = document.createElement('span');
         componentIcon.className = 'component-icon';
         componentIcon.textContent = '❖';
         componentIcon.setAttribute('aria-hidden', 'true');
         componentIcon.style.color = '#7C3DDD';
         componentIcon.style.marginRight = '4px';
-
-        // Create component name element
+        return componentIcon;
+      }
+      
+      // Helper function to create component name span
+      function createComponentNameSpan(component, lastModifiedDate) {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'component-name';
-        
-        // Determine if a modification indicator is needed
-        const showModifiedIndicator = lastModifiedDate && leastRecentCheckDate && 
-          lastModifiedDate > leastRecentCheckDate;
-        
-        // No longer showing the red dot indicator
-        const modifiedDot = '';
-        const formattedModifiedDate = lastModifiedDate ? formatDate(lastModifiedDate) : 'never';
-        
-        // Score information is now only used for accessibility and coloring
-        // No visible score count is displayed
-        
-        // Create last modified span
-        const lastModifiedSpan = document.createElement('span');
-        lastModifiedSpan.className = 'last-modified';
-        lastModifiedSpan.setAttribute('data-modified', formattedModifiedDate);
-        lastModifiedSpan.textContent = `edited ${formattedModifiedDate}`;
-        
-        // Instance count feature has been removed to simplify the UI
-        
-        // No longer showing the red dot indicator as per user request
         
         // Add component name text
         nameSpan.appendChild(document.createTextNode(component.name + ' '));
         
-        // Add dependency indicator if component uses subcomponents
-        if (component.dependencyCount > 0) {
-          const dependencyIndicator = document.createElement('span');
-          dependencyIndicator.className = 'dependency-indicator';
-          dependencyIndicator.textContent = component.dependencyCount;
-          dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${component.dependencyCount !== 1 ? 's' : ''}`);
-          nameSpan.appendChild(dependencyIndicator);
-          nameSpan.appendChild(document.createTextNode(' '));
-        }
+        // Add dependency indicator if needed
+        addDependencyIndicator(component, nameSpan);
         
-        // Only add the last modified date to the component name
+        // Add last modified date
+        const formattedModifiedDate = lastModifiedDate ? formatDate(lastModifiedDate) : 'never';
+        const lastModifiedSpan = createLastModifiedSpan(formattedModifiedDate);
         nameSpan.appendChild(lastModifiedSpan);
-
-        // Add elements to title
-        title.appendChild(expandArrow);
-        title.appendChild(componentIcon);
-        title.appendChild(nameSpan);
-
-        return { title, expandArrow };
+        
+        return nameSpan;
+      }
+      
+      // Helper function to add dependency indicator
+      function addDependencyIndicator(component, nameSpan) {
+        if (component.dependencyCount <= 0) return;
+        
+        const dependencyIndicator = document.createElement('span');
+        dependencyIndicator.className = 'dependency-indicator';
+        dependencyIndicator.textContent = component.dependencyCount;
+        dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${component.dependencyCount !== 1 ? 's' : ''}`);
+        
+        nameSpan.appendChild(dependencyIndicator);
+        nameSpan.appendChild(document.createTextNode(' '));
+      }
+      
+      // Helper function to create last modified span
+      function createLastModifiedSpan(formattedModifiedDate) {
+        const lastModifiedSpan = document.createElement('span');
+        lastModifiedSpan.className = 'last-modified';
+        lastModifiedSpan.setAttribute('data-modified', formattedModifiedDate);
+        lastModifiedSpan.textContent = `edited ${formattedModifiedDate}`;
+        return lastModifiedSpan;
       }
 
       // Function to setup component collapse/select behavior
