@@ -1,19 +1,27 @@
-// Import would be at the top, but Figma plugins don't support ES modules
-// Instead, we'll use the code directly
-
-class Storage {
+/**
+ * StorageManager - Handles all storage operations for the Component Scorecard plugin
+ * Provides caching, error handling, and a clean API for data access
+ */
+class StorageManager {
   constructor() {
     this.cache = {
       checkboxStates: null,
       modifiedDates: null,
       viewStates: null,
       userPreferences: null,
-      customRules: null
+      customRules: null,
+      // New flattened data structure (will be populated later)
+      flatCheckboxItems: null
     };
     this.initialized = false;
     this.initPromise = null;
+    this.pendingOperations = [];
+    this.isProcessingOperations = false;
   }
 
+  /**
+   * Initialize the storage by loading all data from Figma's client storage
+   */
   async init() {
     // Prevent multiple simultaneous initialization
     if (this.initPromise) {
@@ -71,6 +79,9 @@ class Storage {
     return this.initPromise;
   }
   
+  /**
+   * Generic method to get a value from storage with fallback
+   */
   async getStorageWithFallback(key, defaultValue) {
     try {
       const value = await figma.clientStorage.getAsync(key);
@@ -81,12 +92,58 @@ class Storage {
     }
   }
 
+  /**
+   * Ensure storage is initialized before performing operations
+   */
   async ensureInitialized() {
     if (!this.initialized) {
       await this.init();
     }
   }
 
+  /**
+   * Generic method to get any value from storage
+   */
+  async get(key, defaultValue = null) {
+    await this.ensureInitialized();
+    
+    if (this.cache[key] !== undefined) {
+      return this.cache[key];
+    }
+    
+    try {
+      const value = await this.getStorageWithFallback(key, defaultValue);
+      this.cache[key] = value;
+      return value;
+    } catch (error) {
+      console.error(`Error getting ${key}:`, error);
+      return defaultValue;
+    }
+  }
+
+  /**
+   * Generic method to set any value in storage
+   */
+  async set(key, value) {
+    await this.ensureInitialized();
+    
+    try {
+      this.cache[key] = value;
+      await figma.clientStorage.setAsync(key, value);
+      return true;
+    } catch (error) {
+      console.error(`Error setting ${key}:`, error);
+      figma.ui.postMessage({
+        type: 'storageError',
+        error: `Failed to save ${key}: ${error.message}`
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Get component state for a specific component
+   */
   async getComponentState(componentId) {
     try {
       await this.ensureInitialized();
@@ -97,6 +154,9 @@ class Storage {
     }
   }
 
+  /**
+   * Get all component states
+   */
   async getAllComponentStates() {
     try {
       await this.ensureInitialized();
@@ -106,7 +166,117 @@ class Storage {
       return {};
     }
   }
+  
+  /**
+   * Get all components with their states
+   * @returns {Promise<Array>} Array of components with their states
+   */
+  async getComponentsWithStates() {
+    try {
+      await this.ensureInitialized();
+      const states = this.cache.checkboxStates || {};
+      const modifiedDates = this.cache.modifiedDates || {};
+      const viewStates = this.cache.viewStates || {};
+      
+      // Convert the object structure to an array of components
+      const components = Object.keys(states).map(componentId => {
+        return {
+          id: componentId,
+          states: states[componentId] || {},
+          modifiedDate: modifiedDates[componentId] || null,
+          viewState: viewStates[componentId] || { collapsed: false, userToggled: false }
+        };
+      });
+      
+      return components;
+    } catch (error) {
+      console.error('Error getting components with states:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get a component with all its data
+   * @param {string} componentId - The ID of the component
+   * @returns {Promise<Object>} Component with its data
+   */
+  async getComponentWithData(componentId) {
+    try {
+      await this.ensureInitialized();
+      
+      const componentData = {
+        id: componentId,
+        states: this.cache.checkboxStates[componentId] || {},
+        modifiedDate: this.cache.modifiedDates[componentId] || null,
+        viewState: this.cache.viewStates[componentId] || { collapsed: false, userToggled: false }
+      };
+      
+      // Calculate the score
+      const score = await this.calculateComponentScore(componentId);
+      componentData.checkedCount = score.checkedCount;
+      componentData.totalRules = score.totalRules;
+      
+      return componentData;
+    } catch (error) {
+      console.error(`Error getting component data for ${componentId}:`, error);
+      return {
+        id: componentId,
+        states: {},
+        modifiedDate: null,
+        viewState: { collapsed: false, userToggled: false },
+        checkedCount: 0,
+        totalRules: 0
+      };
+    }
+  }
+  
+  /**
+   * Calculate a component's score
+   * @param {string} componentId - The ID of the component
+   * @returns {Promise<Object>} Object with checkedCount and totalRules
+   */
+  async calculateComponentScore(componentId) {
+    try {
+      const componentState = await this.getComponentState(componentId);
+      
+      if (Object.keys(componentState).length === 0) {
+        return { checkedCount: 0, totalRules: 0 };
+      }
 
+      const checkedCount = Object.values(componentState)
+        .flatMap(categoryState => Object.values(categoryState))
+        .filter(state => state && state.checked === true).length;
+
+      // Count total rules from component state
+      let totalRules = Object.values(componentState)
+        .flatMap(categoryState => Object.values(categoryState))
+        .length;
+        
+      return { checkedCount, totalRules };
+    } catch (error) {
+      console.error(`Error calculating score for ${componentId}:`, error);
+      return { checkedCount: 0, totalRules: 0 };
+    }
+  }
+  
+  /**
+   * Check if a component is fully completed
+   * @param {string} componentId - The ID of the component
+   * @returns {Promise<boolean>} True if all checkboxes are checked
+   */
+  async isComponentCompleted(componentId) {
+    try {
+      const score = await this.calculateComponentScore(componentId);
+      return score.totalRules > 0 && score.checkedCount === score.totalRules;
+    } catch (error) {
+      console.error(`Error checking if component ${componentId} is completed:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Update checkbox state for a specific component, category, and rule
+   */
   async updateCheckboxState(componentId, category, rule, state) {
     try {
       await this.ensureInitialized();
@@ -133,25 +303,68 @@ class Storage {
     }
   }
 
+  /**
+   * Persist all cached data to storage
+   */
   async persist() {
     try {
-      await Promise.all([
-        figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
-        figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
-        figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
-        figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
-        figma.clientStorage.setAsync('customRules', this.cache.customRules)
-      ]);
-    } catch (error) {
-      console.error('Error persisting storage:', error);
-      figma.ui.postMessage({
-        type: 'storageError',
-        error: 'Failed to save data: ' + error.message
+      // Batch all storage operations together
+      this.pendingOperations.push({
+        type: 'persist',
+        timestamp: Date.now()
       });
-      throw error; // Rethrow so callers know it failed
+      
+      // Process operations with debouncing
+      this._processOperations();
+      
+      return true;
+    } catch (error) {
+      console.error('Error scheduling persist operation:', error);
+      return false;
     }
   }
+  
+  /**
+   * Process pending operations with debouncing
+   */
+  async _processOperations() {
+    if (this.isProcessingOperations) return;
+    
+    this.isProcessingOperations = true;
+    
+    // Wait a bit to batch operations (300ms debounce)
+    setTimeout(async () => {
+      try {
+        await Promise.all([
+          figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
+          figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
+          figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
+          figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
+          figma.clientStorage.setAsync('customRules', this.cache.customRules)
+        ]);
+        
+        console.log('Storage persisted successfully');
+        this.pendingOperations = [];
+      } catch (error) {
+        console.error('Error persisting storage:', error);
+        figma.ui.postMessage({
+          type: 'storageError',
+          error: 'Failed to save data: ' + error.message
+        });
+      } finally {
+        this.isProcessingOperations = false;
+        
+        // If more operations were added while processing, process them too
+        if (this.pendingOperations.length > 0) {
+          this._processOperations();
+        }
+      }
+    }, 300);
+  }
 
+  /**
+   * Update modified date for a component
+   */
   async updateModifiedDates(componentId, timestamp) {
     try {
       await this.ensureInitialized();
@@ -163,6 +376,9 @@ class Storage {
     }
   }
 
+  /**
+   * Get modified date for a component
+   */
   async getModifiedDates(componentId) {
     try {
       await this.ensureInitialized();
@@ -173,6 +389,9 @@ class Storage {
     }
   }
   
+  /**
+   * Get all modified dates
+   */
   async getAllModifiedDates() {
     try {
       await this.ensureInitialized();
@@ -183,6 +402,9 @@ class Storage {
     }
   }
 
+  /**
+   * Get view state for a component
+   */
   async getViewState(componentId) {
     try {
       await this.ensureInitialized();
@@ -193,6 +415,9 @@ class Storage {
     }
   }
 
+  /**
+   * Get all view states
+   */
   async getAllViewStates() {
     try {
       await this.ensureInitialized();
@@ -203,6 +428,9 @@ class Storage {
     }
   }
 
+  /**
+   * Update view state for a component
+   */
   async updateViewState(componentId, isCollapsed, userToggled = true) {
     try {
       await this.ensureInitialized();
@@ -223,6 +451,9 @@ class Storage {
     }
   }
   
+  /**
+   * Get user preferences
+   */
   async getUserPreferences() {
     try {
       await this.ensureInitialized();
@@ -233,6 +464,9 @@ class Storage {
     }
   }
   
+  /**
+   * Update user preferences
+   */
   async updateUserPreferences(preferences) {
     try {
       await this.ensureInitialized();
@@ -252,6 +486,9 @@ class Storage {
     }
   }
   
+  /**
+   * Get custom rules
+   */
   async getCustomRules() {
     try {
       await this.ensureInitialized();
@@ -262,6 +499,9 @@ class Storage {
     }
   }
   
+  /**
+   * Save custom rules
+   */
   async saveCustomRules(customRules) {
     try {
       await this.ensureInitialized();
@@ -280,7 +520,7 @@ class Storage {
 }
 
 // Create storage instance
-const storage = new Storage();
+const storage = new StorageManager();
 
 // Calculate a component's score
 async function calculateComponentScore(componentId) {

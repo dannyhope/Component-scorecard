@@ -36,11 +36,6 @@
   - Implement undo/redo
   - Add new metadata to checkboxes
 
-### Event-Driven Architecture 🟡
-- Use a message-based approach where each operation is separate and independent
-- Implement a state machine pattern for managing plugin workflow
-- Allow the UI to function independently of data loading
-
 ### Simplified Data Model 🟡
 - Flatten dependency relationships to avoid deep traversals
 - Cache intermediate results aggressively
@@ -51,6 +46,17 @@
 - Create a unified API for data access
 - Create a proper data model for components and their states
 - Implement proper caching and state synchronization
+
+
+
+
+
+
+
+### Event-Driven Architecture 🟡
+- Use a message-based approach where each operation is separate and independent
+- Implement a state machine pattern for managing plugin workflow
+- Allow the UI to function independently of data loading
 
 ## UI Modernization 🔴
 

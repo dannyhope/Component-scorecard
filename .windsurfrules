@@ -32,6 +32,9 @@
 - Audit security (OAuth2.0, fileKey).
 - Align UI/metadata with Brand/Community Guidelines.
 
-## Misc
-- Figma plugins don't support CommonJS require statements
+## Figma
+- Figma doesn't support
+ - CommonJS require statements
+ - ES modules
+ - the codeFiles property in the manifest
 - The Figma document I’m testing the plugin has only one page
