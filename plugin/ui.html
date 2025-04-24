@@ -1170,45 +1170,10 @@
         }
       });
       
-      // Add manual refresh function and automatically refresh on load
-      window.refreshComponents = function() {
-        console.log('Manually refreshing components...');
-        // Send message to the plugin to refresh components
-        parent.postMessage({ pluginMessage: { type: 'refreshComponents' } }, '*');
-      };
+      // Component detection is now reliable enough that we don't need manual refresh
       
-      // Completely restart the plugin UI on load to ensure components are displayed
-      setTimeout(() => {
-        console.log('Performing full refresh to restore component list...');
-        
-        // Clear any potential errors in the UI
-        const componentList = document.getElementById('component-list');
-        if (componentList) {
-          componentList.innerHTML = '<div class="loading-message">Loading components...</div>';
-        }
-        
-        // Force a complete refresh of all components
-        parent.postMessage({ 
-          pluginMessage: { 
-            type: 'refreshComponents',
-            fullRefresh: true 
-          } 
-        }, '*');
-        
-        // Add a second retry attempt if needed
-        setTimeout(() => {
-          const list = document.getElementById('component-list');
-          if (list && (!list.children.length || list.children.length === 1 && list.children[0].className === 'loading-message')) {
-            console.log('Second refresh attempt to restore component list...');
-            parent.postMessage({ 
-              pluginMessage: { 
-                type: 'refreshComponents',
-                fullRefresh: true 
-              } 
-            }, '*');
-          }
-        }, 2000);
-      }, 500);
+      // Component detection is now reliable enough that we don't need automatic refresh on load
+      // The UI will be populated when the plugin sends component data
 
       // Set up settings button handler
       // document.getElementById('settings-button').addEventListener('click', (e) => {

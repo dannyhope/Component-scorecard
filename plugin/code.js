@@ -1200,19 +1200,9 @@ figma.ui.onmessage = async msg => {
   try {
     console.log(`Handling message of type: ${msg.type}`);
     
-    if (msg.type === 'refreshComponents') {
-      try {
-        console.log('Refresh requested, fullRefresh:', msg.fullRefresh);
-        // If fullRefresh is true, we'll do a complete reload of all components
-        await loadComponents(msg.fullRefresh === true);
-      } catch (refreshError) {
-        console.error('Error refreshing components:', refreshError);
-        figma.ui.postMessage({
-          type: 'refreshError',
-          error: 'Failed to refresh components: ' + refreshError.message
-        });
-      }
-    } else if (msg.type === 'getDocumentTitle') {
+    // Component detection is now reliable enough that we don't need manual refresh
+    // The refreshComponents message handler has been removed
+    if (msg.type === 'getDocumentTitle') {
       try {
         figma.ui.postMessage({
           type: 'documentTitle',
