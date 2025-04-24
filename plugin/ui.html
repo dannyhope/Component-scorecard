@@ -322,22 +322,27 @@
       }
 
       /* Checkbox Styles */
-      .checkbox-timestamp, .last-modified {
+      .checkbox-timestamp, .checkbox-status, .last-modified {
         color: #888;
         font-size: 10px;
         margin-left: 8px;
       }
+      
+      .checkbox-status {
+        display: inline-flex;
+        align-items: center;
+      }
 
       /* Removed modified-indicator dot as per user request */
       
-      .needs-updating-tag {
+      .changed-tag {
         display: inline-block;
         margin-left: 4px;
         font-size: 9px;
         padding: 1px 4px;
         border-radius: 3px;
-        background-color: #ffecec;
-        color: #E4003D;
+        background-color: #FFF1E0;
+        color: #FF7209;
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.2px;
@@ -1885,10 +1890,11 @@
         checkbox.onchange = () => {
           console.log(`Checkbox changed for ${component.name}, category: ${category}, rule: ${ruleText}, checked: ${checkbox.checked}`);
           const timestamp = checkbox.checked ? new Date() : null;
-          const timestampSpan = checkboxLabel.querySelector('.checkbox-timestamp');
+          const statusSpan = checkboxLabel.querySelector('.checkbox-status');
           
-          if (timestampSpan) {
-            timestampSpan.textContent = checkbox.checked ? formatDate(timestamp) : '';
+          if (statusSpan) {
+            // Clear any existing content
+            statusSpan.innerHTML = '';
           }
           
           // Update local state
@@ -2000,16 +2006,13 @@
         textSpan.textContent = ruleText;
         checkboxLabel.appendChild(textSpan);
 
-        // Add timestamp span with accessibility improvements
-        const timestampSpan = document.createElement('span');
-        timestampSpan.className = 'checkbox-timestamp';
+        // Add status span for the changed tag (no timestamp display)
+        const statusSpan = document.createElement('span');
+        statusSpan.className = 'checkbox-status';
         
-        // Set initial timestamp if exists
+        // Keep track of checkbox state for change detection
         if (state?.checked && state?.timestamp) {
             const checkDate = new Date(state.timestamp);
-            const formattedDate = formatDate(checkDate);
-            timestampSpan.textContent = formattedDate;
-            timestampSpan.setAttribute('aria-label', `Last checked ${formattedDate}`);
             
             // Debug: Log component and checkbox timestamps
             console.log(`Debug - ${component.name} - ${ruleText} - Check date:`, checkDate);
@@ -2019,29 +2022,28 @@
                 const modifiedDate = new Date(component.lastModified);
                 console.log(`Debug - ${component.name} - Last modified:`, modifiedDate);
                 
-                // Calculate time difference
-                const needsUpdate = checkDate < modifiedDate && checkbox.checked;
+                // Check if the component was modified after the checkbox was checked
+                const needsUpdate = modifiedDate > checkDate;
                 console.log(`Debug - ${component.name} - Needs update:`, needsUpdate, 
-                            '(Check time:', checkDate.toISOString(), 
+                            '(Check date:', checkDate.toISOString(), 
                             'Modified time:', modifiedDate.toISOString(), ')');
                 
                 if (needsUpdate) {
-                    // Create and add the 'needs updating' tag
-                    const needsUpdateTag = document.createElement('span');
-                    needsUpdateTag.className = 'needs-updating-tag';
-                    needsUpdateTag.textContent = 'needs updating';
-                    needsUpdateTag.setAttribute('title', 'The component has changed since this was checked');
-                    timestampSpan.appendChild(document.createTextNode(' '));
-                    timestampSpan.appendChild(needsUpdateTag);
-                    console.log(`Debug - Added 'needs updating' tag to ${component.name} - ${ruleText}`);
+                    // Create and add the 'changed' tag
+                    const changedTag = document.createElement('span');
+                    changedTag.className = 'changed-tag';
+                    changedTag.textContent = 'changed';
+                    changedTag.setAttribute('title', 'This component has changed since you ticked this box');
+                    statusSpan.appendChild(changedTag);
+                    console.log(`Debug - Added 'changed' tag to ${component.name} - ${ruleText}`);
                 }
             } else {
                 console.log(`Debug - ${component.name} has no lastModified date`);
             }
         } else {
-            timestampSpan.setAttribute('aria-hidden', 'true');
+            statusSpan.setAttribute('aria-hidden', 'true');
         }
-        checkboxLabel.appendChild(timestampSpan);
+        checkboxLabel.appendChild(statusSpan);
         
         // Add right-click handler for context menu
         setupContextMenu(checkboxLabel, category, ruleText);
@@ -2602,12 +2604,13 @@
             const checkbox = componentSection.querySelector(`input[type="checkbox"][data-category="${category}"][data-rule="${ruleText}"]`);
             if (checkbox) {
               checkbox.checked = true;
-              // Update timestamp
+              // Update status span
               const label = checkbox.closest('.checkbox-label');
               if (label) {
-                const timestampSpan = label.querySelector('.checkbox-timestamp');
-                if (timestampSpan) {
-                  timestampSpan.textContent = formatDate(now);
+                const statusSpan = label.querySelector('.checkbox-status');
+                if (statusSpan) {
+                  // Clear any existing content
+                  statusSpan.innerHTML = '';
                 }
               }
             }
