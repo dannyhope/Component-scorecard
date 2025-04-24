@@ -545,6 +545,10 @@
     <!-- Message handler is included directly in this file -->
   </head>
   <body>
+    <!-- Footer with build version -->
+    <div id="footer" style="position: fixed; bottom: 0; left: 0; width: 100%; padding: 4px 8px; font-size: 9px; color: #616E73; background-color: #F8F9FA; text-align: right; border-top: 1px solid #E6E7E8;">
+      Build: 2025.04.24
+    </div>
     <script>
       // JavaScript Constants
       const SCORE_THRESHOLDS = {
@@ -1871,83 +1875,115 @@
       // Main function to build the component list
       function buildComponentList(components, checkboxStates, rules) {
         console.log('Building component list with components:', components);
-        const componentList = document.getElementById('component-list');
-        if (!componentList) {
-          console.error('Component list element not found, creating one...');
-          const newList = document.createElement('div');
-          newList.id = 'component-list';
-          newList.setAttribute('role', 'list');
-          newList.setAttribute('aria-label', 'Components');
-          document.body.appendChild(newList);
-        }
+        
+        // Ensure component list container exists
+        const componentList = ensureComponentListExists();
         componentList.innerHTML = ''; // Clear existing components
         
-        // Add hidden components button after component list (will be shown/hidden based on filtering)
-        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
-        if (!hiddenComponentsButton) {
-          const newButton = document.createElement('button');
-          newButton.id = 'hiddenComponentsButton';
-          newButton.className = 'hiddenComponentsButton';
-          newButton.setAttribute('aria-live', 'polite');
-          newButton.setAttribute('tabindex', '0');
-          newButton.setAttribute('title', 'Show all components that are currently hidden');
-          newButton.addEventListener('click', () => {
-            // When button is clicked, uncheck 'Hide completed' and show all components
-            const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
-            if (hideCompletedCheckbox) {
-              hideCompletedCheckbox.checked = false;
-              // Trigger the change event to update the UI
-              const event = new Event('change');
-              hideCompletedCheckbox.dispatchEvent(event);
-            }
-          });
-          
-          // Insert after component list
-          componentList.parentNode.insertBefore(newButton, componentList.nextSibling);
-        }
+        // Create or update hidden components button
+        ensureHiddenComponentsButtonExists(componentList);
         
+        // Create and add each component to the list
         components.forEach((component, index) => {
-          // Create component section
-          const section = document.createElement('div');
-          section.className = 'component-section';
-          section.setAttribute('data-id', String(component.id));
-          section.setAttribute('role', 'listitem');
-          section.setAttribute('aria-label', `${component.name} component`);
-
-          // Initialize component state using saved view state if available
-          const savedViewState = viewStates[component.id];
-          componentState[component.id] = { 
-            collapsed: savedViewState ? savedViewState.collapsed : index !== 0,
-            userToggled: savedViewState ? savedViewState.userToggled : false
-          };
-
-          // Get score class and dates for indicators
-          const scoreClass = getScoreClass(component.checkedCount, component.totalCategories);
-          const lastModifiedDate = component.lastModified ? new Date(component.lastModified) : null;
-          const leastRecentCheckDate = getLeastRecentCheckDate(component.id, checkboxStates);
-          
-          // Create the component title elements
-          const { title, expandArrow } = createComponentTitle(
-            component, 
-            componentState[component.id].collapsed, 
-            scoreClass, 
-            lastModifiedDate, 
-            leastRecentCheckDate
-          );
-          
-          // Set up title click event for collapse/expand
-          setupComponentToggle(component, title, expandArrow);
-          
-          // Add title to section
-          section.appendChild(title);
-          
-          // Create and add checkbox groups for rules
-          const checkboxGroup = createRuleCategories(component, rules, checkboxStates);
-          section.appendChild(checkboxGroup);
-          
-          // Add the component section to the list
+          const section = createComponentSection(component, index, checkboxStates, rules);
           componentList.appendChild(section);
         });
+      }
+      
+      // Helper function to ensure component list container exists
+      function ensureComponentListExists() {
+        const componentList = document.getElementById('component-list');
+        if (componentList) return componentList;
+        
+        console.error('Component list element not found, creating one...');
+        const newList = document.createElement('div');
+        newList.id = 'component-list';
+        newList.setAttribute('role', 'list');
+        newList.setAttribute('aria-label', 'Components');
+        document.body.appendChild(newList);
+        return newList;
+      }
+      
+      // Helper function to create or update hidden components button
+      function ensureHiddenComponentsButtonExists(componentList) {
+        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
+        if (hiddenComponentsButton) return;
+        
+        const newButton = document.createElement('button');
+        newButton.id = 'hiddenComponentsButton';
+        newButton.className = 'hiddenComponentsButton';
+        newButton.setAttribute('aria-live', 'polite');
+        newButton.setAttribute('tabindex', '0');
+        newButton.setAttribute('title', 'Show all components that are currently hidden');
+        newButton.addEventListener('click', handleHiddenComponentsButtonClick);
+        
+        // Insert after component list
+        componentList.parentNode.insertBefore(newButton, componentList.nextSibling);
+      }
+      
+      // Handler for hidden components button click
+      function handleHiddenComponentsButtonClick() {
+        const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+        if (!hideCompletedCheckbox) return;
+        
+        hideCompletedCheckbox.checked = false;
+        // Trigger the change event to update the UI
+        const event = new Event('change');
+        hideCompletedCheckbox.dispatchEvent(event);
+      }
+      
+      // Helper function to create a component section
+      function createComponentSection(component, index, checkboxStates, rules) {
+        // Create component section
+        const section = document.createElement('div');
+        section.className = 'component-section';
+        section.setAttribute('data-id', String(component.id));
+        section.setAttribute('role', 'listitem');
+        section.setAttribute('aria-label', `${component.name} component`);
+
+        // Initialize component state
+        initializeComponentState(component, index);
+
+        // Add title to section
+        const title = createComponentTitleWithIndicators(component, checkboxStates);
+        section.appendChild(title);
+        
+        // Create and add checkbox groups for rules
+        const checkboxGroup = createRuleCategories(component, rules, checkboxStates);
+        section.appendChild(checkboxGroup);
+        
+        return section;
+      }
+      
+      // Helper function to initialize component state
+      function initializeComponentState(component, index) {
+        const savedViewState = viewStates[component.id];
+        componentState[component.id] = { 
+          collapsed: savedViewState ? savedViewState.collapsed : index !== 0,
+          userToggled: savedViewState ? savedViewState.userToggled : false
+        };
+      }
+      
+      // Helper function to create component title with indicators
+      function createComponentTitleWithIndicators(component, checkboxStates) {
+        // Get score class and dates for indicators
+        const scoreClass = getScoreClass(component.checkedCount, component.totalCategories);
+        const lastModifiedDate = component.lastModified ? new Date(component.lastModified) : null;
+        const leastRecentCheckDate = getLeastRecentCheckDate(component.id, checkboxStates);
+        
+        // Create the component title elements
+        const { title, expandArrow } = createComponentTitle(
+          component, 
+          componentState[component.id].collapsed, 
+          scoreClass, 
+          lastModifiedDate, 
+          leastRecentCheckDate
+        );
+        
+        // Set up title click event for collapse/expand
+        setupComponentToggle(component, title, expandArrow);
+        
+        return title;
       }
       
       // Add diagnostic info to help debug
