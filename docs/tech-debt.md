@@ -1,35 +1,24 @@
-
-# Technical Debt
+# Component Scorecard Plugin - Technical Debt
 
 ## Status Key
 🟢 Fixed
 🟡 In Progress
 🔴 To Do
 
-## Code Organization and Cleanliness
+## Current Issues
 
-### Unused Code and Files 🟢
-- ~~Unused `getComponentUsage` function in code.js~~ Fixed: Removed unused function
-- ~~Unused `event-bus.js` file that wasn't imported anywhere~~ Fixed: Removed unused file
-- ~~Redundant `ui-message-handler.js` file with functionality duplicated in ui.html~~ Fixed: Removed redundant file
-- ~~Various unused variables throughout the codebase~~ Fixed: Removed unused variables
+### Architecture and Performance
 
-## Document and Memory Structure Issues
+#### 🔴 Structural Complexity
+- Syntax errors in complex nested function blocks are difficult to debug
 
-### Component State Management 🔴
+#### 🔴 Component State Management
 - Component states are managed in multiple places leading to potential sync issues:
   - `checkboxStates` in both UI and plugin code
   - Component scores calculated in plugin but stored in UI's `allComponents`
   - No single source of truth for component state
 
-### Data Persistence 🟢
-- ~~Using Figma's client storage directly without abstraction~~ Fixed: Created Storage class for abstraction
-- ~~State management is tightly coupled to Figma's storage API~~ Fixed: Storage operations now go through abstraction layer
-- ~~No clear separation between persistence layer and application logic~~ Fixed: Clear separation with Storage class
-- Added caching to reduce storage operations
-- Simplified async/await usage throughout the codebase
-
-### Memory Structure 🔴
+#### 🔴 Memory Structure
 - Checkbox states are stored in a nested object structure that's hard to maintain:
   ```javascript
   checkboxStates = {
@@ -49,10 +38,78 @@
   - Implement undo/redo
   - Add new metadata to checkboxes
 
-### Component Score Calculation 🟢
-- ~~Score calculation is split between plugin and UI~~ Fixed: Consolidated in `calculateComponentScore`
-- ~~No clear ownership of score calculation logic~~ Fixed: Plugin code now owns score calculation
-- ~~Updates require coordination between multiple parts of the codebase~~ Fixed: Single source of truth in plugin
+### UI and Codebase Structure
+
+#### 🔴 UI Code Organization
+- All UI code is in a single HTML file with embedded JavaScript
+- No separation of concerns between UI components
+- Large, monolithic functions like `buildComponentList` with excessive nesting
+- Direct DOM manipulation instead of using a template system
+
+#### 🔴 Frontend Performance
+- Inefficient component filtering that rebuilds the entire list on each keystroke
+- Repeated DOM queries that could be cached
+- Potential performance issues when handling large component libraries
+- Missing throttling/debouncing for some UI interactions
+
+#### 🔴 Code Duplication
+- Storage class exists in both code.js and storage.js
+- Redundant code for managing component state 
+- Exports in storage.js aren't being used
+
+#### 🔴 Accessibility Issues
+- Missing ARIA attributes for better screen reader support
+- No keyboard navigation support for component selection and checkboxes
+- Color contrast issues with score indicators (red/amber/green)
+- Text size may be too small for some users (12px)
+- No focus management for component list
+
+#### 🔴 Missing Features
+- No build/version number in UI (mentioned in ideas.md)
+- No settings page for configuration
+- Missing visual debug information
+- No keyboard shortcuts for common operations
+
+#### 🔴 Component Detection Issues (April 2025)
+- The plugin doesn't reliably detect newly created components automatically:
+  - The `documentchange` event doesn't consistently trigger for new component creation
+  - We've tried using `findAllWithCriteria()` instead of `findAll()` but it's still unreliable
+  - Added polling as a fallback, but it's not a perfect solution
+
+**Current workaround:** Added a manual refresh button that users can click after creating new components. This sends a direct message to the plugin to refresh the component list.
+
+#### 🟡 Temporary UI Hiding (April 2025)
+- The following UI elements are currently hidden via CSS for interface simplification/testing:
+  - The score count (e.g., (1/5)) next to each component name
+  - The number of instances (e.g., "2 instances") next to each component name
+
+This is done by setting `display: none` on the relevant CSS classes in `plugin/ui.html`. These changes are non-destructive and can be easily reverted by removing or commenting out the CSS rules.
+
+## Pending Architecture Improvements
+
+### 🔴 Event-Driven Architecture
+- Use a message-based approach where each operation is separate and independent
+- Implement a state machine pattern for managing plugin workflow
+- Allow the UI to function independently of data loading
+
+### 🟡 Progressive Loading Pattern
+- 🔴 Show UI immediately with placeholder content
+
+### 🔴 Simplified Data Model
+- Flatten dependency relationships to avoid deep traversals
+- Cache intermediate results aggressively
+- Use simpler data structures (arrays instead of nested maps)
+
+### 🟡 Robust Error Handling
+- 🔴 Add automatic retry logic with backoff
+
+## Implementation Strategy
+
+### 🟡 Incremental Approach
+- 🟡 Start with a minimalist core that displays basic component information
+- 🟡 Add features incrementally, testing thoroughly after each addition
+- 🔴 Implement a debug mode that provides visibility into internal operations
+- 🔴 Use a modular design where components can be tested in isolation
 
 ## Suggested Improvements
 
@@ -66,23 +123,6 @@
    - Create a proper data model for components and their states
    - Implement proper caching and state synchronization
 
----
-
-## Temporary UI Hiding (April 2025)
-🟡 The following UI elements are currently hidden via CSS for interface simplification/testing:
-- The score count (e.g., (1/5)) next to each component name
-- The number of instances (e.g., "2 instances") next to each component name
-
-This is done by setting `display: none` on the relevant CSS classes in `plugin/ui.html`. These changes are non-destructive and can be easily reverted by removing or commenting out the CSS rules.
-
-## Component Detection Issues (April 2025)
-🔴 The plugin doesn't reliably detect newly created components automatically:
-- The `documentchange` event doesn't consistently trigger for new component creation
-- We've tried using `findAllWithCriteria()` instead of `findAll()` but it's still unreliable
-- Added polling as a fallback, but it's not a perfect solution
-
-**Current workaround:** Added a manual refresh button that users can click after creating new components. This sends a direct message to the plugin to refresh the component list.
-
 3. **Component Architecture**
    - Separate UI components from state management
    - Create clear boundaries between plugin and UI code
@@ -93,34 +133,58 @@ This is done by setting `display: none` on the relevant CSS classes in `plugin/u
    - Need proper unit tests for score calculations
    - Need integration tests for state synchronization
 
-## UI and Codebase Structure Issues
+## Completed Improvements ✅
 
-### UI Code Organization 🔴
-- All UI code is in a single HTML file with embedded JavaScript
-- No separation of concerns between UI components
-- Large, monolithic functions like `buildComponentList` with excessive nesting
-- Direct DOM manipulation instead of using a template system
+### Architecture and Performance
 
-### Frontend Performance 🔴
-- Inefficient component filtering that rebuilds the entire list on each keystroke
-- Repeated DOM queries that could be cached
-- Potential performance issues when handling large component libraries
-- Missing throttling/debouncing for some UI interactions
+#### ✅ Structural Complexity
+- ✅ Complex nested functions and recursive patterns → Flattened code structure and reduced nesting
+- ✅ Deep call stacks for dependency tracking causing stack overflows → Replaced with iterative approaches
 
-### Code Duplication 🔴
-- Storage class exists in both code.js and storage.js
-- Redundant code for managing component state 
-- Exports in storage.js aren't being used
+#### ✅ Performance Bottlenecks
+- ✅ Recursive document traversal doesn't scale with large Figma files → Replaced with queue-based iteration
+- ✅ Dependency tracking algorithm tries to do too much in a single pass → Implemented chunked processing
+- ✅ No effective timeout mechanisms to prevent hanging → Added timeouts with graceful fallbacks
 
-### Accessibility Issues 🔴
-- Missing ARIA attributes for better screen reader support
-- No keyboard navigation support for component selection and checkboxes
-- Color contrast issues with score indicators (red/amber/green)
-- Text size may be too small for some users (12px)
-- No focus management for component list
+#### ✅ Error Handling
+- ✅ Many operations lack proper try/catch blocks → Added comprehensive error handling
+- ✅ No graceful fallbacks when primary approaches fail → Implemented fallback mechanisms
+- ✅ UI gets stuck waiting for plugin responses that never come → Added timeout protection
 
-### Missing Features 🔴
-- No build/version number in UI (mentioned in ideas.md)
-- No settings page for configuration
-- Missing visual debug information
-- No keyboard shortcuts for common operations
+#### ✅ Non-Recursive Algorithms
+- ✅ Replace all recursive traversals with queue/stack-based iterations → Implemented queue-based traversal
+- ✅ Set hard limits on processing depth and breadth → Added depth limits to prevent infinite loops
+- ✅ Use timeouts and chunking for long operations → Implemented timeouts and chunked processing
+
+#### ✅ Progressive Loading Pattern
+- ✅ Load components in small batches with clear progress indicators → Implemented chunked loading with progress reporting
+- ✅ Process one page at a time, updating the UI after each page → Implemented page-by-page processing
+
+#### ✅ Robust Error Handling
+- ✅ Implement error boundaries around each major function → Added try/catch blocks throughout
+- ✅ Store partial results to avoid losing progress → Implemented partial result handling
+
+#### ✅ Implementation Strategy
+- ✅ Add comprehensive logging that can be enabled to trace issues → Added detailed logging throughout
+
+### Code Organization and Cleanliness
+
+#### ✅ Unused Code and Files
+- ✅ Unused `getComponentUsage` function in code.js → Removed unused function
+- ✅ Unused `event-bus.js` file that wasn't imported anywhere → Removed unused file
+- ✅ Redundant `ui-message-handler.js` file with functionality duplicated in ui.html → Removed redundant file
+- ✅ Various unused variables throughout the codebase → Removed unused variables
+
+### Document and Memory Structure
+
+#### ✅ Data Persistence
+- ✅ Using Figma's client storage directly without abstraction → Created Storage class for abstraction
+- ✅ State management is tightly coupled to Figma's storage API → Storage operations now go through abstraction layer
+- ✅ No clear separation between persistence layer and application logic → Clear separation with Storage class
+- ✅ Added caching to reduce storage operations
+- ✅ Simplified async/await usage throughout the codebase
+
+#### ✅ Component Score Calculation
+- ✅ Score calculation is split between plugin and UI → Consolidated in `calculateComponentScore`
+- ✅ No clear ownership of score calculation logic → Plugin code now owns score calculation
+- ✅ Updates require coordination between multiple parts of the codebase → Single source of truth in plugin
