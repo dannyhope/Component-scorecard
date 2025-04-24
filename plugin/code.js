@@ -10,123 +10,272 @@ class Storage {
       userPreferences: null,
       customRules: null
     };
+    this.initialized = false;
+    this.initPromise = null;
   }
 
   async init() {
-    const [checkboxStates, modifiedDates, viewStates, userPreferences, customRules] = await Promise.all([
-      figma.clientStorage.getAsync('checkboxStates'),
-      figma.clientStorage.getAsync('modifiedDates'),
-      figma.clientStorage.getAsync('viewStates'),
-      figma.clientStorage.getAsync('userPreferences'),
-      figma.clientStorage.getAsync('customRules')
-    ]);
+    // Prevent multiple simultaneous initialization
+    if (this.initPromise) {
+      return this.initPromise;
+    }
 
-    this.cache.checkboxStates = checkboxStates || {};
-    this.cache.modifiedDates = modifiedDates || {};
-    this.cache.viewStates = viewStates || {};
-    this.cache.userPreferences = userPreferences || { hideCompleted: false };
-    this.cache.customRules = customRules || null;
+    this.initPromise = new Promise(async (resolve, reject) => {
+      try {
+        console.log('Initializing storage...');
+        
+        // Add timeout protection for storage operations
+        const storageTimeout = setTimeout(() => {
+          reject(new Error('Storage initialization timed out after 5000ms'));
+        }, 5000);
+        
+        const [checkboxStates, modifiedDates, viewStates, userPreferences, customRules] = await Promise.all([
+          this.getStorageWithFallback('checkboxStates', {}),
+          this.getStorageWithFallback('modifiedDates', {}),
+          this.getStorageWithFallback('viewStates', {}),
+          this.getStorageWithFallback('userPreferences', { hideCompleted: false }),
+          this.getStorageWithFallback('customRules', null)
+        ]);
+        
+        clearTimeout(storageTimeout);
+        
+        this.cache.checkboxStates = checkboxStates;
+        this.cache.modifiedDates = modifiedDates;
+        this.cache.viewStates = viewStates;
+        this.cache.userPreferences = userPreferences;
+        this.cache.customRules = customRules;
+        
+        this.initialized = true;
+        console.log('Storage initialization complete');
+        resolve();
+      } catch (error) {
+        console.error('Error initializing storage:', error);
+        // Initialize with empty values in case of failure
+        this.cache.checkboxStates = {};
+        this.cache.modifiedDates = {};
+        this.cache.viewStates = {};
+        this.cache.userPreferences = { hideCompleted: false };
+        this.cache.customRules = null;
+        
+        this.initialized = true; // Still mark as initialized so we don't keep retrying
+        figma.ui.postMessage({
+          type: 'storageError',
+          error: 'Failed to load stored data: ' + error.message
+        });
+        resolve(); // Resolve anyway to allow the plugin to function
+      } finally {
+        this.initPromise = null;
+      }
+    });
+    
+    return this.initPromise;
+  }
+  
+  async getStorageWithFallback(key, defaultValue) {
+    try {
+      const value = await figma.clientStorage.getAsync(key);
+      return value !== undefined ? value : defaultValue;
+    } catch (error) {
+      console.error(`Error getting ${key} from storage:`, error);
+      return defaultValue;
+    }
+  }
+
+  async ensureInitialized() {
+    if (!this.initialized) {
+      await this.init();
+    }
   }
 
   async getComponentState(componentId) {
-    if (!this.cache.checkboxStates) await this.init();
-    return this.cache.checkboxStates[componentId] || {};
+    try {
+      await this.ensureInitialized();
+      return this.cache.checkboxStates[componentId] || {};
+    } catch (error) {
+      console.error(`Error getting component state for ${componentId}:`, error);
+      return {};
+    }
   }
 
   async getAllComponentStates() {
-    if (!this.cache.checkboxStates) await this.init();
-    return this.cache.checkboxStates;
+    try {
+      await this.ensureInitialized();
+      return this.cache.checkboxStates;
+    } catch (error) {
+      console.error('Error getting all component states:', error);
+      return {};
+    }
   }
 
   async updateCheckboxState(componentId, category, rule, state) {
-    if (!this.cache.checkboxStates) await this.init();
-    
-    if (!this.cache.checkboxStates[componentId]) {
-      this.cache.checkboxStates[componentId] = {};
-    }
-    if (!this.cache.checkboxStates[componentId][category]) {
-      this.cache.checkboxStates[componentId][category] = {};
-    }
+    try {
+      await this.ensureInitialized();
+      
+      if (!this.cache.checkboxStates[componentId]) {
+        this.cache.checkboxStates[componentId] = {};
+      }
+      if (!this.cache.checkboxStates[componentId][category]) {
+        this.cache.checkboxStates[componentId][category] = {};
+      }
 
-    this.cache.checkboxStates[componentId][category][rule] = state;
-    await this.persist();
-    
-    return this.cache.checkboxStates[componentId];
+      this.cache.checkboxStates[componentId][category][rule] = state;
+      await this.persist();
+      
+      return this.cache.checkboxStates[componentId];
+    } catch (error) {
+      console.error(`Error updating checkbox state for ${componentId}:`, error);
+      figma.ui.postMessage({
+        type: 'saveError',
+        error: 'Failed to save checkbox state: ' + error.message,
+        componentId
+      });
+      return this.cache.checkboxStates[componentId] || {};
+    }
   }
 
   async persist() {
-    await Promise.all([
-      figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
-      figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
-      figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
-      figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
-      figma.clientStorage.setAsync('customRules', this.cache.customRules)
-    ]);
+    try {
+      await Promise.all([
+        figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
+        figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
+        figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
+        figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
+        figma.clientStorage.setAsync('customRules', this.cache.customRules)
+      ]);
+    } catch (error) {
+      console.error('Error persisting storage:', error);
+      figma.ui.postMessage({
+        type: 'storageError',
+        error: 'Failed to save data: ' + error.message
+      });
+      throw error; // Rethrow so callers know it failed
+    }
   }
 
   async updateModifiedDates(componentId, timestamp) {
-    if (!this.cache.modifiedDates) await this.init();
-    this.cache.modifiedDates[componentId] = timestamp;
-    await this.persist();
+    try {
+      await this.ensureInitialized();
+      this.cache.modifiedDates[componentId] = timestamp;
+      await this.persist();
+    } catch (error) {
+      console.error(`Error updating modified date for ${componentId}:`, error);
+      // Non-critical operation, can continue without throwing
+    }
   }
 
   async getModifiedDates(componentId) {
-    if (!this.cache.modifiedDates) await this.init();
-    return this.cache.modifiedDates[componentId] || null;
+    try {
+      await this.ensureInitialized();
+      return this.cache.modifiedDates[componentId] || null;
+    } catch (error) {
+      console.error(`Error getting modified date for ${componentId}:`, error);
+      return null;
+    }
   }
   
   async getAllModifiedDates() {
-    if (!this.cache.modifiedDates) await this.init();
-    return this.cache.modifiedDates;
+    try {
+      await this.ensureInitialized();
+      return this.cache.modifiedDates;
+    } catch (error) {
+      console.error('Error getting all modified dates:', error);
+      return {};
+    }
   }
 
   async getViewState(componentId) {
-    if (!this.cache.viewStates) await this.init();
-    return this.cache.viewStates[componentId] || null;
+    try {
+      await this.ensureInitialized();
+      return this.cache.viewStates[componentId] || null;
+    } catch (error) {
+      console.error(`Error getting view state for ${componentId}:`, error);
+      return null;
+    }
   }
 
   async getAllViewStates() {
-    if (!this.cache.viewStates) await this.init();
-    return this.cache.viewStates;
+    try {
+      await this.ensureInitialized();
+      return this.cache.viewStates;
+    } catch (error) {
+      console.error('Error getting all view states:', error);
+      return {};
+    }
   }
 
   async updateViewState(componentId, isCollapsed, userToggled = true) {
-    if (!this.cache.viewStates) await this.init();
-    
-    this.cache.viewStates[componentId] = {
-      collapsed: isCollapsed,
-      userToggled: userToggled
-    };
-    
-    await this.persist();
-    return this.cache.viewStates[componentId];
+    try {
+      await this.ensureInitialized();
+      
+      this.cache.viewStates[componentId] = {
+        collapsed: isCollapsed,
+        userToggled: userToggled
+      };
+      
+      await this.persist();
+      return this.cache.viewStates[componentId];
+    } catch (error) {
+      console.error(`Error updating view state for ${componentId}:`, error);
+      return {
+        collapsed: isCollapsed,
+        userToggled: userToggled
+      };
+    }
   }
   
   async getUserPreferences() {
-    if (!this.cache.userPreferences) await this.init();
-    return this.cache.userPreferences;
+    try {
+      await this.ensureInitialized();
+      return this.cache.userPreferences;
+    } catch (error) {
+      console.error('Error getting user preferences:', error);
+      return { hideCompleted: false };
+    }
   }
   
   async updateUserPreferences(preferences) {
-    if (!this.cache.userPreferences) await this.init();
-    
-    // Update only the provided preferences, keeping the rest intact
-    this.cache.userPreferences = Object.assign({}, this.cache.userPreferences, preferences);
-    
-    await this.persist();
-    return this.cache.userPreferences;
+    try {
+      await this.ensureInitialized();
+      
+      // Update only the provided preferences, keeping the rest intact
+      this.cache.userPreferences = Object.assign({}, this.cache.userPreferences, preferences);
+      
+      await this.persist();
+      return this.cache.userPreferences;
+    } catch (error) {
+      console.error('Error updating user preferences:', error);
+      figma.ui.postMessage({
+        type: 'saveError',
+        error: 'Failed to save preferences: ' + error.message
+      });
+      return this.cache.userPreferences;
+    }
   }
   
   async getCustomRules() {
-    if (!this.cache.customRules) await this.init();
-    return this.cache.customRules;
+    try {
+      await this.ensureInitialized();
+      return this.cache.customRules;
+    } catch (error) {
+      console.error('Error getting custom rules:', error);
+      return null;
+    }
   }
   
   async saveCustomRules(customRules) {
-    if (!this.cache.customRules) await this.init();
-    this.cache.customRules = customRules;
-    await this.persist();
-    return this.cache.customRules;
+    try {
+      await this.ensureInitialized();
+      this.cache.customRules = customRules;
+      await this.persist();
+      return this.cache.customRules;
+    } catch (error) {
+      console.error('Error saving custom rules:', error);
+      figma.ui.postMessage({
+        type: 'saveError',
+        error: 'Failed to save custom rules: ' + error.message
+      });
+      return this.cache.customRules;
+    }
   }
 }
 
@@ -164,77 +313,164 @@ async function analyzeComponents() {
   const dependencyCounts = new Map(); // Track how many components are used within each component
   const componentDependencies = new Map(); // Track which components are used within each component
   
-  // First pass: collect main components and initialize counts
-  for (const page of figma.root.children) {
-    const pageComponents = page.findAllWithCriteria({
-      types: ['COMPONENT']
-    });
-    
-    pageComponents.forEach(component => {
-      // Skip variants - only include main components
-      if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
-        usageCounts.set(component.id, 0);
-        dependencyCounts.set(component.id, 0);
-        componentDependencies.set(component.id, new Set());
-      }
-    });
-  }
-
-  // Second pass: count instances and analyze dependencies
-  for (const page of figma.root.children) {
-    // Track instances usage
-    const instances = page.findAllWithCriteria({
-      types: ['INSTANCE']
-    });
-    
-    instances.forEach(instance => {
-      if (!instance.mainComponent) return;
-      
-      let targetComponent = instance.mainComponent;
-      
-      // If this is a variant, get its parent component set's main component
-      if (targetComponent.parent && targetComponent.parent.type === 'COMPONENT_SET') {
-        const mainVariant = targetComponent.parent.defaultVariant;
-        if (mainVariant) {
-          targetComponent = mainVariant;
-        }
-      }
-
-      const mainComponentId = targetComponent.id;
-      if (usageCounts.has(mainComponentId)) {
-        usageCounts.set(
-          mainComponentId,
-          usageCounts.get(mainComponentId) + 1
-        );
-      }
-      
-      // Find the parent component that contains this instance (if any)
-      let parent = instance.parent;
-      while (parent) {
-        if (parent.type === 'COMPONENT' && 
-            (!parent.parent || parent.parent.type !== 'COMPONENT_SET')) {
-          // Found a parent main component that contains this instance
-          // Add this as a dependency for that component
-          if (componentDependencies.has(parent.id)) {
-            componentDependencies.get(parent.id).add(targetComponent.id);
-          }
-          break;
-        }
-        parent = parent.parent;
-      }
-    });
-  }
+  // Set up analysis timeout
+  let analysisCompleted = false;
+  const analysisTimeout = setTimeout(() => {
+    if (!analysisCompleted) {
+      console.error('Component analysis timed out after 10 seconds');
+      figma.ui.postMessage({
+        type: 'analysisError',
+        error: 'Component analysis timed out. Your document may be too large or complex.'
+      });
+    }
+  }, 10000); // 10 seconds timeout
   
-  // Calculate final dependency counts
-  for (const [componentId, dependencies] of componentDependencies) {
-    dependencyCounts.set(componentId, dependencies.size);
-  }
+  try {
+    console.log('Starting component analysis...');
+    
+    // First pass: collect main components and initialize counts
+    try {
+      console.log('First pass: collecting main components...');
+      for (const page of figma.root.children) {
+        try {
+          const pageComponents = page.findAllWithCriteria({
+            types: ['COMPONENT']
+          });
+          
+          pageComponents.forEach(component => {
+            try {
+              // Skip variants - only include main components
+              if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
+                usageCounts.set(component.id, 0);
+                dependencyCounts.set(component.id, 0);
+                componentDependencies.set(component.id, new Set());
+              }
+            } catch (err) {
+              console.warn(`Skipping component due to error:`, err);
+            }
+          });
+        } catch (pageError) {
+          console.warn(`Error processing page ${page.name}:`, pageError);
+          // Continue with next page
+        }
+      }
+      console.log(`Found ${usageCounts.size} main components`);
+    } catch (firstPassError) {
+      console.error('Error in first pass of component analysis:', firstPassError);
+      // Continue to second pass with partial data
+    }
 
-  return { usageCounts, dependencyCounts };
+    // Second pass: count instances and analyze dependencies
+    try {
+      console.log('Second pass: analyzing dependencies...');
+      for (const page of figma.root.children) {
+        try {
+          // Track instances usage
+          const instances = page.findAllWithCriteria({
+            types: ['INSTANCE']
+          });
+          
+          instances.forEach(instance => {
+            try {
+              if (!instance.mainComponent) return;
+              
+              let targetComponent = instance.mainComponent;
+              
+              // If this is a variant, get its parent component set's main component
+              if (targetComponent.parent && targetComponent.parent.type === 'COMPONENT_SET') {
+                const mainVariant = targetComponent.parent.defaultVariant;
+                if (mainVariant) {
+                  targetComponent = mainVariant;
+                }
+              }
+
+              const mainComponentId = targetComponent.id;
+              if (usageCounts.has(mainComponentId)) {
+                usageCounts.set(
+                  mainComponentId,
+                  usageCounts.get(mainComponentId) + 1
+                );
+              }
+              
+              // Find the parent component that contains this instance (if any)
+              // Using iterative approach instead of recursion to avoid stack overflows
+              // and setting a depth limit for safety
+              let parent = instance.parent;
+              let depth = 0;
+              const maxDepth = 50; // Reasonable limit to prevent infinite loops
+              
+              while (parent && depth < maxDepth) {
+                if (parent.type === 'COMPONENT' && 
+                   (!parent.parent || parent.parent.type !== 'COMPONENT_SET')) {
+                  // Found a parent main component that contains this instance
+                  // Add this as a dependency for that component
+                  if (componentDependencies.has(parent.id)) {
+                    componentDependencies.get(parent.id).add(targetComponent.id);
+                  }
+                  break;
+                }
+                parent = parent.parent;
+                depth++;
+              }
+              
+              if (depth >= maxDepth) {
+                console.warn('Reached maximum depth limit while finding parent component');
+              }
+            } catch (instanceError) {
+              console.warn('Error processing instance:', instanceError);
+              // Continue with next instance
+            }
+          });
+        } catch (pageError) {
+          console.warn(`Error processing instances on page ${page.name}:`, pageError);
+          // Continue with next page
+        }
+      }
+    } catch (secondPassError) {
+      console.error('Error in second pass of component analysis:', secondPassError);
+      // Continue with partial data
+    }
+    
+    // Calculate final dependency counts
+    try {
+      for (const [componentId, dependencies] of componentDependencies) {
+        dependencyCounts.set(componentId, dependencies.size);
+      }
+    } catch (countError) {
+      console.error('Error calculating dependency counts:', countError);
+    }
+
+    console.log('Component analysis complete');
+    analysisCompleted = true;
+    clearTimeout(analysisTimeout);
+    
+    return { usageCounts, dependencyCounts };
+  } catch (error) {
+    console.error('Error analyzing components:', error);
+    clearTimeout(analysisTimeout);
+    // Return empty maps as fallback
+    return { 
+      usageCounts: new Map(), 
+      dependencyCounts: new Map() 
+    };
+  }
 }
 
 // Function to load components and send data to the UI
 async function loadComponents(skipCache = false) {
+  // Set up loading timeout
+  let loadingCompleted = false;
+  const loadingTimeout = setTimeout(() => {
+    if (!loadingCompleted) {
+      console.error('Component loading timed out after 15 seconds');
+      figma.ui.postMessage({
+        type: 'loadError',
+        error: 'Loading components timed out. Your document may be too large or complex.',
+        partial: true // Indicate this is a timeout, not a complete failure
+      });
+    }
+  }, 15000); // 15 seconds timeout
+
   try {
     console.log('Loading components...');
     console.log('Document name:', figma.root.name);
@@ -242,18 +478,41 @@ async function loadComponents(skipCache = false) {
     console.log('Current page name:', figma.currentPage.name);
     
     // Make sure all pages are loaded
-    await figma.loadAllPagesAsync();
-    console.log('All pages loaded successfully');
+    try {
+      const pageLoadTimeout = setTimeout(() => {
+        throw new Error('Loading pages timed out after 5 seconds');
+      }, 5000);
+      
+      await figma.loadAllPagesAsync();
+      clearTimeout(pageLoadTimeout);
+      console.log('All pages loaded successfully');
+    } catch (pageLoadError) {
+      console.error('Error loading pages:', pageLoadError);
+      // Continue with currently loaded pages
+      figma.ui.postMessage({
+        type: 'loadWarning',
+        warning: 'Some pages could not be loaded. Only currently loaded pages will be processed.'
+      });
+    }
     
     // Find all components across all pages in the document
     let allComponents = [];
     for (const page of figma.root.children) {
-      console.log(`Searching for components on page: ${page.name}`);
-      const pageComponents = page.findAllWithCriteria({
-        types: ['COMPONENT']
-      });
-      console.log(`Found ${pageComponents.length} components on page ${page.name}`);
-      allComponents = allComponents.concat(pageComponents);
+      try {
+        console.log(`Searching for components on page: ${page.name}`);
+        const pageComponents = page.findAllWithCriteria({
+          types: ['COMPONENT']
+        });
+        console.log(`Found ${pageComponents.length} components on page ${page.name}`);
+        allComponents = allComponents.concat(pageComponents);
+      } catch (pageError) {
+        console.error(`Error searching for components on page ${page.name}:`, pageError);
+        // Continue with next page
+        figma.ui.postMessage({
+          type: 'loadWarning',
+          warning: `Could not search for components on page "${page.name}". This page will be skipped.`
+        });
+      }
     }
     
     console.log('Found components across all pages:', allComponents.length);
@@ -261,15 +520,20 @@ async function loadComponents(skipCache = false) {
     // Filter out components in component sets (variants) and deduplicate by ID
     const componentMap = new Map();
     
-    // First pass - filter out variants and collect components
-    allComponents
-      .filter(component => !component.parent || component.parent.type !== 'COMPONENT_SET')
-      .forEach(component => {
-        // Only add this component if we haven't seen its ID before
-        if (!componentMap.has(component.id)) {
-          componentMap.set(component.id, component);
-        }
-      });
+    try {
+      // First pass - filter out variants and collect components
+      allComponents
+        .filter(component => !component.parent || component.parent.type !== 'COMPONENT_SET')
+        .forEach(component => {
+          // Only add this component if we haven't seen its ID before
+          if (!componentMap.has(component.id)) {
+            componentMap.set(component.id, component);
+          }
+        });
+    } catch (filterError) {
+      console.error('Error filtering components:', filterError);
+      // Continue with potentially incomplete filtered components
+    }
       
     // Convert back to array
     const components = Array.from(componentMap.values());
@@ -284,109 +548,271 @@ async function loadComponents(skipCache = false) {
       console.warn('3. The components are in a library and not in the document');
     }
 
-    // Get all component states from storage
-    const states = await storage.getAllComponentStates();
+    // Set up storage data with fallbacks for failures
+    let states = {}, viewStates = {}, userPreferences = { hideCompleted: false }, customRules = null;
+    let usageCounts = new Map(), dependencyCounts = new Map();
+    let modifiedDates = {};
     
-    // Get all view states and user preferences
-    const viewStates = await storage.getAllViewStates();
-    const userPreferences = await storage.getUserPreferences();
-    const customRules = await storage.getCustomRules();
+    try {
+      // Get all component states from storage
+      states = await storage.getAllComponentStates();
+      
+      // Get all view states and user preferences
+      viewStates = await storage.getAllViewStates();
+      userPreferences = await storage.getUserPreferences();
+      customRules = await storage.getCustomRules();
+    } catch (storageError) {
+      console.error('Error getting data from storage:', storageError);
+      // Will continue with empty defaults set above
+      figma.ui.postMessage({
+        type: 'loadWarning',
+        warning: 'Could not load saved data. Starting with empty data.'
+      });
+    }
 
-    // Get component usage and dependency counts
-    const { usageCounts, dependencyCounts } = await analyzeComponents();
+    try {
+      // Get component usage and dependency counts with a timeout
+      const analysisPromise = analyzeComponents();
+      const analysisResult = await Promise.race([
+        analysisPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Dependency analysis timed out')), 8000))
+      ]);
+      
+      usageCounts = analysisResult.usageCounts;
+      dependencyCounts = analysisResult.dependencyCounts;
+    } catch (analysisError) {
+      console.error('Error analyzing component dependencies:', analysisError);
+      // Continue with empty dependency data
+      figma.ui.postMessage({
+        type: 'loadWarning',
+        warning: 'Could not analyze component dependencies. Usage counts may be inaccurate.'
+      });
+    }
 
-    // Send component data to the UI along with checkbox states
-    // Note: Only components that currently exist in the document are sent to the UI
-    // Data for deleted components is preserved in storage but not shown in the UI
-    // This allows for restoration of data if a component is recreated (e.g., via undo)
-    
-    // First get all the modification dates at once (since this is async)
-    const modifiedDates = await storage.getAllModifiedDates();
-    
-    // Update current modification dates for all components if needed
-    for (const component of components) {
-      // If component doesn't have a modified date or we need to refresh it
-      if (!modifiedDates[component.id] || skipCache) {
-        // Set the current time as the modification date
-        await storage.updateModifiedDates(component.id, new Date().toISOString());
-      }
+    // First get all the modification dates at once
+    try {
+      modifiedDates = await storage.getAllModifiedDates();
+    } catch (datesError) {
+      console.error('Error getting modification dates:', datesError);
+      // Continue with empty dates
     }
     
-    // Now get the updated dates
-    const updatedModifiedDates = await storage.getAllModifiedDates();
+    // Update modification dates in chunks to avoid hanging
+    const CHUNK_SIZE = 10;
+    let updatedModifiedDates = Object.assign({}, modifiedDates);
     
-    const componentData = components.map(component => {
-      // Get the checked count using the storage states
-      const componentState = states[component.id] || {};
-      const checkedCount = Object.values(componentState).reduce((sum, category) => {
-        return sum + Object.values(category).filter(state => state.checked).length;
-      }, 0);
+    try {
+      if (components.length > 0) {
+        for (let i = 0; i < components.length; i += CHUNK_SIZE) {
+          const chunk = components.slice(i, i + CHUNK_SIZE);
+          await Promise.all(chunk.map(async component => {
+            try {
+              // If component doesn't have a modified date or we need to refresh it
+              if (!modifiedDates[component.id] || skipCache) {
+                // Set the current time as the modification date
+                const timestamp = new Date().toISOString();
+                await storage.updateModifiedDates(component.id, timestamp);
+                updatedModifiedDates[component.id] = timestamp;
+              }
+            } catch (dateUpdateError) {
+              console.warn(`Could not update modified date for component ${component.id}:`, dateUpdateError);
+              // Continue with next component
+            }
+          }));
+        }
+      }
+    } catch (updateDatesError) {
+      console.error('Error updating modification dates:', updateDatesError);
+      // Continue with existing dates
+    }
+    
+    let componentData = [];
+    try {
+      componentData = components.map(component => {
+        try {
+          // Get the checked count using the storage states
+          const componentState = states[component.id] || {};
+          const checkedCount = Object.values(componentState).reduce((sum, category) => {
+            try {
+              return sum + Object.values(category).filter(state => state && state.checked).length;
+            } catch (categoryError) {
+              console.warn(`Error calculating checked count for category in component ${component.id}:`, categoryError);
+              return sum; // Return current sum without adding
+            }
+          }, 0);
 
-      // Log each component we're sending to the UI
-      console.log('Sending component to UI:', {
-        id: component.id,
-        name: component.name
+          return {
+            id: component.id,
+            name: component.name,
+            checkedCount,
+            lastModified: updatedModifiedDates[component.id] || null,
+            usageCount: usageCounts.get(component.id) || 0,
+            dependencyCount: dependencyCounts.get(component.id) || 0
+          };
+        } catch (componentError) {
+          console.warn(`Error creating data for component ${component.id}:`, componentError);
+          // Return minimal valid component data
+          return {
+            id: component.id,
+            name: component.name || 'Unknown Component',
+            checkedCount: 0,
+            lastModified: null,
+            usageCount: 0,
+            dependencyCount: 0
+          };
+        }
       });
-
-      return {
+    } catch (mapError) {
+      console.error('Error mapping component data:', mapError);
+      // Create minimal component data
+      componentData = components.map(component => ({
         id: component.id,
-        name: component.name,
-        checkedCount,
-        lastModified: updatedModifiedDates[component.id] || null,
-        usageCount: usageCounts.get(component.id) || 0,
-        dependencyCount: dependencyCounts.get(component.id) || 0
-      };
-    });
+        name: component.name || 'Unknown Component',
+        checkedCount: 0,
+        lastModified: null,
+        usageCount: 0,
+        dependencyCount: 0
+      }));
+    }
 
     // Get currently selected component if any
-    const selectedNodes = figma.currentPage.selection;
-    const selectedComponentId = selectedNodes.length === 1 && selectedNodes[0].type === 'COMPONENT' ? selectedNodes[0].id : null;
-    
-    if (selectedComponentId) {
-      console.log('Currently selected component:', selectedComponentId);
+    let selectedComponentId = null;
+    try {
+      const selectedNodes = figma.currentPage.selection;
+      selectedComponentId = selectedNodes.length === 1 && 
+                            selectedNodes[0].type === 'COMPONENT' ? 
+                            selectedNodes[0].id : null;
+      
+      if (selectedComponentId) {
+        console.log('Currently selected component:', selectedComponentId);
+      }
+    } catch (selectionError) {
+      console.error('Error getting selection:', selectionError);
+      // Leave selectedComponentId as null
     }
 
+    // Signal that loading is complete before sending data
+    loadingCompleted = true;
+    clearTimeout(loadingTimeout);
+
     // Send data to the UI
-    figma.ui.postMessage({
-      type: 'loadComponents',
-      viewStates,
-      components: componentData,
-      checkboxStates: states,
-      selectedComponentId,
-      userPreferences,
-      customRules
-    });
+    try {
+      figma.ui.postMessage({
+        type: 'loadComponents',
+        viewStates,
+        components: componentData,
+        checkboxStates: states,
+        selectedComponentId,
+        userPreferences,
+        customRules
+      });
+      console.log('Component data sent to UI successfully');
+    } catch (postError) {
+      console.error('Error sending data to UI:', postError);
+      figma.ui.postMessage({
+        type: 'loadError',
+        error: 'Error sending component data to UI: ' + postError.message
+      });
+    }
   } catch (error) {
-    console.error('Error loading components:', error);
-    // Send an error message to the UI
-    figma.ui.postMessage({
-      type: 'loadError',
-      error: error.message
-    });
+    console.error('Critical error loading components:', error);
+    // Ensure timeout is cleared
+    loadingCompleted = true;
+    clearTimeout(loadingTimeout);
+    
+    // Send a detailed error message to the UI
+    try {
+      figma.ui.postMessage({
+        type: 'loadError',
+        error: 'Failed to load components: ' + error.message,
+        details: error.stack
+      });
+    } catch (msgError) {
+      console.error('Could not send error message to UI:', msgError);
+    }
   }
 }
 
 
 async function main() {
-  // Initialize storage
-  await storage.init();
-  figma.showUI(__html__, { width: 400, height: 600 });
-  
-  // Make sure all pages are loaded first
-  console.log('Loading all pages...');
-  await figma.loadAllPagesAsync();
-  
-  // Initial component load with clean state
-  console.log('Initial component load...');
   try {
-    await loadComponents(true); // Force a refresh on startup
-    console.log('Initial component load successful');
-  } catch (error) {
-    console.error('Error during initial component load:', error);
-    figma.ui.postMessage({
-      type: 'loadError',
-      error: 'Failed to load components: ' + error.message
-    });
+    // Set a global timeout for the entire plugin initialization
+    const initTimeout = setTimeout(() => {
+      console.error('Plugin initialization timed out after 30 seconds');
+      figma.ui.postMessage({
+        type: 'criticalError',
+        error: 'Plugin initialization timed out. Please try restarting the plugin.'
+      });
+    }, 30000); // 30 second timeout for the entire initialization process
+    
+    // Initialize storage with error handling
+    try {
+      await storage.init();
+    } catch (storageError) {
+      console.error('Storage initialization failed:', storageError);
+      // Continue anyway - the storage class has internal fallbacks
+      figma.ui.postMessage({
+        type: 'loadWarning',
+        warning: 'Could not load saved preferences. Starting with default settings.'
+      });
+    }
+    
+    // Show the UI
+    try {
+      figma.showUI(__html__, { width: 400, height: 600 });
+    } catch (uiError) {
+      console.error('Failed to show UI:', uiError);
+      // This is a critical error - can't continue without UI
+      throw new Error('Failed to initialize plugin UI: ' + uiError.message);
+    }
+    
+    // Make sure all pages are loaded first with timeout
+    console.log('Loading all pages...');
+    try {
+      const pageLoadingPromise = figma.loadAllPagesAsync();
+      await Promise.race([
+        pageLoadingPromise,
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Page loading timed out')), 10000);
+        })
+      ]);
+    } catch (pageError) {
+      console.error('Error loading all pages:', pageError);
+      // Continue with currently loaded pages
+      figma.ui.postMessage({
+        type: 'loadWarning',
+        warning: 'Could not load all document pages. Some components may not be visible.'
+      });
+    }
+    
+    // Initial component load with clean state
+    console.log('Initial component load...');
+    try {
+      await loadComponents(true); // Force a refresh on startup
+      console.log('Initial component load successful');
+    } catch (error) {
+      console.error('Error during initial component load:', error);
+      figma.ui.postMessage({
+        type: 'loadError',
+        error: 'Failed to load components: ' + error.message
+      });
+    }
+    
+    // Clear the initialization timeout
+    clearTimeout(initTimeout);
+  } catch (criticalError) {
+    console.error('Critical error during plugin initialization:', criticalError);
+    // Try to notify the user
+    try {
+      figma.ui.postMessage({
+        type: 'criticalError',
+        error: 'Failed to initialize plugin: ' + criticalError.message,
+        details: criticalError.stack
+      });
+    } catch (e) {
+      // At this point we can't do much
+      console.error('Could not send error message to UI');
+    }
   }
   
   // Listen for document changes
@@ -648,85 +1074,270 @@ async function main() {
 
 // Listen to messages from the UI
 figma.ui.onmessage = async msg => {
-  if (msg.type === 'refreshComponents') {
-    console.log('Refresh requested, fullRefresh:', msg.fullRefresh);
-    // If fullRefresh is true, we'll do a complete reload of all components
-    await loadComponents(msg.fullRefresh === true);
-  } else if (msg.type === 'getDocumentTitle') {
-    figma.ui.postMessage({
-      type: 'documentTitle',
-      title: figma.root.name
-    });
-  } else if (msg.type === 'selectComponent') {
-    // Find the component
-    const component = figma.currentPage.findOne(node => 
-      node.type === 'COMPONENT' && node.id === msg.componentId
-    );
-
-    if (component) {
-      // Select the component
-      figma.currentPage.selection = [component];
-      
-      // Scroll the component into view
-      figma.viewport.scrollAndZoomIntoView([component]);
+  // Set a timeout for all message handling to prevent hanging
+  let messageHandled = false;
+  const messageTimeout = setTimeout(() => {
+    if (!messageHandled) {
+      console.error(`Message handler timed out for message type: ${msg.type}`);
+      figma.ui.postMessage({
+        type: 'operationTimeout',
+        originalMessageType: msg.type,
+        error: 'Operation timed out. The document may be too large or complex.'
+      });
     }
-  } else if (msg.type === 'checkboxChanged') {
-    const { componentId, category, label, isChecked } = msg;
-
-    // Update the checkbox state
-    const timestamp = msg.applyToAll ? msg.timestamp : (isChecked ? new Date().toISOString() : null);
-    await storage.updateCheckboxState(componentId, category, label, {
-      checked: isChecked,
-      timestamp: timestamp
-    });
-
-    // Calculate and update the score
-    const score = await calculateComponentScore(componentId);
-    figma.ui.postMessage({
-      type: 'updateScore',
-      componentId,
-      checkedCount: score.checkedCount,
-      totalRules: score.totalRules
-    });
-  } else if (msg.type === 'saveViewState') {
-    // Save the component view state
-    const { componentId, collapsed, userToggled } = msg;
-    await storage.updateViewState(componentId, collapsed, userToggled);
-  } else if (msg.type === 'saveUserPreferences') {
-    // Save user preferences
-    await storage.updateUserPreferences(msg.preferences);
-  } else if (msg.type === 'saveCustomRules') {
-    console.log('Saving custom rules');
-    await storage.saveCustomRules(msg.customRules);
-  } else if (msg.type === 'selectInstances') {
-    const component = figma.getNodeById(msg.componentId);
-    if (component) {
-      // Find all instances of the component
-      const instances = [];
-      
-      function traverse(node) {
-        if (node.type === 'INSTANCE' && node.mainComponent && node.mainComponent.id === msg.componentId) {
-          instances.push(node);
-        }
-        if ('children' in node) {
-          node.children.forEach(traverse);
-        }
-      }
-
-      // Search through all pages
+  }, 20000); // 20 second timeout for message handling
+  
+  try {
+    console.log(`Handling message of type: ${msg.type}`);
+    
+    if (msg.type === 'refreshComponents') {
       try {
-        figma.root.children.forEach(traverse);
-      } catch (error) {
-        console.error('Error finding instances:', error);
+        console.log('Refresh requested, fullRefresh:', msg.fullRefresh);
+        // If fullRefresh is true, we'll do a complete reload of all components
+        await loadComponents(msg.fullRefresh === true);
+      } catch (refreshError) {
+        console.error('Error refreshing components:', refreshError);
+        figma.ui.postMessage({
+          type: 'refreshError',
+          error: 'Failed to refresh components: ' + refreshError.message
+        });
       }
-      
-      if (instances.length > 0) {
-        // Select all instances
-        figma.currentPage.selection = instances;
-        // Zoom to fit all instances
-        figma.viewport.scrollAndZoomIntoView(instances);
+    } else if (msg.type === 'getDocumentTitle') {
+      try {
+        figma.ui.postMessage({
+          type: 'documentTitle',
+          title: figma.root.name
+        });
+      } catch (titleError) {
+        console.error('Error getting document title:', titleError);
+        figma.ui.postMessage({
+          type: 'documentTitleError',
+          error: 'Could not get document title'
+        });
       }
+    } else if (msg.type === 'selectComponent') {
+      try {
+        // Find the component with a timeout
+        const findTimeout = setTimeout(() => {
+          throw new Error('Finding component timed out');
+        }, 5000);
+        
+        // Find the component
+        const component = figma.currentPage.findOne(node => 
+          node.type === 'COMPONENT' && node.id === msg.componentId
+        );
+        
+        clearTimeout(findTimeout);
+
+        if (component) {
+          // Select the component
+          figma.currentPage.selection = [component];
+          
+          // Scroll the component into view
+          figma.viewport.scrollAndZoomIntoView([component]);
+          
+          figma.ui.postMessage({
+            type: 'componentSelected',
+            componentId: msg.componentId
+          });
+        } else {
+          console.warn(`Component not found: ${msg.componentId}`);
+          figma.ui.postMessage({
+            type: 'componentNotFound',
+            componentId: msg.componentId
+          });
+        }
+      } catch (selectError) {
+        console.error('Error selecting component:', selectError);
+        figma.ui.postMessage({
+          type: 'selectError',
+          error: 'Failed to select component: ' + selectError.message,
+          componentId: msg.componentId
+        });
+      }
+    } else if (msg.type === 'checkboxChanged') {
+      try {
+        const { componentId, category, label, isChecked } = msg;
+
+        // Update the checkbox state
+        const timestamp = msg.applyToAll ? msg.timestamp : (isChecked ? new Date().toISOString() : null);
+        await storage.updateCheckboxState(componentId, category, label, {
+          checked: isChecked,
+          timestamp: timestamp
+        });
+
+        // Calculate and update the score
+        const score = await calculateComponentScore(componentId);
+        figma.ui.postMessage({
+          type: 'updateScore',
+          componentId,
+          checkedCount: score.checkedCount,
+          totalRules: score.totalRules
+        });
+      } catch (checkboxError) {
+        console.error('Error updating checkbox state:', checkboxError);
+        figma.ui.postMessage({
+          type: 'checkboxError',
+          error: 'Failed to update component state: ' + checkboxError.message,
+          componentId: msg.componentId,
+          category: msg.category,
+          label: msg.label
+        });
+      }
+    } else if (msg.type === 'saveViewState') {
+      try {
+        // Save the component view state
+        const { componentId, collapsed, userToggled } = msg;
+        await storage.updateViewState(componentId, collapsed, userToggled);
+        
+        figma.ui.postMessage({
+          type: 'viewStateSaved',
+          componentId
+        });
+      } catch (viewStateError) {
+        console.error('Error saving view state:', viewStateError);
+        // Non-critical, can continue without notifying UI
+      }
+    } else if (msg.type === 'saveUserPreferences') {
+      try {
+        // Save user preferences
+        await storage.updateUserPreferences(msg.preferences);
+        
+        figma.ui.postMessage({
+          type: 'preferencesSaved'
+        });
+      } catch (prefError) {
+        console.error('Error saving user preferences:', prefError);
+        figma.ui.postMessage({
+          type: 'preferencesError',
+          error: 'Failed to save preferences: ' + prefError.message
+        });
+      }
+    } else if (msg.type === 'saveCustomRules') {
+      try {
+        console.log('Saving custom rules');
+        await storage.saveCustomRules(msg.customRules);
+        
+        figma.ui.postMessage({
+          type: 'customRulesSaved'
+        });
+      } catch (rulesError) {
+        console.error('Error saving custom rules:', rulesError);
+        figma.ui.postMessage({
+          type: 'customRulesError',
+          error: 'Failed to save custom rules: ' + rulesError.message
+        });
+      }
+    } else if (msg.type === 'selectInstances') {
+      try {
+        const findTimeout = setTimeout(() => {
+          throw new Error('Finding instances timed out');
+        }, 10000); // 10 second timeout for finding instances
+        
+        const component = figma.getNodeById(msg.componentId);
+        if (component) {
+          // Find all instances of the component
+          const instances = [];
+          
+          // Use iterative approach with a max depth counter
+          function findInstances() {
+            const maxNodesToProcess = 10000; // Safety limit
+            let nodesProcessed = 0;
+            
+            // Use a queue for breadth-first traversal instead of recursion
+            const queue = [];
+            for (const page of figma.root.children) {
+              queue.push(page);
+            }
+            
+            // Process queue until empty or we hit the safety limit
+            while (queue.length > 0 && nodesProcessed < maxNodesToProcess) {
+              const node = queue.shift();
+              nodesProcessed++;
+              
+              // Check if this is an instance we're looking for
+              if (node.type === 'INSTANCE' && node.mainComponent && node.mainComponent.id === msg.componentId) {
+                instances.push(node);
+              }
+              
+              // Add children to queue if available
+              if ('children' in node) {
+                for (const child of node.children) {
+                  queue.push(child);
+                }
+              }
+              
+              // Every 1000 nodes, check if we should yield to prevent UI freeze
+              if (nodesProcessed % 1000 === 0) {
+                console.log(`Processed ${nodesProcessed} nodes, found ${instances.length} instances so far...`);
+              }
+            }
+            
+            if (nodesProcessed >= maxNodesToProcess) {
+              console.warn(`Reached node processing limit (${maxNodesToProcess}). Search may be incomplete.`);
+              figma.ui.postMessage({
+                type: 'instanceSearchLimited',
+                warning: 'The search was limited due to the large document size. Some instances may not be shown.'
+              });
+            }
+            
+            return instances;
+          }
+
+          // Find instances with the non-recursive approach
+          const foundInstances = findInstances();
+          clearTimeout(findTimeout);
+          
+          if (foundInstances.length > 0) {
+            // Select all instances
+            figma.currentPage.selection = foundInstances;
+            // Zoom to fit all instances
+            figma.viewport.scrollAndZoomIntoView(foundInstances);
+            
+            figma.ui.postMessage({
+              type: 'instancesSelected',
+              count: foundInstances.length
+            });
+          } else {
+            figma.ui.postMessage({
+              type: 'noInstancesFound',
+              componentId: msg.componentId
+            });
+          }
+        } else {
+          clearTimeout(findTimeout);
+          console.warn(`Component not found for finding instances: ${msg.componentId}`);
+          figma.ui.postMessage({
+            type: 'componentNotFound',
+            componentId: msg.componentId
+          });
+        }
+      } catch (instancesError) {
+        console.error('Error finding instances:', instancesError);
+        figma.ui.postMessage({
+          type: 'instancesError',
+          error: 'Failed to find or select instances: ' + instancesError.message,
+          componentId: msg.componentId
+        });
+      }
+    } else {
+      console.warn(`Unknown message type received: ${msg.type}`);
     }
+    
+    // Mark message as handled
+    messageHandled = true;
+    clearTimeout(messageTimeout);
+  } catch (error) {
+    console.error(`Unhandled error processing message of type ${msg.type}:`, error);
+    messageHandled = true;
+    clearTimeout(messageTimeout);
+    
+    // Send generic error for unhandled message errors
+    figma.ui.postMessage({
+      type: 'operationError',
+      originalMessageType: msg.type,
+      error: 'Operation failed: ' + error.message
+    });
   }
 };
 
