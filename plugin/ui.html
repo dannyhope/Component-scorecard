@@ -338,6 +338,7 @@
       }
 
       /* Score styles */
+      /* Score classes are now only used for component coloring, not for displaying score counts */
       .score-red {
         color: var(--color-score-red);      /* 0-33% complete */
       }
@@ -482,20 +483,6 @@
         background-color: #f5f5f5;
       }
 
-      .component-usage {
-        color: #7B858A;
-        font-size: 12px;
-        margin-left: 8px;
-        cursor: pointer;
-        padding: 2px 8px;
-        border-radius: 4px;
-      }
-
-      .component-usage:hover {
-        background: #F3DAF4;
-        color: #37006E;
-      }
-      
       /* Hidden components button */
       .hiddenComponentsButton {
         display: none; /* Hidden by default */
@@ -547,15 +534,7 @@
         height: 16px;
       }
 
-      /* Hide certain elements */
-      .component-name .score-red,
-      .component-name .score-orange,
-      .component-name .score-green {
-        display: none !important;
-      }
-      .component-name .component-usage {
-        display: none !important;
-      }
+      /* Score and usage elements have been completely removed from the code */
       #component-count {
         visibility: hidden;
       }
@@ -854,7 +833,10 @@
           if (!componentId) return;
           
           // Skip sections hidden for non-completion reasons
-          if (shouldSkipHiddenSection(section, componentId)) return;
+          if (section.style.display === 'none' && section.getAttribute('data-hidden-reason') !== 'completed') {
+            console.log(`Skipping ${componentId} because it's hidden for reasons other than completion`);
+            return;
+          }
           
           // Process checkboxes for this component
           processComponentCheckboxes(componentId, section);
@@ -994,6 +976,7 @@
         
         // Extract just the text content (not from child elements)
         let cleanName = '';
+        // Use the first text node content as the name
         for (const childNode of nameElement.childNodes) {
           if (childNode.nodeType === Node.TEXT_NODE) {
             cleanName += childNode.textContent;
@@ -1558,11 +1541,8 @@
         const modifiedDot = '';
         const formattedModifiedDate = lastModifiedDate ? formatDate(lastModifiedDate) : 'never';
         
-        // Create score span with proper accessibility
-        const scoreSpan = document.createElement('span');
-        scoreSpan.className = scoreClass;
-        scoreSpan.setAttribute('aria-label', `Score: ${component.checkedCount} of ${component.totalCategories} rules checked`);
-        scoreSpan.textContent = `(${component.checkedCount}/${component.totalCategories})`;
+        // Score information is now only used for accessibility and coloring
+        // No visible score count is displayed
         
         // Create last modified span
         const lastModifiedSpan = document.createElement('span');
@@ -1570,22 +1550,7 @@
         lastModifiedSpan.setAttribute('data-modified', formattedModifiedDate);
         lastModifiedSpan.textContent = `edited ${formattedModifiedDate}`;
         
-        // Create usage span with proper accessibility
-        const usageSpan = document.createElement('span');
-        usageSpan.className = 'component-usage';
-        usageSpan.setAttribute('role', 'button');
-        usageSpan.setAttribute('tabindex', '0');
-        usageSpan.setAttribute('aria-label', `Select all ${component.usageCount} ${component.usageCount === 1 ? 'instance' : 'instances'} of this component`);
-        usageSpan.textContent = `${component.usageCount} ${component.usageCount === 1 ? 'instance' : 'instances'}`;
-        
-        // Add proper event listener instead of inline onclick
-        usageSpan.addEventListener('click', () => selectInstances(component.id));
-        usageSpan.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            selectInstances(component.id);
-          }
-        });
+        // Instance count feature has been removed to simplify the UI
         
         // No longer showing the red dot indicator as per user request
         
@@ -1602,11 +1567,8 @@
           nameSpan.appendChild(document.createTextNode(' '));
         }
         
-        nameSpan.appendChild(scoreSpan);
-        nameSpan.appendChild(document.createTextNode(' '));
+        // Only add the last modified date to the component name
         nameSpan.appendChild(lastModifiedSpan);
-        nameSpan.appendChild(document.createTextNode(' '));
-        nameSpan.appendChild(usageSpan);
 
         // Add elements to title
         title.appendChild(expandArrow);
@@ -2360,14 +2322,7 @@
         updateComponentCount();
       }
 
-      function selectInstances(componentId) {
-        parent.postMessage({ 
-          pluginMessage: { 
-            type: 'selectInstances',
-            componentId: componentId
-          }
-        }, '*');
-      }
+      // The selectInstances function has been removed as the instance count feature is no longer needed
     </script>
   </body>
 </html>

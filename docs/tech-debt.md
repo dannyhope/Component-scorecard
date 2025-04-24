@@ -34,22 +34,17 @@
   - Implement undo/redo
   - Add new metadata to checkboxes
 
-### UI and Codebase Structure
 
-#### Component Detection Issues (April 2025)
-- The plugin doesn't reliably detect newly created components automatically:
-  - The `documentchange` event doesn't consistently trigger for new component creation
-  - We've tried using `findAllWithCriteria()` instead of `findAll()` but it's still unreliable
-  - Added polling as a fallback, but it's not a perfect solution
 
-**Current workaround:** Added a manual refresh button that users can click after creating new components. This sends a direct message to the plugin to refresh the component list.
 
-#### Temporary UI Hiding (April 2025)
-- The following UI elements are currently hidden via CSS for interface simplification/testing:
-  - The score count (e.g., (1/5)) next to each component name
-  - The number of instances (e.g., "2 instances") next to each component name
 
-This is done by setting `display: none` on the relevant CSS classes in `plugin/ui.html`. These changes are non-destructive and can be easily reverted by removing or commenting out the CSS rules.
+## UI Simplification (April 2025)
+- The following UI elements have been completely removed to simplify the codebase:
+  - Score count (e.g., (1/5)) next to each component name
+  - Instance count (e.g., "2 instances") next to each component name
+  - Instance selection functionality
+
+This simplification makes the UI cleaner and the codebase smaller and easier to maintain.
 
 
 
@@ -79,27 +74,21 @@ This is done by setting `display: none` on the relevant CSS classes in `plugin/u
 - Redundant code for managing component state 
 - Exports in storage.js aren't being used
 
-### Architecture Improvements
 
-#### Event-Driven Architecture
+## Architecture
+
+### Event-Driven Architecture
 - Use a message-based approach where each operation is separate and independent
 - Implement a state machine pattern for managing plugin workflow
 - Allow the UI to function independently of data loading
 
-#### Simplified Data Model
+### Simplified Data Model
 - Flatten dependency relationships to avoid deep traversals
 - Cache intermediate results aggressively
 - Use simpler data structures (arrays instead of nested maps)
 
-#### Build Features
+### Build Features
 - Add build/version number in UI (mentioned in ideas.md)
-
-
-
-
-
-
-## Architecture
 
 ### Progressive Loading Pattern
 - Show UI immediately with placeholder content

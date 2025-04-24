@@ -25,6 +25,21 @@
 - `handleFilterMode`: Extracted nested logic into separate helper functions
 - `applyFiltersToComponent`: Removed nested function definition and improved control flow
 
+### Component Detection
+- Improved component detection to be reliable enough for normal use
+- Implemented multiple detection strategies working together:
+  - Using the `documentchange` event when it triggers correctly
+  - Using `findAllWithCriteria()` as a primary approach
+  - Added polling as a fallback mechanism
+- Removed manual refresh button since automatic detection is now reliable
+
+### UI Simplification
+- Removed unnecessary UI elements to simplify the codebase:
+  - Score count (e.g., (1/5)) next to each component name
+  - Instance count (e.g., "2 instances") next to each component name
+  - Instance selection functionality
+- Reduced code size by removing related CSS and JavaScript
+
 ## Error Handling
 - Many operations lack proper try/catch blocks → Added comprehensive error handling
 - No graceful fallbacks when primary approaches fail → Implemented fallback mechanisms
