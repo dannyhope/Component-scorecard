@@ -80,14 +80,57 @@ class StorageManager {
   }
   
   /**
+   * Retry a function with exponential backoff
+   * @param {Function} fn - The function to retry
+   * @param {number} maxRetries - Maximum number of retries
+   * @param {number} baseDelay - Base delay in ms
+   * @param {Function} onRetry - Called when a retry happens
+   * @returns {Promise<any>} - Result of the function
+   */
+  async retryWithBackoff(fn, maxRetries = 3, baseDelay = 300, onRetry = null) {
+    let lastError;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        
+        // If this was the last attempt, don't wait
+        if (attempt === maxRetries) break;
+        
+        // Calculate delay with exponential backoff and jitter
+        const delay = baseDelay * Math.pow(2, attempt) * (0.8 + Math.random() * 0.4);
+        
+        // Log retry attempt
+        console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${Math.round(delay)}ms`);
+        
+        // Call onRetry callback if provided
+        if (onRetry) onRetry(attempt, delay, error);
+        
+        // Wait before next attempt
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    // If we got here, all retries failed
+    throw lastError;
+  }
+  
+  /**
    * Generic method to get a value from storage with fallback
    */
   async getStorageWithFallback(key, defaultValue) {
     try {
-      const value = await figma.clientStorage.getAsync(key);
+      const value = await this.retryWithBackoff(
+        () => figma.clientStorage.getAsync(key),
+        3,
+        300,
+        (attempt) => console.log(`Retry ${attempt + 1} getting ${key} from storage`)
+      );
       return value !== undefined ? value : defaultValue;
     } catch (error) {
-      console.error(`Error getting ${key} from storage:`, error);
+      console.error(`Error getting ${key} from storage after retries:`, error);
       return defaultValue;
     }
   }
@@ -122,21 +165,44 @@ class StorageManager {
   }
 
   /**
-   * Generic method to set any value in storage
+   * Set a value in storage with retry
    */
   async set(key, value) {
     await this.ensureInitialized();
     
     try {
+      // Update cache immediately
       this.cache[key] = value;
-      await figma.clientStorage.setAsync(key, value);
+      
+      // Attempt to persist with retry
+      await this.retryWithBackoff(
+        () => figma.clientStorage.setAsync(key, value),
+        3,
+        300,
+        (attempt, delay, error) => {
+          // Notify UI of retry attempt
+          figma.ui.postMessage({
+            type: 'storageRetry',
+            key: key,
+            attempt: attempt + 1,
+            maxRetries: 3,
+            delay: Math.round(delay),
+            error: error.message
+          });
+        }
+      );
+      
       return true;
     } catch (error) {
-      console.error(`Error setting ${key}:`, error);
+      console.error(`Error setting ${key} after retries:`, error);
+      
+      // Notify UI of final failure
       figma.ui.postMessage({
         type: 'storageError',
-        error: `Failed to save ${key}: ${error.message}`
+        error: `Failed to save ${key} after multiple attempts: ${error.message}`,
+        key: key
       });
+      
       return false;
     }
   }
@@ -325,9 +391,10 @@ class StorageManager {
   }
   
   /**
-   * Process pending operations with debouncing
+   * Process pending storage operations with retry
+   * @private
    */
-  async _processOperations() {
+  _processOperations() {
     if (this.isProcessingOperations) return;
     
     this.isProcessingOperations = true;
@@ -335,21 +402,39 @@ class StorageManager {
     // Wait a bit to batch operations (300ms debounce)
     setTimeout(async () => {
       try {
-        await Promise.all([
-          figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
-          figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
-          figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
-          figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
-          figma.clientStorage.setAsync('customRules', this.cache.customRules)
-        ]);
+        // Use retry with backoff for bulk operations
+        await this.retryWithBackoff(
+          async () => {
+            await Promise.all([
+              figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
+              figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
+              figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
+              figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
+              figma.clientStorage.setAsync('customRules', this.cache.customRules)
+            ]);
+          },
+          3,  // max retries
+          500, // base delay (slightly longer for bulk operations)
+          (attempt, delay, error) => {
+            // Notify UI of retry attempt
+            figma.ui.postMessage({
+              type: 'bulkStorageRetry',
+              attempt: attempt + 1,
+              maxRetries: 3,
+              delay: Math.round(delay),
+              error: error.message
+            });
+          }
+        );
         
         console.log('Storage persisted successfully');
         this.pendingOperations = [];
       } catch (error) {
-        console.error('Error persisting storage:', error);
+        console.error('Error persisting storage after retries:', error);
         figma.ui.postMessage({
           type: 'storageError',
-          error: 'Failed to save data: ' + error.message
+          error: 'Failed to save data after multiple attempts: ' + error.message,
+          isBulkOperation: true
         });
       } finally {
         this.isProcessingOperations = false;

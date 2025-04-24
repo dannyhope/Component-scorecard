@@ -80,6 +80,115 @@
         gap: var(--spacing-md);
       }
 
+      /* Notification system styles */
+      #notification-container {
+        position: fixed;
+        bottom: 40px; /* Above the footer */
+        right: 8px;
+        width: 300px;
+        max-width: 90%;
+        z-index: var(--z-index-modal);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+      }
+      
+      .notification {
+        padding: var(--spacing-md);
+        border-radius: var(--border-radius);
+        background-color: var(--color-background);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        animation: slide-in 0.3s ease-out;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+      }
+      
+      .notification.error {
+        border-left: 4px solid var(--color-score-red);
+      }
+      
+      .notification.warning {
+        border-left: 4px solid var(--color-score-amber);
+      }
+      
+      .notification.success {
+        border-left: 4px solid var(--color-score-green);
+      }
+      
+      .notification.info {
+        border-left: 4px solid var(--color-accent);
+      }
+      
+      .notification-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      
+      .notification-title {
+        font-weight: 600;
+        font-size: 13px;
+        margin: 0;
+      }
+      
+      .notification-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-text-secondary);
+        font-size: 16px;
+        padding: 2px;
+      }
+      
+      .notification-message {
+        font-size: 12px;
+        color: var(--color-text-secondary);
+        margin: 0;
+      }
+      
+      .notification-progress {
+        height: 3px;
+        background-color: #eee;
+        margin-top: var(--spacing-xs);
+        border-radius: 1.5px;
+        overflow: hidden;
+      }
+      
+      .notification-progress-bar {
+        height: 100%;
+        width: 0%;
+        transition: width 0.1s linear;
+      }
+      
+      .notification.error .notification-progress-bar {
+        background-color: var(--color-score-red);
+      }
+      
+      .notification.warning .notification-progress-bar {
+        background-color: var(--color-score-amber);
+      }
+      
+      .notification.success .notification-progress-bar {
+        background-color: var(--color-score-green);
+      }
+      
+      .notification.info .notification-progress-bar {
+        background-color: var(--color-accent);
+      }
+      
+      @keyframes slide-in {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
       /* Error message styles */
       .error-message {
         padding: var(--spacing-xl);
@@ -559,6 +668,9 @@
     <!-- Message handler is included directly in this file -->
   </head>
   <body>
+    <!-- Notification container for storage retries and errors -->
+    <div id="notification-container"></div>
+    
     <!-- Footer with build version -->
     <div id="footer" style="position: fixed; bottom: 0; left: 0; width: 100%; padding: 4px 8px; font-size: 9px; color: #616E73; background-color: #F8F9FA; text-align: right; border-top: 1px solid #E6E7E8;">
       Build: 2025.04.24
@@ -2152,6 +2264,165 @@
         window.dispatchEvent(event);
       }, 200);
       
+      // Notification system
+      const notifications = {
+        // Store active notifications by ID
+        active: {},
+        
+        // Counter for generating unique IDs
+        counter: 0,
+        
+        // Create and show a notification
+        show(options) {
+          const { type = 'info', title, message, duration = 5000, progress = false } = options;
+          const id = `notification-${Date.now()}-${this.counter++}`;
+          
+          // Create notification element
+          const notification = document.createElement('div');
+          notification.className = `notification ${type}`;
+          notification.id = id;
+          
+          // Create header with title and close button
+          const header = document.createElement('div');
+          header.className = 'notification-header';
+          
+          const titleEl = document.createElement('h3');
+          titleEl.className = 'notification-title';
+          titleEl.textContent = title;
+          
+          const closeButton = document.createElement('button');
+          closeButton.className = 'notification-close';
+          closeButton.innerHTML = '&times;';
+          closeButton.addEventListener('click', () => this.remove(id));
+          
+          header.appendChild(titleEl);
+          header.appendChild(closeButton);
+          
+          // Create message
+          const messageEl = document.createElement('p');
+          messageEl.className = 'notification-message';
+          messageEl.textContent = message;
+          
+          // Add elements to notification
+          notification.appendChild(header);
+          notification.appendChild(messageEl);
+          
+          // Add progress bar if needed
+          if (progress) {
+            const progressContainer = document.createElement('div');
+            progressContainer.className = 'notification-progress';
+            
+            const progressBar = document.createElement('div');
+            progressBar.className = 'notification-progress-bar';
+            
+            progressContainer.appendChild(progressBar);
+            notification.appendChild(progressContainer);
+          }
+          
+          // Add to container
+          document.getElementById('notification-container').appendChild(notification);
+          
+          // Store reference
+          this.active[id] = { element: notification, timer: null };
+          
+          // Set auto-remove timer if duration > 0
+          if (duration > 0) {
+            this.active[id].timer = setTimeout(() => this.remove(id), duration);
+          }
+          
+          return id;
+        },
+        
+        // Update an existing notification
+        update(id, options = {}) {
+          const notification = this.active[id];
+          if (!notification) return;
+          
+          const { title, message, progress } = options;
+          
+          if (title) {
+            notification.element.querySelector('.notification-title').textContent = title;
+          }
+          
+          if (message) {
+            notification.element.querySelector('.notification-message').textContent = message;
+          }
+          
+          if (progress !== undefined) {
+            const progressBar = notification.element.querySelector('.notification-progress-bar');
+            if (progressBar) {
+              progressBar.style.width = `${progress}%`;
+            }
+          }
+          
+          // Reset timer if it exists
+          if (notification.timer) {
+            clearTimeout(notification.timer);
+            notification.timer = setTimeout(() => this.remove(id), 5000);
+          }
+        },
+        
+        // Remove a notification
+        remove(id) {
+          const notification = this.active[id];
+          if (!notification) return;
+          
+          // Clear any existing timer
+          if (notification.timer) {
+            clearTimeout(notification.timer);
+          }
+          
+          // Animate out
+          notification.element.style.opacity = '0';
+          notification.element.style.transform = 'translateX(100%)';
+          
+          // Remove after animation
+          setTimeout(() => {
+            if (notification.element.parentNode) {
+              notification.element.parentNode.removeChild(notification.element);
+            }
+            delete this.active[id];
+          }, 300);
+        },
+        
+        // Show error notification
+        error(title, message, duration = 8000) {
+          return this.show({ type: 'error', title, message, duration });
+        },
+        
+        // Show warning notification
+        warning(title, message, duration = 5000) {
+          return this.show({ type: 'warning', title, message, duration });
+        },
+        
+        // Show success notification
+        success(title, message, duration = 3000) {
+          return this.show({ type: 'success', title, message, duration });
+        },
+        
+        // Show info notification
+        info(title, message, duration = 3000) {
+          return this.show({ type: 'info', title, message, duration });
+        },
+        
+        // Show retry notification with progress
+        retry(title, message, attempt, maxRetries) {
+          const id = this.show({
+            type: 'warning',
+            title,
+            message,
+            duration: 0,
+            progress: true
+          });
+          
+          // Set progress based on attempt
+          const progress = (attempt / maxRetries) * 100;
+          this.update(id, { progress });
+          
+          return id;
+        }
+      };
+      
       // Listen for messages from the plugin code
       window.onmessage = event => {
         const message = event.data.pluginMessage;
@@ -2263,6 +2534,38 @@
             // Clear selection
             selectComponent(null);
           }
+        } else if (message.type === 'storageRetry') {
+          // Handle storage retry notification
+          const key = message.key || 'data';
+          const attempt = message.attempt || 1;
+          const maxRetries = message.maxRetries || 3;
+          const delay = message.delay || 0;
+          
+          // Show or update retry notification
+          const title = `Retrying Save (${attempt}/${maxRetries})`;
+          const messageText = `Retrying to save ${key}... Next attempt in ${delay}ms`;
+          
+          notifications.retry(title, messageText, attempt, maxRetries);
+        } else if (message.type === 'bulkStorageRetry') {
+          // Handle bulk storage retry notification
+          const attempt = message.attempt || 1;
+          const maxRetries = message.maxRetries || 3;
+          const delay = message.delay || 0;
+          
+          // Show or update retry notification
+          const title = `Retrying Bulk Save (${attempt}/${maxRetries})`;
+          const messageText = `Retrying to save all data... Next attempt in ${delay}ms`;
+          
+          notifications.retry(title, messageText, attempt, maxRetries);
+        } else if (message.type === 'storageError') {
+          // Handle storage error notification
+          const error = message.error || 'Unknown error';
+          const key = message.key || 'data';
+          const isBulk = message.isBulkOperation || false;
+          
+          // Show error notification
+          const title = isBulk ? 'Bulk Save Failed' : `Save Failed: ${key}`;
+          notifications.error(title, error);
         } else if (message.type === 'filterBySelection') {
           // Update component filtering based on selection in Figma
           console.log('Filtering by selection:', message.selectedComponentIds);
