@@ -58,6 +58,20 @@
         position: relative;
       }
 
+      #component-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+        width: 100%;
+        margin-top: var(--spacing-md);
+        transition: opacity 0.2s ease;
+      }
+      
+      /* Style for component list when filtering is in progress */
+      #component-list.filtering {
+        opacity: 0.7;
+      }
+
       /* Search filter and settings section */
       .filter-section {
         position: relative;
@@ -787,6 +801,10 @@
       
       // Helper function to update UI after filtering
       function updateUIAfterFiltering(hiddenDueToCompletion) {
+        // Remove the filtering class to indicate filtering is complete
+        document.getElementById('component-list').classList.remove('filtering');
+        
+        // Update UI elements
         updateHiddenComponentsButton(hiddenDueToCompletion);
         updateComponentCount();
       }
@@ -890,76 +908,110 @@
         
       // Helper function to gather component data for filtering
       function gatherComponentData(sections) {
-        // Array to store component data
         const componentData = [];
         
-        // Process each component section
+        // Process each valid component section
         for (const section of sections) {
-          const componentId = section.getAttribute('data-id');
-          if (!componentId) continue;
+          const componentInfo = extractComponentInfo(section);
+          if (!componentInfo) continue;
           
-          const component = Array.from(section.querySelectorAll('.component-title')).find(el => 
-            el.closest('.component-section') === section
-          );
-          
-          if (!component) {
-            console.log(`Warning: Could not find title element for component ${componentId}`);
-            continue;
-          }
-          
-          // Get component name - extract just the text content without any indicators
-          const nameEl = component.querySelector('.component-name');
-          if (!nameEl) continue;
-          
-          // Get the base component name without any indicators
-          let name = '';
-          // Use the first text node content as the name
-          for (const childNode of nameEl.childNodes) {
-            if (childNode.nodeType === Node.TEXT_NODE) {
-              name = childNode.textContent.trim();
-              break;
-            }
-          }
-          
-          // Fallback to full textContent if we couldn't extract from text nodes
-          if (!name) {
-            // Get full text but ignore content of child elements like indicators
-            name = nameEl.textContent.trim();
-          }
-          
-          if (!name) continue;
-          
-          // Get all checkboxes for this component
-          const checkboxes = section.querySelectorAll('input[type="checkbox"]');
-          const totalRules = checkboxes.length;
-          const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-          
-          // Check if the component is expanded
-          const isExpanded = !section.querySelector('.checkbox-group')?.classList.contains('hidden');
-          
-          // A component is fully complete only if ALL checkboxes are checked
-          const isFullyComplete = totalRules > 0 && checkedCount === totalRules;
-          
-          componentData.push({
-            id: componentId,
-            name: name,
-            element: section,
-            checkedCount: checkedCount,
-            totalRules: totalRules,
-            isExpanded: isExpanded,
-            isFullyComplete: isFullyComplete
-          });
-          
-          // Debug output for this specific component
-          console.log(`Component ${name}: checked=${checkedCount}, total=${totalRules}, expanded=${isExpanded}, fullyComplete=${isFullyComplete}`);
+          componentData.push(componentInfo);
+          logComponentInfo(componentInfo);
         }
         
         console.log('Component data:', componentData);
-        
-        // Specifically check for Example registration form (for debugging)
         debugRegistrationForm(componentData);
         
         return componentData;
+      }
+      
+      // Helper function to extract component information from a section
+      function extractComponentInfo(section) {
+        const componentId = section.getAttribute('data-id');
+        if (!componentId) return null;
+        
+        // Find component title element
+        const component = findComponentTitleElement(section, componentId);
+        if (!component) return null;
+        
+        // Get component name
+        const name = extractComponentName(component);
+        if (!name) return null;
+        
+        // Get checkbox information
+        const checkboxInfo = getCheckboxInfo(section);
+        
+        // Check if the component is expanded
+        const isExpanded = !section.querySelector('.checkbox-group')?.classList.contains('hidden');
+        
+        // Create and return component info object
+        return {
+          id: componentId,
+          name: name,
+          element: section,
+          checkedCount: checkboxInfo.checkedCount,
+          totalRules: checkboxInfo.totalRules,
+          isExpanded: isExpanded,
+          isFullyComplete: checkboxInfo.isFullyComplete
+        };
+      }
+      
+      // Helper function to find the component title element
+      function findComponentTitleElement(section, componentId) {
+        const component = Array.from(section.querySelectorAll('.component-title')).find(el => 
+          el.closest('.component-section') === section
+        );
+        
+        if (!component) {
+          console.log(`Warning: Could not find title element for component ${componentId}`);
+        }
+        
+        return component;
+      }
+      
+      // Helper function to extract component name
+      function extractComponentName(component) {
+        const nameEl = component.querySelector('.component-name');
+        if (!nameEl) return null;
+        
+        // Try to get name from text nodes first
+        let name = extractNameFromTextNodes(nameEl);
+        
+        // Fallback to full text content if needed
+        if (!name) {
+          name = nameEl.textContent.trim();
+        }
+        
+        return name;
+      }
+      
+      // Helper function to extract name from text nodes
+      function extractNameFromTextNodes(nameEl) {
+        for (const childNode of nameEl.childNodes) {
+          if (childNode.nodeType === Node.TEXT_NODE) {
+            return childNode.textContent.trim();
+          }
+        }
+        return '';
+      }
+      
+      // Helper function to get checkbox information
+      function getCheckboxInfo(section) {
+        const checkboxes = section.querySelectorAll('input[type="checkbox"]');
+        const totalRules = checkboxes.length;
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const isFullyComplete = totalRules > 0 && checkedCount === totalRules;
+        
+        return { checkedCount, totalRules, isFullyComplete };
+      }
+      
+      // Helper function to log component info
+      function logComponentInfo(componentInfo) {
+        console.log(
+          `Component ${componentInfo.name}: checked=${componentInfo.checkedCount}, ` +
+          `total=${componentInfo.totalRules}, expanded=${componentInfo.isExpanded}, ` +
+          `fullyComplete=${componentInfo.isFullyComplete}`
+        );
       }
       
       // Helper function to debug the registration form component
@@ -1174,11 +1226,28 @@
         }
       }
 
-      // Set up filter input handler
+      // Debounce utility function to limit how often a function can be called
+      function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+          const context = this;
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+      }
+      
+      // Create debounced version of filterComponents with 300ms delay
+      const debouncedFilterComponents = debounce((searchText, hideCompleted, forceApplyFilter) => {
+        filterComponents(searchText, hideCompleted, forceApplyFilter);
+      }, 300);
+      
+      // Set up search filter input handler with debouncing
       document.getElementById('component-filter').addEventListener('input', (e) => {
         const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
+        // Show immediate visual feedback that filtering will happen
+        document.getElementById('component-list').classList.add('filtering');
         // Don't force apply filter during search - just filter by name
-        filterComponents(e.target.value, hideCompleted, false);
+        debouncedFilterComponents(e.target.value, hideCompleted, false);
       });
       
       // Set up hide completed checkbox handler

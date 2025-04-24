@@ -10,9 +10,13 @@
 - Improved function naming for better code navigation
 
 ### Specific Refactorings
+- `buildComponentList`: Split into 6 helper functions with clear responsibilities
 - `filterComponents`: Split into smaller functions with clear responsibilities
-- `handleFilterMode`: Extracted nested logic into separate helper functions
-- `applyFiltersToComponent`: Removed nested function definition and improved control flow
+- `applyFiltersToComponent`: Restructured to use early returns and separated filter checking
+- `handleCheckboxVisibility`: Extracted checkbox processing logic into dedicated helper functions
+- `createComponentTitle`: Transformed into a composition of smaller functions for each UI element
+- `updateComponentCount`: Simplified with focused helper functions
+- `gatherComponentData`: Refactored to reduce nesting and improve readability
 
 ### Algorithm Improvements
 - Replaced recursive traversals with queue/stack-based iterations
