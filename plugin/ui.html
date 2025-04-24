@@ -346,7 +346,6 @@
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.2px;
-        cursor: help;
       }
       
       .dependency-indicator {
@@ -362,7 +361,6 @@
         font-size: 10px;
         font-weight: bold;
         margin-left: 4px;
-        cursor: help;
       }
 
       .dependency-indicator {
@@ -378,26 +376,9 @@
         font-size: 10px;
         font-weight: bold;
         margin-left: 4px;
-        cursor: help;
       }
 
-      .dependency-indicator::before {
-        content: attr(title);
-        position: absolute;
-        background-color: #333;
-        color: #fff;
-        padding: 4px;
-        border-radius: 4px;
-        font-size: 10px;
-        visibility: hidden;
-        opacity: 0;
-        transition: opacity 0.3s;
-      }
-
-      .dependency-indicator:hover::before {
-        visibility: visible;
-        opacity: 1;
-      }
+      /* Using system tooltips instead of custom ones */
 
       .last-modified {
         display: none; /* Hide the date but keep tracking it */
