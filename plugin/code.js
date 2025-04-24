@@ -313,31 +313,66 @@ async function analyzeComponents() {
   const dependencyCounts = new Map(); // Track how many components are used within each component
   const componentDependencies = new Map(); // Track which components are used within each component
   
-  // Set up analysis timeout
+  // Set up analysis timeout with more precise control
   let analysisCompleted = false;
+  let analysisProgress = 0; // 0-100% progress tracking
+  let lastProgressUpdate = Date.now();
+  
   const analysisTimeout = setTimeout(() => {
     if (!analysisCompleted) {
       console.error('Component analysis timed out after 10 seconds');
       figma.ui.postMessage({
         type: 'analysisError',
-        error: 'Component analysis timed out. Your document may be too large or complex.'
+        error: 'Component analysis timed out. Your document may be too large or complex.',
+        progress: analysisProgress
       });
     }
-  }, 10000); // 10 seconds timeout
+  }, 10000); // 10 seconds timeout for the full analysis
+  
+  // Progress reporting function to keep the UI updated
+  const reportProgress = (stage, progress, detail = '') => {
+    const now = Date.now();
+    // Only send progress updates at most every 250ms to avoid flooding the UI
+    if (now - lastProgressUpdate > 250) {
+      lastProgressUpdate = now;
+      figma.ui.postMessage({
+        type: 'analysisProgress',
+        stage: stage,
+        progress: progress,
+        detail: detail
+      });
+    }
+  };
   
   try {
     console.log('Starting component analysis...');
+    reportProgress('start', 0, 'Starting component analysis');
     
-    // First pass: collect main components and initialize counts
+    // First pass: collect main components using queue-based iteration
     try {
       console.log('First pass: collecting main components...');
+      reportProgress('findComponents', 5, 'Finding components');
+      
+      // Process pages in batches to prevent UI freeze
+      const pageCount = figma.root.children.length;
+      let processedPages = 0;
+      
       for (const page of figma.root.children) {
         try {
+          // Calculate and report progress
+          processedPages++;
+          const pageProgress = Math.floor((processedPages / pageCount) * 30); // First pass = 0-30% progress
+          reportProgress('findComponents', 5 + pageProgress, `Finding components on page ${page.name}`);
+          
+          // Find components on this page
           const pageComponents = page.findAllWithCriteria({
             types: ['COMPONENT']
           });
           
-          pageComponents.forEach(component => {
+          let processedComponents = 0;
+          const componentCount = pageComponents.length;
+          
+          for (const component of pageComponents) {
             try {
               // Skip variants - only include main components
               if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
@@ -345,96 +380,161 @@ async function analyzeComponents() {
                 dependencyCounts.set(component.id, 0);
                 componentDependencies.set(component.id, new Set());
               }
-            } catch (err) {
-              console.warn(`Skipping component due to error:`, err);
+              
+              // Update component processing progress within this page
+              processedComponents++;
+              if (processedComponents % 10 === 0 && componentCount > 20) {
+                const detailedProgress = `Processing component ${processedComponents}/${componentCount} on page ${page.name}`;
+                reportProgress('findComponents', 5 + pageProgress, detailedProgress);
+              }
+            } catch (componentError) {
+              console.warn(`Skipping component due to error:`, componentError);
+              // Continue with next component
             }
-          });
+          }
+          
+          console.log(`Found ${pageComponents.length} components on page ${page.name}`);
         } catch (pageError) {
           console.warn(`Error processing page ${page.name}:`, pageError);
           // Continue with next page
         }
       }
-      console.log(`Found ${usageCounts.size} main components`);
+      
+      console.log(`Found ${usageCounts.size} main components in total`);
+      reportProgress('findInstances', 35, 'Finding component instances');
     } catch (firstPassError) {
       console.error('Error in first pass of component analysis:', firstPassError);
       // Continue to second pass with partial data
+      reportProgress('findInstances', 35, 'Finding component instances (with errors)');
     }
 
-    // Second pass: count instances and analyze dependencies
+    // Second pass: analyze instances and build dependency graph using queue-based iteration
     try {
-      console.log('Second pass: analyzing dependencies...');
+      console.log('Second pass: analyzing component dependencies...');
+      
+      const pageCount = figma.root.children.length;
+      let processedPages = 0;
+      
       for (const page of figma.root.children) {
         try {
-          // Track instances usage
+          // Calculate and report progress
+          processedPages++;
+          const pageProgress = Math.floor((processedPages / pageCount) * 40); // Second pass = 35-75% progress
+          reportProgress('findInstances', 35 + pageProgress, `Finding instances on page ${page.name}`);
+          
+          // Find instances with query rather than traversal
           const instances = page.findAllWithCriteria({
             types: ['INSTANCE']
           });
           
-          instances.forEach(instance => {
-            try {
-              if (!instance.mainComponent) return;
-              
-              let targetComponent = instance.mainComponent;
-              
-              // If this is a variant, get its parent component set's main component
-              if (targetComponent.parent && targetComponent.parent.type === 'COMPONENT_SET') {
-                const mainVariant = targetComponent.parent.defaultVariant;
-                if (mainVariant) {
-                  targetComponent = mainVariant;
-                }
-              }
-
-              const mainComponentId = targetComponent.id;
-              if (usageCounts.has(mainComponentId)) {
-                usageCounts.set(
-                  mainComponentId,
-                  usageCounts.get(mainComponentId) + 1
-                );
-              }
-              
-              // Find the parent component that contains this instance (if any)
-              // Using iterative approach instead of recursion to avoid stack overflows
-              // and setting a depth limit for safety
-              let parent = instance.parent;
-              let depth = 0;
-              const maxDepth = 50; // Reasonable limit to prevent infinite loops
-              
-              while (parent && depth < maxDepth) {
-                if (parent.type === 'COMPONENT' && 
-                   (!parent.parent || parent.parent.type !== 'COMPONENT_SET')) {
-                  // Found a parent main component that contains this instance
-                  // Add this as a dependency for that component
-                  if (componentDependencies.has(parent.id)) {
-                    componentDependencies.get(parent.id).add(targetComponent.id);
+          console.log(`Found ${instances.length} instances on page ${page.name}`);
+          
+          // Process instances in chunks to avoid UI freezing
+          const CHUNK_SIZE = 50;
+          const totalChunks = Math.ceil(instances.length / CHUNK_SIZE);
+          
+          for (let i = 0; i < instances.length; i += CHUNK_SIZE) {
+            const chunk = instances.slice(i, i + CHUNK_SIZE);
+            const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
+            
+            reportProgress(
+              'processInstances', 
+              35 + pageProgress, 
+              `Processing instances chunk ${chunkNumber}/${totalChunks} on page ${page.name}`
+            );
+            
+            // Process each instance in the chunk
+            for (const instance of chunk) {
+              try {
+                if (!instance.mainComponent) continue;
+                
+                // Find the target component (accounting for variants)
+                let targetComponent = instance.mainComponent;
+                
+                if (targetComponent.parent && targetComponent.parent.type === 'COMPONENT_SET') {
+                  const mainVariant = targetComponent.parent.defaultVariant;
+                  if (mainVariant) {
+                    targetComponent = mainVariant;
                   }
-                  break;
                 }
-                parent = parent.parent;
-                depth++;
+
+                // Update usage count
+                const mainComponentId = targetComponent.id;
+                if (usageCounts.has(mainComponentId)) {
+                  usageCounts.set(
+                    mainComponentId,
+                    usageCounts.get(mainComponentId) + 1
+                  );
+                }
+                
+                // Find the parent component that contains this instance using iteration instead of recursion
+                // This prevents stack overflows in deeply nested components
+                let parentNode = instance.parent;
+                let depth = 0;
+                const MAX_DEPTH = 100; // Set a reasonable limit to prevent infinite loops
+                
+                while (parentNode && depth < MAX_DEPTH) {
+                  if (parentNode.type === 'COMPONENT' && 
+                      (!parentNode.parent || parentNode.parent.type !== 'COMPONENT_SET')) {
+                    // Found a parent main component that contains this instance
+                    if (componentDependencies.has(parentNode.id)) {
+                      componentDependencies.get(parentNode.id).add(targetComponent.id);
+                    }
+                    break;
+                  }
+                  
+                  // Move up to the parent node
+                  parentNode = parentNode.parent;
+                  depth++;
+                  
+                  // Safety check - if we hit the depth limit, log warning and break
+                  if (depth >= MAX_DEPTH) {
+                    console.warn(`Reached maximum ancestry depth (${MAX_DEPTH}) for instance. Possible circular reference.`);
+                    break;
+                  }
+                }
+              } catch (instanceError) {
+                console.warn('Error processing instance:', instanceError);
+                // Continue with next instance
               }
-              
-              if (depth >= maxDepth) {
-                console.warn('Reached maximum depth limit while finding parent component');
-              }
-            } catch (instanceError) {
-              console.warn('Error processing instance:', instanceError);
-              // Continue with next instance
             }
-          });
+            
+            // Yield to the main thread periodically to prevent UI freezing
+            // This is a minimal async delay to let event loop run
+            if (i + CHUNK_SIZE < instances.length) {
+              await new Promise(resolve => setTimeout(resolve, 0));
+            }
+          }
         } catch (pageError) {
           console.warn(`Error processing instances on page ${page.name}:`, pageError);
           // Continue with next page
         }
       }
+      
+      reportProgress('calculateDependencies', 80, 'Calculating dependency counts');
     } catch (secondPassError) {
       console.error('Error in second pass of component analysis:', secondPassError);
       // Continue with partial data
+      reportProgress('calculateDependencies', 80, 'Calculating dependency counts (partial data)');
     }
     
     // Calculate final dependency counts
     try {
+      reportProgress('finalizingResults', 90, 'Finalizing component data');
+      
       for (const [componentId, dependencies] of componentDependencies) {
         dependencyCounts.set(componentId, dependencies.size);
+      }
+      
+      // Log some stats
+      const componentsWithDependencies = Array.from(dependencyCounts.entries())
+        .filter(([_, count]) => count > 0);
+        
+      console.log(`Found dependencies for ${componentsWithDependencies.length} components`);
+      
+      if (componentsWithDependencies.length > 0) {
+        const maxDependencies = Math.max(...Array.from(dependencyCounts.values()));
+        console.log(`Maximum dependencies for a single component: ${maxDependencies}`);
       }
     } catch (countError) {
       console.error('Error calculating dependency counts:', countError);
@@ -444,10 +544,20 @@ async function analyzeComponents() {
     analysisCompleted = true;
     clearTimeout(analysisTimeout);
     
+    reportProgress('complete', 100, 'Analysis complete');
+    
     return { usageCounts, dependencyCounts };
   } catch (error) {
-    console.error('Error analyzing components:', error);
+    console.error('Critical error during component analysis:', error);
     clearTimeout(analysisTimeout);
+    
+    // Notify UI about the failure
+    figma.ui.postMessage({
+      type: 'analysisError',
+      error: 'Component analysis failed: ' + error.message,
+      details: error.stack
+    });
+    
     // Return empty maps as fallback
     return { 
       usageCounts: new Map(), 
