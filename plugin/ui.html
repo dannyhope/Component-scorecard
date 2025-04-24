@@ -862,6 +862,15 @@
             selectedComponentIds: []
           });
           
+          // Initialize checkbox states
+          stateManager.loadInitialState().then(() => {
+            console.log('State manager initialized with checkbox states');
+            // Update local state with state manager state
+            checkboxStates = stateManager.getCheckboxStates();
+          }).catch(error => {
+            console.error('Error loading initial state:', error);
+          });
+          
           // Subscribe to filter changes
           stateManager.subscribe('filters', (filters) => {
             console.log('Filters updated in state manager:', filters);
@@ -871,13 +880,42 @@
               searchInput.value = filters.search;
             }
             
-            const hideCompletedCheckbox = document.getElementById('hide-completed');
+            const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
             if (hideCompletedCheckbox && hideCompletedCheckbox.checked !== !filters.showChecked) {
               hideCompletedCheckbox.checked = !filters.showChecked;
             }
             
             // Apply filters
             debouncedFilterComponents(filters.search, !filters.showChecked, false);
+          });
+          
+          // Subscribe to checkbox state changes
+          stateManager.subscribe('checkboxes', (newCheckboxStates) => {
+            console.log('Checkbox states updated in state manager');
+            // Update local checkbox states
+            checkboxStates = newCheckboxStates;
+            
+            // Update UI components that depend on checkbox states
+            // We'll update components one by one to avoid a full UI rebuild
+            Object.keys(newCheckboxStates).forEach(componentId => {
+              // Update modification indicators
+              updateModificationIndicator(componentId);
+              
+              // Recalculate and update score
+              const component = allComponents.find(c => c.id === componentId);
+              if (component) {
+                // Count checked items for this component
+                const checkedCount = Object.values(newCheckboxStates[componentId] || {})
+                  .flatMap(categoryState => Object.values(categoryState))
+                  .filter(state => state && state.checked === true).length;
+                
+                // Update component's checked count
+                component.checkedCount = checkedCount;
+                
+                // Update visual score
+                updateScore(componentId, checkedCount);
+              }
+            });
           });
         } else {
           console.warn('State manager not available');
@@ -1937,25 +1975,61 @@
             statusSpan.innerHTML = '';
           }
           
-          // Update local state
-          if (!checkboxStates[component.id]) {
-            checkboxStates[component.id] = {};
+          // Use state manager if available
+          if (window.stateManager) {
+            // Update state in state manager
+            stateManager.setCheckboxState(component.id, category, ruleText, checkbox.checked)
+              .then(() => {
+                console.log(`State manager updated checkbox state for ${component.id}`);
+                // The state manager will handle storage and notifications
+                
+                // Still send the message to the plugin to maintain compatibility
+                // during the transition to the state manager
+                parent.postMessage({ 
+                  pluginMessage: { 
+                    type: 'checkboxChanged', 
+                    componentId: component.id, 
+                    category, 
+                    label: ruleText, 
+                    isChecked: checkbox.checked,
+                    timestamp: timestamp ? timestamp.toISOString() : null
+                  } 
+                }, '*');
+              })
+              .catch(error => {
+                console.error('Error updating checkbox state:', error);
+              });
+          } else {
+            // Fallback to original implementation if state manager not available
+            // Update local state
+            if (!checkboxStates[component.id]) {
+              checkboxStates[component.id] = {};
+            }
+            if (!checkboxStates[component.id][category]) {
+              checkboxStates[component.id][category] = {};
+            }
+            
+            checkboxStates[component.id][category][ruleText] = {
+              checked: checkbox.checked,
+              timestamp: timestamp ? timestamp.toISOString() : null
+            };
           }
-          if (!checkboxStates[component.id][category]) {
-            checkboxStates[component.id][category] = {};
+          
+          // Calculate score using state manager if available
+          let checkedCount;
+          
+          if (window.stateManager) {
+            // Get score from state manager
+            const score = stateManager.calculateComponentScore(component.id);
+            checkedCount = score.checked;
+            console.log(`${component.name}: ${checkedCount}/${score.total} items checked (${score.percentage}%)`);
+          } else {
+            // Fallback to local calculation
+            checkedCount = Object.values(checkboxStates[component.id] || {})
+              .flatMap(categoryState => Object.values(categoryState))
+              .filter(state => state && state.checked === true).length;
+            console.log(`${component.name}: ${checkedCount} items checked`);
           }
-          
-          checkboxStates[component.id][category][ruleText] = {
-            checked: checkbox.checked,
-            timestamp: timestamp ? timestamp.toISOString() : null
-          };
-          
-          // Count checked items for this component
-          const checkedCount = Object.values(checkboxStates[component.id])
-            .flatMap(categoryState => Object.values(categoryState))
-            .filter(state => state && state.checked === true).length;
-          
-          console.log(`${component.name}: ${checkedCount} items checked`);
           
           // Update the score
           updateScore(component.id, checkedCount);
@@ -2011,8 +2085,12 @@
             } 
           }, '*');
           
-          // Update modification indicator after checkbox change
-          setTimeout(() => updateModificationIndicator(component.id), TIMING.SHORT_DELAY); // Small delay to ensure state is updated
+          // When using state manager, we no longer need to run updateModificationIndicator directly
+          // as it will be handled by state change notifications
+          if (!window.stateManager) {
+            // Only run this directly when state manager is not available
+            setTimeout(() => updateModificationIndicator(component.id), TIMING.SHORT_DELAY); // Small delay to ensure state is updated
+          }
         };
       }
 
@@ -2026,8 +2104,13 @@
         const checkboxId = `checkbox-${component.id}-${category.replace(/\s+/g, '-')}-${ruleText.replace(/\s+/g, '-')}`;
         checkbox.id = checkboxId;
 
-        // Set checkbox state from saved state
-        const state = checkboxStates[component.id]?.[category]?.[ruleText];
+        // Get checkbox state from state manager if available, otherwise use local state
+        let state;
+        if (window.stateManager) {
+          state = stateManager.getCheckboxState(component.id, category, ruleText);
+        } else {
+          state = checkboxStates[component.id]?.[category]?.[ruleText];
+        }
         checkbox.checked = state?.checked || false;
 
         // Add data attributes for finding the checkbox later
