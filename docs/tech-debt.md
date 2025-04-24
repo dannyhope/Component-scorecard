@@ -4,6 +4,7 @@
 🟢 Fixed
 🟡 In Progress
 🔴 To Do
+🔴🔴 Requires Build Process
 
 ## Current Issues
 
@@ -40,23 +41,6 @@
 
 ### UI and Codebase Structure
 
-#### 🔴 UI Code Organization
-- All UI code is in a single HTML file with embedded JavaScript
-- No separation of concerns between UI components
-- Large, monolithic functions like `buildComponentList` with excessive nesting
-- Direct DOM manipulation instead of using a template system
-
-#### 🔴 Frontend Performance
-- Inefficient component filtering that rebuilds the entire list on each keystroke
-- Repeated DOM queries that could be cached
-- Potential performance issues when handling large component libraries
-- Missing throttling/debouncing for some UI interactions
-
-#### 🔴 Code Duplication
-- Storage class exists in both code.js and storage.js
-- Redundant code for managing component state 
-- Exports in storage.js aren't being used
-
 #### 🔴 Accessibility Issues
 - Missing ARIA attributes for better screen reader support
 - No keyboard navigation support for component selection and checkboxes
@@ -65,7 +49,6 @@
 - No focus management for component list
 
 #### 🔴 Missing Features
-- No build/version number in UI (mentioned in ideas.md)
 - No settings page for configuration
 - Missing visual debug information
 - No keyboard shortcuts for common operations
@@ -85,20 +68,46 @@
 
 This is done by setting `display: none` on the relevant CSS classes in `plugin/ui.html`. These changes are non-destructive and can be easily reverted by removing or commenting out the CSS rules.
 
-## Pending Architecture Improvements
+## 🔴🔴 Requires Build Process to be Setup
 
-### 🔴 Event-Driven Architecture
+### UI Modernization
+
+#### UI Code Organization
+- All UI code is in a single HTML file with embedded JavaScript
+- No separation of concerns between UI components
+- Large, monolithic functions like `buildComponentList` with excessive nesting
+- Direct DOM manipulation instead of using a template system
+
+#### Frontend Performance
+- Inefficient component filtering that rebuilds the entire list on each keystroke
+- Repeated DOM queries that could be cached
+- Potential performance issues when handling large component libraries
+- Missing throttling/debouncing for some UI interactions
+
+#### Code Duplication
+- Storage class exists in both code.js and storage.js
+- Redundant code for managing component state 
+- Exports in storage.js aren't being used
+
+### Architecture Improvements
+
+#### Event-Driven Architecture
 - Use a message-based approach where each operation is separate and independent
 - Implement a state machine pattern for managing plugin workflow
 - Allow the UI to function independently of data loading
 
-### 🟡 Progressive Loading Pattern
-- 🔴 Show UI immediately with placeholder content
-
-### 🔴 Simplified Data Model
+#### Simplified Data Model
 - Flatten dependency relationships to avoid deep traversals
 - Cache intermediate results aggressively
 - Use simpler data structures (arrays instead of nested maps)
+
+#### Build Features
+- Add build/version number in UI (mentioned in ideas.md)
+
+## Pending Architecture Improvements
+
+### 🟡 Progressive Loading Pattern
+- 🔴 Show UI immediately with placeholder content
 
 ### 🟡 Robust Error Handling
 - 🔴 Add automatic retry logic with backoff
@@ -133,7 +142,7 @@ This is done by setting `display: none` on the relevant CSS classes in `plugin/u
    - Need proper unit tests for score calculations
    - Need integration tests for state synchronization
 
-## Completed Improvements ✅
+## Completed Improvements
 
 ### Architecture and Performance
 
