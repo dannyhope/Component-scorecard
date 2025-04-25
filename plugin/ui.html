@@ -49,12 +49,12 @@
       /* Layout and General Styles */
       body {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        padding: var(--spacing-xs) var(--spacing-xs) 40px var(--spacing-xs);
+        padding: 0 var(--spacing-xs) 40px var(--spacing-xs);
         background-color: var(--color-background);
         font-size: 12px;
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-md);
+        gap: 0;
         position: relative;
       }
 
@@ -63,7 +63,7 @@
         flex-direction: column;
         gap: var(--spacing-md);
         width: 100%;
-        margin-top: var(--spacing-md);
+        margin-top: 0;
         transition: opacity 0.2s ease;
       }
       
@@ -78,6 +78,7 @@
         display: flex;
         align-items: center;
         gap: var(--spacing-md);
+        margin-top: 0;
       }
 
       /* Notification system styles */
@@ -491,14 +492,17 @@
         bottom: 0;
         left: 0;
         right: 0;
-        padding: 8px 12px;
+        padding: 4px 8px;
         background-color: #f8f9fa;
-        border-top: 1px solid #e6e7e8;
+        border-top: 1px solid var(--color-border);
         display: flex;
-        align-items: center;
         justify-content: space-between;
-        z-index: var(--z-index-dropdown);
+        align-items: center;
+        font-size: 10px;
+        color: #616e73;
       }
+      
+      /* Resize handle styles removed to fix loading issues */
       
       .footer-left {
         display: flex;
@@ -707,6 +711,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        margin: 0;
       }
       
       /* Selection filter indicator - now hidden permanently */
@@ -1408,6 +1413,8 @@
     <div id="footer" style="position: fixed; bottom: 0; left: 0; width: 100%; padding: 4px 8px; font-size: 9px; color: #616E73; background-color: #F8F9FA; text-align: right; border-top: 1px solid #E6E7E8;">
       Build: 2025.04.24
     </div>
+    
+    <!-- Resize handle removed to fix loading issues -->
     <script>
       // JavaScript Constants
       const SCORE_THRESHOLDS = {

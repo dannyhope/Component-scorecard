@@ -1345,7 +1345,7 @@ async function main() {
     // Initialize storage with error handling
     try {
       await storage.init();
-      storage.setUseFlattenedStructure(true);
+      storage.setUseFlattenedStructure(false); // Temporarily disable flattened structure
     } catch (storageError) {
       console.error('Storage initialization failed:', storageError);
       // Continue anyway - the storage class has internal fallbacks
