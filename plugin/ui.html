@@ -49,7 +49,7 @@
       /* Layout and General Styles */
       body {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        padding: 0 var(--spacing-xs) 40px var(--spacing-xs);
+        padding: 0 var(--spacing-xs) 33px var(--spacing-xs);
         background-color: var(--color-background);
         font-size: 12px;
         display: flex;
@@ -707,12 +707,7 @@
       }
 
       /* Component Count Styles */
-      .component-count-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin: 0;
-      }
+      /* Component count row CSS removed */
       
       /* Selection filter indicator - now hidden permanently */
       .selectionFilterIndicator {
@@ -1435,10 +1430,7 @@
         Apply to all components
       </div>
     </div>
-    <!-- Component count row -->
-    <div class="component-count-row">
-      <span id="component-count">No components need checking</span>
-    </div>
+    <!-- Component count row removed to simplify UI -->
     <!-- Filter section (hidden) -->
     <div class="filter-section">
       <input type="text" 
@@ -1543,7 +1535,7 @@
         
         // Rebuild component list with new rules
         buildComponentList(allComponents, checkboxStates, rules);
-        updateComponentCount();
+        // Component count update removed
       }
       
       // Add debounced event listener to textarea for live updates
@@ -1658,7 +1650,7 @@
             });
             
             // Update component count
-            updateComponentCount();
+            // Component count update removed
           });
           
           // Subscribe to filter changes
@@ -1726,29 +1718,7 @@
       });
 
       // Update component count in UI
-      function updateComponentCount() {
-        const count = getComponentsNeedingCheckCount();
-        const countText = formatComponentCountText(count);
-        updateComponentCountDisplay(countText);
-      }
-      
-      // Helper function to get the count of components needing checking
-      function getComponentsNeedingCheckCount() {
-        const componentsNeedingCheck = allComponents.filter(component => 
-          component.checkedCount < component.totalCategories
-        );
-        return componentsNeedingCheck.length;
-      }
-      
-      // Helper function to format the component count text
-      function formatComponentCountText(count) {
-        return `${count} component${count !== 1 ? 's' : ''} need${count !== 1 ? '' : 's'} checking`;
-      }
-      
-      // Helper function to update the component count display
-      function updateComponentCountDisplay(countText) {
-        document.getElementById('component-count').textContent = countText;
-      }
+      // Component count functions removed to simplify UI
 
       // Keep track of which checkboxes should be hidden
       let hiddenCheckboxes = new Map(); // Map of componentId -> Set of checkboxIds
@@ -1782,7 +1752,7 @@
         
         // Update UI elements
         updateHiddenComponentsButton(hiddenDueToCompletion);
-        updateComponentCount();
+        // Component count update removed
       }
       
       // Function to apply filters to all components and track results
@@ -3573,7 +3543,7 @@
           buildComponentList(components, checkboxStates, rules);
           
           // Update component count
-          updateComponentCount();
+          // Component count update removed
           
           // If a component is selected in Figma, select it in the UI
           if (message.selectedComponentId) {
@@ -3592,7 +3562,7 @@
             component.checkedCount = message.checkedCount;
             component.totalCategories = message.totalRules;
             updateScore(message.componentId, message.checkedCount);
-            updateComponentCount(); // Refresh the component count
+            // Component count update removed // Refresh the component count
           }
         } else if (message.type === 'documentTitle') {
           // Update the document title
@@ -3894,7 +3864,7 @@
         }
 
         // Update component count since the checked status changed
-        updateComponentCount();
+        // Component count update removed
       }
 
       // The selectInstances function has been removed as the instance count feature is no longer needed
