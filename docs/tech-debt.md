@@ -32,3 +32,6 @@
  - Some items are a bit spaced out and could look a bit more Figma-ish
  - Selection and hover colors are incorrect
  - When you draw a frame over 2 or more components, the frame subsumes them. In this situation the frame is selected. Our rules say that in this type of situation, the component list should update according to out rules about selections.
+ - Danny’s learning
+  - build
+  - text
