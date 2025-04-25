@@ -270,24 +270,24 @@
       
       .debug-controls {
         display: flex;
-        padding: 8px;
-        gap: 8px;
-        border-bottom: 1px solid #e6e7e8;
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
+        border-bottom: 1px solid var(--color-border);
       }
       
       .debug-controls button,
       .debug-controls select {
-        padding: 4px 8px;
+        padding: var(--spacing-xs) var(--spacing-md);
         font-size: 12px;
-        border: 1px solid #c7d0d4;
-        border-radius: 3px;
-        background-color: white;
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius);
+        background-color: var(--color-background);
       }
       
       .debug-content {
         flex: 1;
         overflow: auto;
-        padding: 8px;
+        padding: var(--spacing-md);
         font-family: monospace;
         font-size: 12px;
         line-height: 1.4;
@@ -301,11 +301,11 @@
       }
       
       .debug-info {
-        padding: 4px 8px;
+        padding: var(--spacing-xs) var(--spacing-md);
         font-size: 10px;
-        color: #616e73;
+        color: var(--color-text-secondary);
         background-color: #f0f2f2;
-        border-top: 1px solid #e6e7e8;
+        border-top: 1px solid var(--color-border);
         text-align: right;
       }
       
@@ -398,7 +398,7 @@
         align-items: center;
         height: 18px;
         gap: 4px;
-        padding-right: 8px;
+        padding-right: var(--spacing-md);
       }
 
       .component-section.selected .component-title {
@@ -409,8 +409,8 @@
       /* Expand/Collapse Arrow Styles */
       .component-expand {
         cursor: pointer;
-        padding: 4px;
-        color: #888;
+        padding: var(--spacing-xs);
+        color: var(--color-text-secondary);
         font-size: 8px;
         width: 16px;
         display: flex;
@@ -421,17 +421,17 @@
       /* Category Title Styles */
       .category-title {
         font-weight: 400;
-        margin-top: 8px;
-        margin-bottom: 8px;
-        color: #767676;
+        margin-top: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+        color: var(--color-text-secondary);
         font-size: 13px;
       }
 
       /* Checkbox Styles */
       .checkbox-timestamp, .checkbox-status, .last-modified {
-        color: #888;
+        color: var(--color-text-secondary);
         font-size: 10px;
-        margin-left: 8px;
+        margin-left: var(--spacing-md);
       }
       
       .checkbox-status {
@@ -443,10 +443,10 @@
       
       .changed-tag {
         display: inline-block;
-        margin-left: 4px;
+        margin-left: var(--spacing-xs);
         font-size: 9px;
-        padding: 1px 4px;
-        border-radius: 3px;
+        padding: 1px var(--spacing-xs);
+        border-radius: var(--border-radius);
         background-color: #FFF1E0;
         color: #FF7209;
         font-weight: 500;
