@@ -97,19 +97,19 @@
 - Added caching to reduce storage operations
 - Simplified async/await usage throughout the codebase
 
+### Data Structure Improvements
+- Implemented flattened data structure for checkbox items
+- Created migration functionality from nested to flat structure
+- Added helper methods for working with the flattened structure
+- Implemented feature flag to toggle between nested and flattened structures
+- Flattened dependency relationships to avoid deep traversals
+- Switched to simpler data structures (arrays instead of nested maps)
+
 ### Component Score Calculation
 - Consolidated score calculation in `calculateComponentScore`
 
-## Data Structure Improvements
-
-### Flattened Data Structure
-- Implemented a flattened data structure for checkbox items
-- Replaced nested objects with a simple array of flat objects
-- Each item contains direct references to its component, category, and rule
-- Added feature flag to toggle between nested and flattened structures
-- Implemented automatic migration from nested to flattened structure
-- Added helper methods for working with the flattened structure
-- Maintained backward compatibility with existing nested structure
+### UI Refinements
+- Styled component instance numbers with purple text and pale purple background
 
 ### Data Layer Abstraction
 - Created StorageManager class to abstract all storage operations
