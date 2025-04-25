@@ -779,6 +779,8 @@
           this._state = {
             components: new Map(),
             checkboxStates: {},
+            flatCheckboxItems: [], // New flattened data structure
+            useFlattened: false,   // Feature flag to control whether to use flattened structure
             filters: {
               search: '',
               showChecked: true,
@@ -802,6 +804,7 @@
           this._listeners = {
             components: new Set(),
             checkboxes: new Set(),
+            flatCheckboxes: new Set(), // Listeners for flat checkbox items
             filters: new Set(),
             ui: new Set(),
             all: new Set()
@@ -835,8 +838,20 @@
             const checkboxStates = await this._storage.getStorageWithFallback('checkboxStates', {});
             this._state.checkboxStates = checkboxStates;
             
+            // Load flattened checkbox items if available
+            const flatCheckboxItems = await this._storage.getStorageWithFallback('flatCheckboxItems', null);
+            if (flatCheckboxItems) {
+              this._state.flatCheckboxItems = flatCheckboxItems;
+              console.log(`Loaded ${flatCheckboxItems.length} flat checkbox items from storage`);
+            } else {
+              // If not available, create them from the nested structure
+              this._state.flatCheckboxItems = this._migrateToFlatStructure();
+              console.log(`Created ${this._state.flatCheckboxItems.length} flat checkbox items from nested structure`);
+            }
+            
             // Notify listeners
             this._notifyListeners('checkboxes');
+            this._notifyListeners('flatCheckboxes');
             console.log('Initial state loaded from storage');
           } catch (error) {
             console.error('Error loading initial state:', error);
@@ -915,9 +930,22 @@
          * @returns {Object|undefined} The checkbox state or undefined if not found
          */
         getCheckboxState(componentId, category, ruleText) {
-          if (!this._state.checkboxStates[componentId]) return undefined;
-          if (!this._state.checkboxStates[componentId][category]) return undefined;
-          return this._state.checkboxStates[componentId][category][ruleText];
+          if (this._state.useFlattened) {
+            // Use flattened structure
+            const itemId = `${componentId}-${category}-${ruleText}`;
+            const item = this._state.flatCheckboxItems.find(item => item.id === itemId);
+            if (!item) return undefined;
+            
+            return {
+              checked: item.checked,
+              timestamp: item.timestamp
+            };
+          } else {
+            // Use nested structure
+            if (!this._state.checkboxStates[componentId]) return undefined;
+            if (!this._state.checkboxStates[componentId][category]) return undefined;
+            return this._state.checkboxStates[componentId][category][ruleText];
+          }
         }
       
         /**
@@ -929,7 +957,14 @@
          * @returns {Promise<void>}
          */
         async setCheckboxState(componentId, category, ruleText, checked) {
-          // Create nested structure if it doesn't exist
+          // Create the state object with timestamp
+          const timestamp = checked ? new Date().toISOString() : null;
+          const state = {
+            checked,
+            timestamp
+          };
+          
+          // Update nested structure
           if (!this._state.checkboxStates[componentId]) {
             this._state.checkboxStates[componentId] = {};
           }
@@ -937,21 +972,30 @@
           if (!this._state.checkboxStates[componentId][category]) {
             this._state.checkboxStates[componentId][category] = {};
           }
-      
-          // Update state with timestamp
-          const timestamp = checked ? new Date().toISOString() : null;
-          this._state.checkboxStates[componentId][category][ruleText] = {
-            checked,
-            timestamp
-          };
+          
+          this._state.checkboxStates[componentId][category][ruleText] = state;
+          
+          // Update flattened structure if enabled
+          if (this._state.useFlattened) {
+            this._updateFlatCheckboxItem(componentId, category, ruleText, state);
+          }
       
           // Notify listeners before storage operation
           this._notifyListeners('checkboxes');
+          if (this._state.useFlattened) {
+            this._notifyListeners('flatCheckboxes');
+          }
       
           // Persist to storage
           if (this._storage) {
             try {
+              // Always update the nested structure for backward compatibility
               await this._storage.set('checkboxStates', this._state.checkboxStates);
+              
+              // Also update the flattened structure if enabled
+              if (this._state.useFlattened) {
+                await this._storage.set('flatCheckboxItems', this._state.flatCheckboxItems);
+              }
             } catch (error) {
               console.error('Error saving checkbox state:', error);
               throw error;
@@ -1105,10 +1149,8 @@
          * @private
          */
         _notifyListeners(type) {
-          // Capture state for debugging if enabled
-          if (this._debugMode) {
-            this._trackStateChange(type);
-          }
+          // Track state change for debugging
+          this._trackStateChange(type);
           
           // Notify specific listeners
           if (this._listeners[type]) {
@@ -1120,18 +1162,16 @@
               }
             });
           }
-      
+          
           // Notify 'all' listeners
           this._listeners.all.forEach(listener => {
             try {
               listener({
-                components: this.getComponents(),
-                checkboxStates: this.getCheckboxStates(),
-                filters: this.getFilters(),
-                ui: this.getUIState()
+                type,
+                state: this._getStateForType(type)
               });
             } catch (error) {
-              console.error('Error in global listener:', error);
+              console.error(`Error in 'all' listener:`, error);
             }
           });
         }
@@ -1209,6 +1249,8 @@
               return this.getComponents();
             case 'checkboxes':
               return this.getCheckboxStates();
+            case 'flatCheckboxes':
+              return this.getFlatCheckboxItems();
             case 'filters':
               return this.getFilters();
             case 'ui':
@@ -1216,6 +1258,124 @@
             default:
               return null;
           }
+        }
+        
+        /**
+         * Migrate from nested structure to flat structure
+         * @returns {Array} Array of flat checkbox items
+         * @private
+         */
+        _migrateToFlatStructure() {
+          try {
+            const flatItems = [];
+            const checkboxStates = this._state.checkboxStates || {};
+            
+            // Iterate through all components
+            Object.keys(checkboxStates).forEach(componentId => {
+              const componentState = checkboxStates[componentId] || {};
+              
+              // Iterate through all categories
+              Object.keys(componentState).forEach(category => {
+                const categoryState = componentState[category] || {};
+                
+                // Iterate through all rules
+                Object.keys(categoryState).forEach(rule => {
+                  const state = categoryState[rule];
+                  
+                  // Create a flat item
+                  const flatItem = {
+                    id: `${componentId}-${category}-${rule}`,
+                    componentId: componentId,
+                    category: category,
+                    ruleText: rule,
+                    checked: state ? state.checked : false,
+                    timestamp: state ? state.timestamp : null
+                  };
+                  
+                  flatItems.push(flatItem);
+                });
+              });
+            });
+            
+            console.log(`Migrated ${flatItems.length} checkbox items to flat structure`);
+            return flatItems;
+          } catch (error) {
+            console.error('Error migrating to flat structure:', error);
+            return [];
+          }
+        }
+        
+        /**
+         * Get all checkbox items in flat structure
+         * @returns {Array} Array of flat checkbox items
+         */
+        getFlatCheckboxItems() {
+          return [...this._state.flatCheckboxItems];
+        }
+        
+        /**
+         * Get flat checkbox items for a specific component
+         * @param {string} componentId - The ID of the component
+         * @returns {Array} Array of flat checkbox items for the component
+         */
+        getFlatCheckboxItemsForComponent(componentId) {
+          return this._state.flatCheckboxItems.filter(item => item.componentId === componentId);
+        }
+        
+        /**
+         * Update a flat checkbox item
+         * @param {string} componentId - The ID of the component
+         * @param {string} category - The category
+         * @param {string} ruleText - The rule text
+         * @param {Object} state - The state object with checked and timestamp
+         * @returns {Object} The updated item
+         * @private
+         */
+        _updateFlatCheckboxItem(componentId, category, ruleText, state) {
+          try {
+            const itemId = `${componentId}-${category}-${ruleText}`;
+            let itemIndex = this._state.flatCheckboxItems.findIndex(item => item.id === itemId);
+            
+            if (itemIndex === -1) {
+              // Item doesn't exist, create it
+              const newItem = {
+                id: itemId,
+                componentId: componentId,
+                category: category,
+                ruleText: ruleText,
+                checked: state.checked,
+                timestamp: state.timestamp
+              };
+              
+              this._state.flatCheckboxItems.push(newItem);
+              return newItem;
+            } else {
+              // Update existing item
+              this._state.flatCheckboxItems[itemIndex].checked = state.checked;
+              this._state.flatCheckboxItems[itemIndex].timestamp = state.timestamp;
+              return this._state.flatCheckboxItems[itemIndex];
+            }
+          } catch (error) {
+            console.error(`Error updating flat checkbox item for ${componentId}:`, error);
+            return null;
+          }
+        }
+        
+        /**
+         * Set whether to use the flattened structure
+         * @param {boolean} useFlattened - Whether to use the flattened structure
+         */
+        setUseFlattenedStructure(useFlattened) {
+          this._state.useFlattened = useFlattened;
+          console.log(`Using flattened structure: ${useFlattened}`);
+          
+          // If enabling flattened structure and it's empty, create it
+          if (useFlattened && this._state.flatCheckboxItems.length === 0) {
+            this._state.flatCheckboxItems = this._migrateToFlatStructure();
+          }
+          
+          // Notify listeners
+          this._notifyListeners('flatCheckboxes');
         }
       }
       
@@ -1242,6 +1402,12 @@
           <option value="currentState">Current State</option>
           <option value="history">State History</option>
         </select>
+        <div class="debug-toggle-container" style="margin-top: 8px;">
+          <label class="debug-toggle">
+            <input type="checkbox" id="use-flattened-structure" checked>
+            <span>Use flattened data structure</span>
+          </label>
+        </div>
       </div>
       <div class="debug-content">
         <pre id="debug-data"></pre>
@@ -1450,6 +1616,20 @@
         // Initialize filters in state manager
         if (window.stateManager) {
           console.log('Setting up state manager integration');
+          
+          // Set up flattened structure toggle
+          const flattenedToggle = document.getElementById('use-flattened-structure');
+          if (flattenedToggle) {
+            flattenedToggle.addEventListener('change', (e) => {
+              const useFlattened = e.target.checked;
+              parent.postMessage({ pluginMessage: { type: 'toggleFlattenedStructure', useFlattened } }, '*');
+              notification.info(
+                useFlattened ? 'Using flattened structure' : 'Using nested structure',
+                useFlattened ? 'Data is now stored in a flat array' : 'Data is now stored in a nested object',
+                3000
+              );
+            });
+          }
           stateManager.setFilters({
             search: '',
             showChecked: true,
@@ -3288,6 +3468,16 @@
       window.onmessage = event => {
         const message = event.data.pluginMessage;
         if (!message) return;
+        
+        console.log('Received message:', message.type);
+        
+        // Handle flattened structure toggle response
+        if (message.type === 'flattenedStructureToggled') {
+          console.log(`Flattened structure ${message.useFlattened ? 'enabled' : 'disabled'}`);
+          if (window.stateManager) {
+            window.stateManager.setUseFlattenedStructure(message.useFlattened);
+          }
+        }
         
         // Log message for debugging
         console.log('Message received:', message.type);

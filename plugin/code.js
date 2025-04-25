@@ -10,13 +10,14 @@ class StorageManager {
       viewStates: null,
       userPreferences: null,
       customRules: null,
-      // New flattened data structure (will be populated later)
+      // New flattened data structure
       flatCheckboxItems: null
     };
     this.initialized = false;
     this.initPromise = null;
     this.pendingOperations = [];
     this.isProcessingOperations = false;
+    this.useFlattened = false; // Feature flag to control whether to use flattened structure
   }
 
   /**
@@ -37,12 +38,13 @@ class StorageManager {
           reject(new Error('Storage initialization timed out after 5000ms'));
         }, 5000);
         
-        const [checkboxStates, modifiedDates, viewStates, userPreferences, customRules] = await Promise.all([
+        const [checkboxStates, modifiedDates, viewStates, userPreferences, customRules, flatCheckboxItems] = await Promise.all([
           this.getStorageWithFallback('checkboxStates', {}),
           this.getStorageWithFallback('modifiedDates', {}),
           this.getStorageWithFallback('viewStates', {}),
           this.getStorageWithFallback('userPreferences', { hideCompleted: false }),
-          this.getStorageWithFallback('customRules', null)
+          this.getStorageWithFallback('customRules', null),
+          this.getStorageWithFallback('flatCheckboxItems', null)
         ]);
         
         clearTimeout(storageTimeout);
@@ -52,6 +54,16 @@ class StorageManager {
         this.cache.viewStates = viewStates;
         this.cache.userPreferences = userPreferences;
         this.cache.customRules = customRules;
+        
+        // Initialize flattened structure if it doesn't exist
+        if (!flatCheckboxItems) {
+          console.log('Flattened data structure not found, creating from nested structure...');
+          this.cache.flatCheckboxItems = this.migrateToFlatStructure();
+          // Save the flattened structure
+          await figma.clientStorage.setAsync('flatCheckboxItems', this.cache.flatCheckboxItems);
+        } else {
+          this.cache.flatCheckboxItems = flatCheckboxItems;
+        }
         
         this.initialized = true;
         console.log('Storage initialization complete');
@@ -64,6 +76,7 @@ class StorageManager {
         this.cache.viewStates = {};
         this.cache.userPreferences = { hideCompleted: false };
         this.cache.customRules = null;
+        this.cache.flatCheckboxItems = [];
         
         this.initialized = true; // Still mark as initialized so we don't keep retrying
         figma.ui.postMessage({
@@ -355,6 +368,12 @@ class StorageManager {
       }
 
       this.cache.checkboxStates[componentId][category][rule] = state;
+      
+      // If using flattened structure, update it as well
+      if (this.useFlattened) {
+        await this.updateFlatCheckboxItem(componentId, category, rule, state);
+      }
+      
       await this.persist();
       
       return this.cache.checkboxStates[componentId];
@@ -394,7 +413,7 @@ class StorageManager {
    * Process pending storage operations with retry
    * @private
    */
-  _processOperations() {
+  async _processOperations() {
     if (this.isProcessingOperations) return;
     
     this.isProcessingOperations = true;
@@ -405,13 +424,20 @@ class StorageManager {
         // Use retry with backoff for bulk operations
         await this.retryWithBackoff(
           async () => {
-            await Promise.all([
+            const storageOperations = [
               figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
               figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
               figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
               figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
               figma.clientStorage.setAsync('customRules', this.cache.customRules)
-            ]);
+            ];
+            
+            // Add flattened structure to storage operations if it exists
+            if (this.cache.flatCheckboxItems) {
+              storageOperations.push(figma.clientStorage.setAsync('flatCheckboxItems', this.cache.flatCheckboxItems));
+            }
+            
+            await Promise.all(storageOperations);
           },
           3,  // max retries
           500, // base delay (slightly longer for bulk operations)
@@ -600,6 +626,142 @@ class StorageManager {
         error: 'Failed to save custom rules: ' + error.message
       });
       return this.cache.customRules;
+    }
+  }
+  
+  /**
+   * Migrate from nested structure to flat structure
+   * @returns {Array} Array of flat checkbox items
+   */
+  migrateToFlatStructure() {
+    try {
+      const flatItems = [];
+      const checkboxStates = this.cache.checkboxStates || {};
+      
+      // Iterate through all components
+      Object.keys(checkboxStates).forEach(componentId => {
+        const componentState = checkboxStates[componentId] || {};
+        
+        // Iterate through all categories
+        Object.keys(componentState).forEach(category => {
+          const categoryState = componentState[category] || {};
+          
+          // Iterate through all rules
+          Object.keys(categoryState).forEach(rule => {
+            const state = categoryState[rule];
+            
+            // Create a flat item
+            const flatItem = {
+              id: `${componentId}-${category}-${rule}`,
+              componentId: componentId,
+              category: category,
+              ruleText: rule,
+              checked: state ? state.checked : false,
+              timestamp: state ? state.timestamp : null
+            };
+            
+            flatItems.push(flatItem);
+          });
+        });
+      });
+      
+      console.log(`Migrated ${flatItems.length} checkbox items to flat structure`);
+      return flatItems;
+    } catch (error) {
+      console.error('Error migrating to flat structure:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get all checkbox items in flat structure
+   * @returns {Promise<Array>} Array of flat checkbox items
+   */
+  async getFlatCheckboxItems() {
+    try {
+      await this.ensureInitialized();
+      
+      if (!this.cache.flatCheckboxItems) {
+        this.cache.flatCheckboxItems = this.migrateToFlatStructure();
+      }
+      
+      return this.cache.flatCheckboxItems;
+    } catch (error) {
+      console.error('Error getting flat checkbox items:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get flat checkbox items for a specific component
+   * @param {string} componentId - The ID of the component
+   * @returns {Promise<Array>} Array of flat checkbox items for the component
+   */
+  async getFlatCheckboxItemsForComponent(componentId) {
+    try {
+      const allItems = await this.getFlatCheckboxItems();
+      return allItems.filter(item => item.componentId === componentId);
+    } catch (error) {
+      console.error(`Error getting flat checkbox items for component ${componentId}:`, error);
+      return [];
+    }
+  }
+  
+  /**
+   * Update a flat checkbox item
+   * @param {string} componentId - The ID of the component
+   * @param {string} category - The category
+   * @param {string} rule - The rule text
+   * @param {Object} state - The state object with checked and timestamp
+   * @returns {Promise<Object>} The updated item
+   */
+  async updateFlatCheckboxItem(componentId, category, rule, state) {
+    try {
+      await this.ensureInitialized();
+      
+      if (!this.cache.flatCheckboxItems) {
+        this.cache.flatCheckboxItems = this.migrateToFlatStructure();
+      }
+      
+      const itemId = `${componentId}-${category}-${rule}`;
+      let itemIndex = this.cache.flatCheckboxItems.findIndex(item => item.id === itemId);
+      
+      if (itemIndex === -1) {
+        // Item doesn't exist, create it
+        const newItem = {
+          id: itemId,
+          componentId: componentId,
+          category: category,
+          ruleText: rule,
+          checked: state.checked,
+          timestamp: state.timestamp
+        };
+        
+        this.cache.flatCheckboxItems.push(newItem);
+        return newItem;
+      } else {
+        // Update existing item
+        this.cache.flatCheckboxItems[itemIndex].checked = state.checked;
+        this.cache.flatCheckboxItems[itemIndex].timestamp = state.timestamp;
+        return this.cache.flatCheckboxItems[itemIndex];
+      }
+    } catch (error) {
+      console.error(`Error updating flat checkbox item for ${componentId}:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Set whether to use the flattened structure
+   * @param {boolean} useFlattened - Whether to use the flattened structure
+   */
+  setUseFlattenedStructure(useFlattened) {
+    this.useFlattened = useFlattened;
+    console.log(`Using flattened structure: ${useFlattened}`);
+    
+    // If enabling flattened structure and it doesn't exist, create it
+    if (useFlattened && !this.cache.flatCheckboxItems) {
+      this.cache.flatCheckboxItems = this.migrateToFlatStructure();
     }
   }
 }
@@ -1183,6 +1345,7 @@ async function main() {
     // Initialize storage with error handling
     try {
       await storage.init();
+      storage.setUseFlattenedStructure(true);
     } catch (storageError) {
       console.error('Storage initialization failed:', storageError);
       // Continue anyway - the storage class has internal fallbacks
@@ -1207,9 +1370,7 @@ async function main() {
       const pageLoadingPromise = figma.loadAllPagesAsync();
       await Promise.race([
         pageLoadingPromise,
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Page loading timed out')), 10000);
-        })
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Page loading timed out')), 10000))
       ]);
     } catch (pageError) {
       console.error('Error loading all pages:', pageError);
@@ -1527,6 +1688,18 @@ figma.ui.onmessage = async msg => {
     
     // Component detection is now reliable enough that we don't need manual refresh
     // The refreshComponents message handler has been removed
+    
+    // Handle data structure toggle
+    if (msg.type === 'toggleFlattenedStructure') {
+      storage.setUseFlattenedStructure(msg.useFlattened);
+      figma.ui.postMessage({
+        type: 'flattenedStructureToggled',
+        useFlattened: msg.useFlattened
+      });
+      messageHandled = true;
+      clearTimeout(messageTimeout);
+      return;
+    }
     if (msg.type === 'getDocumentTitle') {
       try {
         figma.ui.postMessage({
