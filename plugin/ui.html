@@ -47,11 +47,13 @@
       }
       
       /* Layout and General Styles */
+      html {
+        font-size: 11px;
+      }
       body {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         padding: 0 0 33px 0;
         background-color: var(--color-background);
-        font-size: 11px;
         display: flex;
         flex-direction: column;
         gap: 0;
@@ -130,7 +132,6 @@
       
       .notification-title {
         font-weight: 600;
-        font-size: 13px;
         margin: 0;
       }
       
@@ -139,12 +140,11 @@
         border: none;
         cursor: pointer;
         color: var(--color-text-secondary);
-        font-size: 16px;
         padding: 2px;
       }
       
       .notification-message {
-        font-size: 12px;
+        
         color: var(--color-text-secondary);
         margin: 0;
       }
@@ -255,15 +255,13 @@
       
       .debug-header h3 {
         margin: 0;
-        font-size: 14px;
-        font-weight: 500;
+        font-weight: 700;
         color: #343f44;
       }
       
       #debug-close {
         background: none;
         border: none;
-        font-size: 16px;
         cursor: pointer;
         color: #616e73;
       }
@@ -278,7 +276,7 @@
       .debug-controls button,
       .debug-controls select {
         padding: var(--spacing-xs) var(--spacing-md);
-        font-size: 12px;
+        
         border: 1px solid var(--color-border);
         border-radius: var(--border-radius);
         background-color: var(--color-background);
@@ -289,7 +287,7 @@
         overflow: auto;
         padding: var(--spacing-md);
         font-family: monospace;
-        font-size: 12px;
+        
         line-height: 1.4;
         max-height: 60vh;
       }
@@ -302,7 +300,7 @@
       
       .debug-info {
         padding: var(--spacing-xs) var(--spacing-md);
-        font-size: 10px;
+        
         color: var(--color-text-secondary);
         background-color: #f0f2f2;
         border-top: 1px solid var(--color-border);
@@ -316,21 +314,6 @@
       
       #debug-toggle:hover {
         opacity: 1;
-      }
-      
-      /* Filter input styles */
-      .filter-input {
-        display: none;
-        width: 100%;
-        padding: var(--spacing-sm) var(--spacing-md);
-        border: 1px solid var(--color-border);
-        border-radius: var(--border-radius);
-        font-size: 12px;
-        background-color: var(--color-background);
-      }
-      .filter-input:focus {
-        outline: none;
-        border-color: var(--color-accent); /* Match component title color */
       }
 
       /* Button Styles */
@@ -389,7 +372,7 @@
 
       /* Component Title Bar Styles */
       .component-title {
-        font-size: 12px;
+
         font-weight: normal;
         margin-bottom: 4px;
         cursor: pointer; /* Entire title is clickable */
@@ -411,7 +394,7 @@
         cursor: pointer;
         padding: var(--spacing-xs);
         color: var(--color-text-secondary);
-        font-size: 8px;
+
         width: 16px;
         display: flex;
         align-items: center;
@@ -424,13 +407,13 @@
         margin-top: var(--spacing-md);
         margin-bottom: var(--spacing-md);
         color: var(--color-text-secondary);
-        font-size: 13px;
+
       }
 
       /* Checkbox Styles */
       .checkbox-timestamp, .checkbox-status, .last-modified {
         color: var(--color-text-secondary);
-        font-size: 10px;
+
         margin-left: var(--spacing-md);
       }
       
@@ -444,7 +427,7 @@
       .changed-tag {
         display: inline-block;
         margin-left: var(--spacing-xs);
-        font-size: 9px;
+
         padding: 1px var(--spacing-xs);
         border-radius: var(--border-radius);
         background-color: #FFF1E0;
@@ -464,7 +447,7 @@
         border-radius: 9px;
         background-color: #F3DAF4; /* Very pale purple background */
         color: #9B51E0; /* Main purple text color */
-        font-size: 10px;
+
         font-weight: bold;
         margin-left: 4px;
       }
@@ -480,8 +463,8 @@
         display: flex;
         align-items: center;
         gap: 4px;
-        padding: 6px 6px;
-        margin: 0 -12px;
+        padding: 3px 13px;
+        margin: 0;
         border-radius: 4px;
         cursor: default;
       }
@@ -492,14 +475,13 @@
         bottom: 0;
         left: 0;
         right: 0;
-        padding: 4px 8px;
+        padding: var(--spacing-md) var(--spacing-md);
         background-color: #f8f9fa;
         border-top: 1px solid var(--color-border);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 10px;
-        color: #616e73;
+
       }
       
       /* Resize handle styles removed to fix loading issues */
@@ -512,15 +494,13 @@
       .footer-right {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: var(--spacing-md);
       }
       
       .footer-checkbox {
         display: flex;
         align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        color: #616e73;
+        gap: var(--spacing-md);
         cursor: pointer;
       }
       
@@ -534,33 +514,17 @@
 
       /* Custom Rules Section Styles */
       .custom-heading {
-        font-size: 12px;
+
         font-weight: bold;
         margin-bottom: 10px;
-        color: black;
-      }
-
-      /* Score styles */
-      /* Score classes are now only used for component coloring, not for displaying score counts */
-      .score-red {
-        color: var(--color-score-red);      /* 0-33% complete */
-      }
-      
-      .score-amber {
-        color: var(--color-score-amber);   /* 34-66% complete */
-      }
-      
-      .score-green {
-        color: var(--color-score-green);    /* 67-100% complete */
       }
 
       /* Checkbox Group Styles */
       .checkbox-group {
-        margin-left: 16px;      /* Indent from title */
-        margin-bottom: 8px;      /* Space between categories */
+        margin-left: var(--spacing-xl);      /* Indent from title */
+        margin-bottom: var(--spacing-sm);      /* Space between categories */
       }
       .checkbox-group label {
-        font-size: 12px;
         line-height: 16px;       /* Tight line spacing within items */
         display: flex;
         align-items: flex-start;  /* Align checkbox with first line */
@@ -604,31 +568,9 @@
       }
 
       .settings-section-title {
-        color: #666;
-        font-size: 11px;
-        font-weight: 500;
+        font-weight: 00;
         text-transform: uppercase;
         margin-bottom: 8px;
-      }
-
-      .download-button, .bug-report-link {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        padding: 6px 8px;
-        border: none;
-        background: none;
-        color: #333;
-        font-size: 12px;
-        text-align: left;
-        cursor: pointer;
-        text-decoration: none;
-        border-radius: 4px;
-      }
-
-      .download-button:hover, .bug-report-link:hover {
-        background-color: #f5f5f5;
       }
 
       .download-button svg, .bug-report-link svg {
@@ -649,7 +591,7 @@
       textarea {
         width: 100%;
         height: 200px;
-        font-size: 12px;
+
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         padding: 8px;
         border: 1px solid #C7D0D4;
@@ -669,7 +611,7 @@
         padding: 4px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         z-index: var(--z-index-modal);
-        font-size: 12px;
+
       }
 
       .context-menu-item {
@@ -696,7 +638,7 @@
         border: none;
         background-color: #f0f0f0;
         color: #666;
-        font-size: 12px;
+
         border-radius: 4px;
         cursor: pointer;
         transition: background-color 0.2s ease;
@@ -725,7 +667,7 @@
 
       .component-count {
         color: #666;
-        font-size: 12px;
+
       }
 
       .settings-button svg {
@@ -1405,7 +1347,7 @@
     <!-- Debug button removed; using footer link instead -->
     
     <!-- Footer with build version -->
-    <div id="footer" style="position: fixed; bottom: 0; left: 0; width: 100%; padding: 4px 8px; font-size: 9px; color: #616E73; background-color: #F8F9FA; text-align: right; border-top: 1px solid #E6E7E8;">
+    <div id="footer" style="position: fixed; bottom: 0; left: 0; width: 100%; padding: 4px 8px; color: #616E73; background-color: #F8F9FA; text-align: right; border-top: 1px solid #E6E7E8;">
       Build: 2025.04.24
     </div>
     
@@ -1538,40 +1480,64 @@
         // Component count update removed
       }
       
-      // Add debounced event listener to textarea for live updates
+      // Add event listener to textarea for live updates
       let rebuildTimeout;
       document.getElementById('custom-rules').addEventListener('input', () => {
+        // Add a visual indicator that changes are being processed
+        const textarea = document.getElementById('custom-rules');
+        textarea.style.borderColor = 'var(--color-accent)';
+        
+        // Clear any existing timeout
         clearTimeout(rebuildTimeout);
+        
+        // Set a new timeout with a shorter delay for better responsiveness
         rebuildTimeout = setTimeout(() => {
+          // First save the rules
           saveCustomRules();
-          rebuildComponentList();
-        }, TIMING.STANDARD_DELAY + TIMING.SHORT_DELAY); // Debounce for 400ms
+          
+          // Then force a fresh rebuild of the component list
+          const newRules = parseRules(textarea.value);
+          console.log('Parsed rules after textarea edit:', newRules);
+          
+          // Use the new rules to rebuild the component list
+          buildComponentList(allComponents, checkboxStates, newRules);
+          
+          // Reset the textarea border
+          textarea.style.borderColor = '';
+        }, 250); // Reduced debounce time for better responsiveness
       });
 
       // Function to parse rules from the textarea
       function parseRules(text) {
         const lines = text.split('\n');
-        let currentCategory = '';
+        let currentCategory = ''; // Empty category means no heading
         const rules = {};
-        rules[currentCategory] = []; // Initialize default category for rules without headings
+        rules[currentCategory] = []; // Initialize default (no heading) category
         let totalRules = 0;
+        let hasCustomHeadings = false;
 
         lines.forEach(line => {
           const trimmedLine = line.trim();
           if (trimmedLine.startsWith('- [ ]')) {
             // It's a checkbox item
             const ruleText = trimmedLine.substring(6).trim(); // Extract the rule text after "- [ ]"
-            rules[currentCategory] = rules[currentCategory] || [];
+            if (!rules[currentCategory]) {
+              rules[currentCategory] = [];
+            }
             rules[currentCategory].push(ruleText);
             totalRules++;
           } else if (trimmedLine !== '') {
             // It's a heading - keep the full category name including any commas
             currentCategory = trimmedLine;
-            rules[currentCategory] = rules[currentCategory] || [];
+            hasCustomHeadings = true; // Mark that user has added custom headings
+            if (!rules[currentCategory]) {
+              rules[currentCategory] = [];
+            }
           }
         });
 
         rules.totalRules = totalRules; // Store total count
+        rules.hasCustomHeadings = hasCustomHeadings; // Flag to indicate if custom headings are used
         return rules;
       }
 
@@ -2984,12 +2950,27 @@
           container.classList.add('hidden');
         }
         
+        // Debug output to check the rules
+        console.log(`Creating rule categories for component ${component.id}:`, rules);
+        
+        // Check if there are custom headings
+        const hasCustomHeadings = rules.hasCustomHeadings || false;
+        
         // Process rules by category
         for (let category in rules) {
-          // Skip internal property
-          if (category === 'totalRules') continue;
+          // Skip internal properties
+          if (category === 'totalRules' || category === 'hasCustomHeadings') continue;
           
-          // Create category container with proper heading
+          // Debug output for each category
+          console.log(`Processing category '${category}' with rules:`, rules[category]);
+          
+          // Skip categories with no rules
+          if (!rules[category] || !Array.isArray(rules[category]) || rules[category].length === 0) {
+            console.log(`Skipping empty category: ${category}`);
+            continue;
+          }
+          
+          // Create container for this group of rules
           const categoryContainer = document.createElement('div');
           categoryContainer.className = 'category-container';
           categoryContainer.setAttribute('data-category', category);
@@ -2998,21 +2979,29 @@
           const categoryId = `category-${component.id}-${category.replace(/\s+/g, '-')}`;
           categoryContainer.id = categoryId;
           
-          const categoryTitle = document.createElement('div');
-          categoryTitle.className = 'category-title';
-          categoryTitle.id = `${categoryId}-title`;
-          categoryTitle.setAttribute('role', 'heading');
-          categoryTitle.setAttribute('aria-level', '3');
-          categoryTitle.textContent = category;
-          categoryContainer.appendChild(categoryTitle);
+          // Only add category title if it's not the default empty category or if we have custom headings
+          if (category !== '') {
+            const categoryTitle = document.createElement('div');
+            categoryTitle.className = 'category-title';
+            categoryTitle.id = `${categoryId}-title`;
+            categoryTitle.setAttribute('role', 'heading');
+            categoryTitle.setAttribute('aria-level', '3');
+            categoryTitle.textContent = category;
+            categoryContainer.appendChild(categoryTitle);
+          }
           
           // Create fieldset for related checkboxes
           const fieldset = document.createElement('div');
           fieldset.setAttribute('role', 'group');
-          fieldset.setAttribute('aria-labelledby', `${categoryId}-title`);
+          
+          // Only associate with a heading if one exists
+          if (category !== '') {
+            fieldset.setAttribute('aria-labelledby', `${categoryId}-title`);
+          }
           
           // Create checkboxes for each rule in this category
-          rules[category].forEach(ruleText => {
+          rules[category].forEach((ruleText, index) => {
+            console.log(`Creating checkbox for rule: ${ruleText}`);
             const checkboxLabel = createCheckboxItem(component, category, ruleText, checkboxStates);
             fieldset.appendChild(checkboxLabel);
           });
