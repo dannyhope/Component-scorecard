@@ -69,19 +69,7 @@
         transition: opacity 0.2s ease;
       }
       
-      /* Style for component list when filtering is in progress */
-      #component-list.filtering {
-        opacity: 0.7;
-      }
 
-      /* Search filter and settings section */
-      .filter-section {
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-md);
-        margin-top: 0;
-      }
 
       /* Notification system styles */
       #notification-container {
@@ -1367,14 +1355,7 @@
       </div>
     </div>
     <!-- Component count row removed to simplify UI -->
-    <!-- Filter section (hidden) -->
-    <div class="filter-section">
-      <input type="text" 
-             class="filter-input" 
-             placeholder="Filter components..."
-             id="component-filter"
-             autocomplete="off">
-    </div>
+
     <div id="settings-dropdown" class="settings-dropdown">
         <div class="settings-section">
           <div class="settings-section-title">Data Export</div>
@@ -1430,10 +1411,7 @@
     <!-- Footer with Hide completed checkbox and other controls -->
     <div class="footer">
       <div class="footer-left">
-        <label class="footer-checkbox">
-          <input type="checkbox" id="hide-completed-checkbox">
-          <span>Hide completed</span>
-        </label>
+        <!-- Hide completed checkbox removed -->
       </div>
       <div class="footer-right">
         <a href="#" id="debug-toggle" class="settings-button" title="Toggle Debug Panel">Debug</a>
@@ -1552,7 +1530,7 @@
       let viewStates = {}; // Store component view states
       let selectedComponentIds = null; // Track which components are selected in Figma
       let lastAutoExpandedId = null; // Track which component was last auto-expanded
-      let allComponents = []; // Store all components for filtering
+      let allComponents = []; // Store all components
       let rules = null; // Rules for component evaluation
       
       // Setup state manager initialization
@@ -1622,10 +1600,8 @@
               searchInput.value = filters.search;
             }
             
-            const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
-            if (hideCompletedCheckbox && hideCompletedCheckbox.checked !== !filters.showChecked) {
-              hideCompletedCheckbox.checked = !filters.showChecked;
-            }
+            // Hide completed checkbox removed
+            // Hide completed checkbox and related functionality removed
             
             // Update selection if needed
             if (filters.selectedComponentIds && filters.selectedComponentIds.length > 0) {
@@ -1641,7 +1617,7 @@
             }
             
             // Apply filters
-            debouncedFilterComponents(filters.search, !filters.showChecked, false);
+            // Removed filterComponents call
           });
           
           // Subscribe to checkbox state changes
@@ -1683,453 +1659,38 @@
       // Keep track of which checkboxes should be hidden
       let hiddenCheckboxes = new Map(); // Map of componentId -> Set of checkboxIds
       
-      // Function to filter components based on search text, hide completed, and selection
-      function filterComponents(searchText = '', hideCompleted = false, forceApplyFilter = false) {
-        console.log(`Filtering components: searchText=${searchText}, hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
-        console.log(`Selected component IDs:`, selectedComponentIds);
-        
-        const sections = document.querySelectorAll('.component-section');
-        if (sections.length === 0) return;
-        
-        // Process filtering in sequence
-        updateSelectionFilterIndicator();
-        handleFilterMode(forceApplyFilter, hideCompleted, sections);
-        const results = processComponentFiltering(searchText, hideCompleted, forceApplyFilter, sections);
-        updateUIAfterFiltering(results.hiddenDueToCompletion);
-      }
-      
-      // Helper function to process component filtering
-      function processComponentFiltering(searchText, hideCompleted, forceApplyFilter, sections) {
-        const normalizedSearchText = searchText.toLowerCase();
-        const componentData = gatherComponentData(sections);
-        return applyFiltersToAllComponents(componentData, normalizedSearchText, hideCompleted, forceApplyFilter);
-      }
-      
-      // Helper function to update UI after filtering
-      function updateUIAfterFiltering(hiddenDueToCompletion) {
-        // Remove the filtering class to indicate filtering is complete
-        document.getElementById('component-list').classList.remove('filtering');
-        
-        // Update UI elements
-        updateHiddenComponentsButton(hiddenDueToCompletion);
-        // Component count update removed
-      }
-      
-      // Function to apply filters to all components and track results
-      function applyFiltersToAllComponents(componentData, searchText, hideCompleted, forceApplyFilter) {
-        let visibleCount = 0;
-        let hiddenCount = 0;
-        let hiddenDueToCompletion = 0;
-        
-        for (const compData of componentData) {
-          const result = applyFiltersToComponent(compData, searchText, hideCompleted, forceApplyFilter);
-          
-          if (result.isVisible) {
-            visibleCount++;
-          } else {
-            hiddenCount++;
-            if (result.hiddenDueToCompletion) {
-              hiddenDueToCompletion++;
-            }
-          }
-        }
-        
-        console.log(`Filter results: ${visibleCount} components visible, ${hiddenCount} hidden (${hiddenDueToCompletion} due to completion)`);
-        return { visibleCount, hiddenCount, hiddenDueToCompletion };
-      }
-      
       // Function to update the hidden components button
       function updateHiddenComponentsButton(hiddenDueToCompletion) {
-        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
-        if (!hiddenComponentsButton) return;
+        const button = document.getElementById('show-hidden-components');
+        if (!button) return;
         
-        if (hiddenDueToCompletion > 0) {
-          hiddenComponentsButton.style.display = 'block';
-          hiddenComponentsButton.textContent = `Show ${hiddenDueToCompletion} hidden component${hiddenDueToCompletion !== 1 ? 's' : ''}`;
-        } else {
-          hiddenComponentsButton.style.display = 'none';
-        }
+        // No components should be hidden since we removed the filter feature
+        button.style.display = 'none';
       }
       
-      // Helper function to handle filter mode (explicit application or normal interaction)
-      function handleFilterMode(forceApplyFilter, hideCompleted, sections) {
-        if (!forceApplyFilter) {
-          console.log('Normal filtering during user interaction - components will not be hidden');
-          return;
-        }
-        
-        console.log('Filter is being explicitly applied (plugin load or checkbox toggle)');
-        
-        // If hide completed is turned off, clear the hidden checkboxes map and return
-        if (!hideCompleted) {
-          hiddenCheckboxes.clear();
-          return;
-        }
-        
-        // Find all checked checkboxes and mark them as hidden
-        markCheckedCheckboxesAsHidden(sections);
-      }
-      
-      // Helper function to mark checked checkboxes as hidden
-      function markCheckedCheckboxesAsHidden(sections) {
-        sections.forEach(section => {
-          const componentId = section.getAttribute('data-id');
-          if (!componentId) return;
-          
-          // Skip sections hidden for non-completion reasons
-          if (section.style.display === 'none' && section.getAttribute('data-hidden-reason') !== 'completed') {
-            console.log(`Skipping ${componentId} because it's hidden for reasons other than completion`);
-            return;
-          }
-          
-          // Process checkboxes for this component
-          processComponentCheckboxes(componentId, section);
-        });
-      }
-      
-      // Helper function to determine if a hidden section should be skipped
-      function shouldSkipHiddenSection(section, componentId) {
-        if (section.style.display === 'none' && section.getAttribute('data-hidden-reason') !== 'completed') {
-          console.log(`Skipping ${componentId} because it's hidden for reasons other than completion`);
-          return true;
-        }
-        return false;
-      }
-      
-      // Helper function to process checkboxes for a component
-      function processComponentCheckboxes(componentId, section) {
-        // Create a set for this component if it doesn't exist
-        if (!hiddenCheckboxes.has(componentId)) {
-          hiddenCheckboxes.set(componentId, new Set());
-        }
-        
-        // Find all checked checkboxes in this component
-        const checkboxes = section.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-          if (checkbox.checked && checkbox.id) {
-            hiddenCheckboxes.get(componentId).add(checkbox.id);
-          }
-        });
-      }
-        
-      // Helper function to gather component data for filtering
-      function gatherComponentData(sections) {
-        const componentData = [];
-        
-        // Process each valid component section
-        for (const section of sections) {
-          const componentInfo = extractComponentInfo(section);
-          if (!componentInfo) continue;
-          
-          componentData.push(componentInfo);
-          logComponentInfo(componentInfo);
-        }
-        
-        console.log('Component data:', componentData);
-        debugRegistrationForm(componentData);
-        
-        return componentData;
-      }
-      
-      // Helper function to extract component information from a section
-      function extractComponentInfo(section) {
-        const componentId = section.getAttribute('data-id');
-        if (!componentId) return null;
-        
-        // Find component title element
-        const component = findComponentTitleElement(section, componentId);
-        if (!component) return null;
-        
-        // Get component name
-        const name = extractComponentName(component);
-        if (!name) return null;
-        
-        // Get checkbox information
-        const checkboxInfo = getCheckboxInfo(section);
-        
-        // Check if the component is expanded
-        const isExpanded = !section.querySelector('.checkbox-group')?.classList.contains('hidden');
-        
-        // Create and return component info object
-        return {
-          id: componentId,
-          name: name,
-          element: section,
-          checkedCount: checkboxInfo.checkedCount,
-          totalRules: checkboxInfo.totalRules,
-          isExpanded: isExpanded,
-          isFullyComplete: checkboxInfo.isFullyComplete
-        };
-      }
-      
-      // Helper function to find the component title element
-      function findComponentTitleElement(section, componentId) {
-        const component = Array.from(section.querySelectorAll('.component-title')).find(el => 
-          el.closest('.component-section') === section
-        );
-        
-        if (!component) {
-          console.log(`Warning: Could not find title element for component ${componentId}`);
-        }
-        
-        return component;
-      }
-      
-      // Helper function to extract component name
-      function extractComponentName(component) {
-        const nameEl = component.querySelector('.component-name');
-        if (!nameEl) return null;
-        
-        // Try to get name from text nodes first
-        let name = extractNameFromTextNodes(nameEl);
-        
-        // Fallback to full text content if needed
-        if (!name) {
-          name = nameEl.textContent.trim();
-        }
-        
-        return name;
-      }
-      
-      // Helper function to extract name from text nodes
-      function extractNameFromTextNodes(nameEl) {
-        for (const childNode of nameEl.childNodes) {
-          if (childNode.nodeType === Node.TEXT_NODE) {
-            return childNode.textContent.trim();
-          }
-        }
-        return '';
-      }
-      
-      // Helper function to get checkbox information
-      function getCheckboxInfo(section) {
-        const checkboxes = section.querySelectorAll('input[type="checkbox"]');
-        const totalRules = checkboxes.length;
-        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-        const isFullyComplete = totalRules > 0 && checkedCount === totalRules;
-        
-        return { checkedCount, totalRules, isFullyComplete };
-      }
-      
-      // Helper function to log component info
-      function logComponentInfo(componentInfo) {
-        console.log(
-          `Component ${componentInfo.name}: checked=${componentInfo.checkedCount}, ` +
-          `total=${componentInfo.totalRules}, expanded=${componentInfo.isExpanded}, ` +
-          `fullyComplete=${componentInfo.isFullyComplete}`
-        );
-      }
-      
-      // Helper function to debug the registration form component
-      function debugRegistrationForm(componentData) {
-        const registrationForm = componentData.find(c => c.name.includes('Example registration form'));
-        if (!registrationForm) return;
-        
-        console.log('Registration form details:', registrationForm);
-        
-        // Check all checkboxes in this component
-        const regFormSection = registrationForm.element;
-        const checkboxes = regFormSection.querySelectorAll('input[type="checkbox"]');
-        console.log(`Registration form has ${checkboxes.length} checkboxes`);
-        
-        checkboxes.forEach((cb, i) => {
-          console.log(`Checkbox ${i+1}: checked=${cb.checked}, rule=${cb.getAttribute('data-rule')}`);
-        });
-      }
-        
       // Helper function to check if component should be hidden due to selection filtering
       function shouldHideComponentBySelection(componentId) {
-        // If no selection filtering is active, don't hide anything
-        if (!selectedComponentIds) return false;
-        
-        // Hide component if it's not in the selection filter list
-        return !selectedComponentIds.includes(componentId);
-      }
-      
-      // Helper function to get clean component name for text matching
-      function getCleanComponentName(section) {
-        const componentName = section.querySelector('.component-name').textContent.toLowerCase();
-        const nameElement = section.querySelector('.component-name');
-        if (!nameElement) return componentName;
-        
-        // Extract just the text content (not from child elements)
-        let cleanName = '';
-        // Use the first text node content as the name
-        for (const childNode of nameElement.childNodes) {
-          if (childNode.nodeType === Node.TEXT_NODE) {
-            cleanName += childNode.textContent;
-          }
-        }
-        
-        cleanName = cleanName.toLowerCase().trim();
-        return cleanName || componentName; // Fallback to original if extraction failed
-      }
-      
-      // Helper function to set component visibility and track reason
-      function setComponentVisibility(section, isVisible, reason) {
-        if (isVisible) {
-          section.style.display = '';
-          section.removeAttribute('data-hidden-reason');
-          return;
-        }
-        
-        section.style.display = 'none';
-        if (reason) {
-          section.setAttribute('data-hidden-reason', reason);
-        }
-      }
-      
-      // Helper function to apply filters to a component
-      function applyFiltersToComponent(compData, searchText, hideCompleted, forceApplyFilter) {
-        const section = compData.element;
-        
-        // Check if component should be hidden based on filters
-        const filterResult = checkComponentFilters(compData, searchText, hideCompleted, forceApplyFilter);
-        if (filterResult.shouldHide) {
-          setComponentVisibility(section, false, filterResult.reason);
-          return { 
-            isVisible: false, 
-            hiddenDueToCompletion: filterResult.reason === 'completed' 
-          };
-        }
-        
-        // Component passed all filters, show it
-        setComponentVisibility(section, true);
-        
-        // Check if component should be hidden due to no visible checkboxes
-        if (shouldHideComponentDueToNoVisibleCheckboxes(compData, hideCompleted, forceApplyFilter)) {
-          console.log(`Hiding ${compData.name} because it has no visible checkboxes after filtering`);
-          setComponentVisibility(section, false, 'completed');
-          return { isVisible: false, hiddenDueToCompletion: true };
-        }
-        
-        return { isVisible: true, hiddenDueToCompletion: false };
-      }
-      
-      // Helper function to check if component should be hidden based on filters
-      function checkComponentFilters(compData, searchText, hideCompleted, forceApplyFilter) {
-        const section = compData.element;
-        const cleanName = getCleanComponentName(section);
-        
-        // Check all filter conditions
-        const nameMatch = cleanName.includes(searchText);
-        const shouldHideBasedOnCompletion = shouldHideComponent(compData, hideCompleted, forceApplyFilter);
-        const shouldHideBasedOnSelection = shouldHideComponentBySelection(compData.id);
-        
-        // Determine if component should be hidden and why
-        if (shouldHideBasedOnCompletion) {
-          return { shouldHide: true, reason: 'completed' };
-        }
-        
-        if (!nameMatch) {
-          return { shouldHide: true, reason: 'name-filter' };
-        }
-        
-        if (shouldHideBasedOnSelection) {
-          return { shouldHide: true, reason: 'selection-filter' };
-        }
-        
-        return { shouldHide: false };
-      }
-      
-      // Helper function to check if component should be hidden due to no visible checkboxes
-      function shouldHideComponentDueToNoVisibleCheckboxes(compData, hideCompleted, forceApplyFilter) {
-        if (!hideCompleted || !compData.isExpanded) return false;
-        
-        const hasVisibleCheckboxes = handleCheckboxVisibility(compData, hideCompleted, forceApplyFilter);
-        return !hasVisibleCheckboxes;
-      }
-      
-      // Helper function to determine if a component should be hidden based on completion
-      function shouldHideComponent(compData, hideCompleted, forceApplyFilter) {
-        if (!hideCompleted) return false;
-        if (!compData.isFullyComplete) {
-          console.log(`Component ${compData.name}: Not fully complete (${compData.checkedCount}/${compData.totalRules}), showing it.`);
-          return false;
-        }
-        
-        // Component is fully complete, but only hide if explicitly applying filter
-        if (forceApplyFilter) {
-          console.log(`Component ${compData.name}: ALL criteria checked (${compData.checkedCount}/${compData.totalRules}), hiding component`);
+        // If we have selected components and this is not one of them, hide it
+        if (selectedComponentIds.length > 0 && !selectedComponentIds.includes(componentId)) {
           return true;
-        } 
+        }
         
-        console.log(`Component ${compData.name}: ALL criteria checked but not hiding during normal interaction`);
         return false;
       }
       
-      // Helper function to handle checkbox visibility
-      function handleCheckboxVisibility(compData, hideCompleted, forceApplyFilter) {
-        // Show all checkboxes if not hiding completed
-        if (!hideCompleted) {
-          return showAllCheckboxes(compData);
-        }
-        
-        // Process checkboxes when hiding completed items
-        return processCheckboxesWithHiding(compData, forceApplyFilter);
-      }
-      
-      // Helper function to show all checkboxes
-      function showAllCheckboxes(compData) {
-        const checkboxLabels = compData.element.querySelectorAll('.checkbox-label');
-        checkboxLabels.forEach(label => label.style.display = '');
-        return true;
-      }
-      
-      // Helper function to process checkboxes with hiding logic
-      function processCheckboxesWithHiding(compData, forceApplyFilter) {
-        const checkboxLabels = compData.element.querySelectorAll('.checkbox-label');
-        let visibleCheckboxes = 0;
-        
-        checkboxLabels.forEach(label => {
-          const checkbox = label.querySelector('input[type="checkbox"]');
-          if (!checkbox) return;
-          
-          if (checkbox.checked) {
-            visibleCheckboxes += processCheckedCheckbox(compData.id, checkbox.id, label, forceApplyFilter);
-          } else {
-            visibleCheckboxes += processUncheckedCheckbox(compData.id, checkbox.id, label);
+      // Helper function to set component visibility
+      function setComponentVisibility(section, isVisible, reason) {
+        if (isVisible) {
+          section.classList.remove('hidden');
+          section.removeAttribute('data-hidden-reason');
+        } else {
+          section.classList.add('hidden');
+          if (reason) {
+            section.setAttribute('data-hidden-reason', reason);
           }
-        });
-        
-        return visibleCheckboxes > 0;
-      }
-      
-      // Helper function to process a checked checkbox
-      function processCheckedCheckbox(componentId, checkboxId, label, forceApplyFilter) {
-        if (shouldHideCheckbox(componentId, checkboxId, forceApplyFilter)) {
-          label.style.display = 'none';
-          return 0;
         }
         
-        label.style.display = '';
-        return 1;
-      }
-      
-      // Helper function to process an unchecked checkbox
-      function processUncheckedCheckbox(componentId, checkboxId, label) {
-        // Always show unchecked checkboxes
-        label.style.display = '';
-        
-        // Remove from hidden set if it exists
-        removeFromHiddenCheckboxes(componentId, checkboxId);
-        return 1;
-      }
-      
-      // Helper function to determine if a checkbox should be hidden
-      function shouldHideCheckbox(componentId, checkboxId, forceApplyFilter) {
-        if (forceApplyFilter) return true;
-        
-        return hiddenCheckboxes.has(componentId) && 
-               checkboxId && 
-               hiddenCheckboxes.get(componentId).has(checkboxId);
-      }
-      
-      // Helper function to remove a checkbox from the hidden set
-      function removeFromHiddenCheckboxes(componentId, checkboxId) {
-        if (hiddenCheckboxes.has(componentId) && checkboxId) {
-          hiddenCheckboxes.get(componentId).delete(checkboxId);
-        }
+        return isVisible;
       }
 
       // Debounce utility function to limit how often a function can be called
@@ -2142,61 +1703,17 @@
         };
       }
       
-      // Create debounced version of filterComponents with 300ms delay
-      const debouncedFilterComponents = debounce((searchText, hideCompleted, forceApplyFilter) => {
-        filterComponents(searchText, hideCompleted, forceApplyFilter);
-      }, 300);
+      // Debounce utility function retained for other potential uses
+      function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+          const context = this;
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+      }
       
-      // Set up search filter input handler with debouncing
-      document.getElementById('component-filter').addEventListener('input', (e) => {
-        const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
-        // Show immediate visual feedback that filtering will happen
-        document.getElementById('component-list').classList.add('filtering');
-        
-        // Update state manager with search filter
-        if (window.stateManager) {
-          stateManager.setFilters({
-            search: e.target.value,
-            showChecked: !hideCompleted
-          });
-        }
-        
-        // Don't force apply filter during search - just filter by name
-        debouncedFilterComponents(e.target.value, hideCompleted, false);
-      });
-      
-      // Set up hide completed checkbox handler
-      document.getElementById('hide-completed-checkbox').addEventListener('change', (e) => {
-        console.log('Hide completed checkbox changed:', e.target.checked);
-        // Save the preference
-        parent.postMessage({
-          pluginMessage: {
-            type: 'saveUserPreferences',
-            preferences: {
-              hideCompleted: e.target.checked
-            }
-          }
-        }, '*');
-        
-        // Update state manager with checkbox state
-        if (window.stateManager) {
-          stateManager.setFilters({
-            showChecked: !e.target.checked
-          });
-        }
-        
-        // Force a re-render of the component list
-        const searchText = document.getElementById('component-filter').value;
-        // Apply the filter with the new checkbox state immediately
-        // Pass true for forceApplyFilter to ensure items are hidden when checkbox is toggled
-        filterComponents(searchText, e.target.checked, true);
-        
-        // Update the footer text to explain what's being hidden
-        const hideCompletedLabel = document.querySelector('.footer-checkbox span');
-        if (hideCompletedLabel) {
-          hideCompletedLabel.textContent = e.target.checked ? 'Hide completed' : 'Hide completed';
-        }
-      });
+      // Hide completed checkbox handler removed - filter feature has been removed
       
       // Component detection is now reliable enough that we don't need manual refresh
       
@@ -2777,7 +2294,7 @@
           
           // When a checkbox is checked, we need to track if it should be hidden
           // but we don't actually hide it until the filter is applied
-          if (checkbox.checked && document.getElementById('hide-completed-checkbox').checked) {
+          if (checkbox.checked) {
             // If Hide completed is active, add this checkbox to the hidden map
             // but don't actually hide it yet
             const componentId = component.id;
@@ -3429,24 +2946,7 @@
         
         // Load user preferences if available
         if (message.userPreferences) {
-          const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
-          if (hideCompletedCheckbox && message.userPreferences.hideCompleted !== undefined) {
-            hideCompletedCheckbox.checked = message.userPreferences.hideCompleted;
-            
-            // Update the label text based on the preference
-            const hideCompletedLabel = document.querySelector('.footer-checkbox span');
-            if (hideCompletedLabel) {
-              hideCompletedLabel.textContent = message.userPreferences.hideCompleted ? 'Hide completed' : 'Hide completed';
-            }
-            
-            // Apply the filter if hide completed is checked
-            if (message.userPreferences.hideCompleted) {
-              setTimeout(() => {
-                // Pass true for forceApplyFilter to ensure items are hidden when plugin loads
-                filterComponents(document.getElementById('component-filter').value, true, true);
-              }, TIMING.SHORT_DELAY); // Small delay to ensure UI is ready
-            }
-          }
+          // Hide completed checkbox and related functionality removed
         }
 
         // Load custom rules if available
@@ -3598,9 +3098,9 @@
           selectedComponentIds = message.selectedComponentIds; // Could be null (show all) or array of IDs
           
           // Apply filtering with current filter state
-          const searchText = document.getElementById('component-filter').value;
-          const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
-          filterComponents(searchText, hideCompleted, true); // Force apply the filter
+          // No search text needed anymore
+          // Hide completed checkbox removed
+          // No filtering needed - filter feature has been removed
           
           // Show/hide selection filter indicator
           updateSelectionFilterIndicator();
@@ -3840,9 +3340,9 @@
           nameSpan.innerHTML = `${modifiedIndicator}${component.name} <span class="${scoreClass}" style="display: none !important;">(${checkedCount}/${component.totalCategories})</span>${lastModified}${usageCount}`;
           
           // If hide completed is checked, apply the filter
-          if (document.getElementById('hide-completed-checkbox').checked) {
-            const searchText = document.getElementById('component-filter').value;
-            filterComponents(searchText, true);
+          if (false) { // Hide completed feature removed
+            // No search text needed anymore
+            // No filtering needed - filter feature has been removed
           }
         }
 

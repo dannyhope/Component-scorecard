@@ -38,3 +38,6 @@
  - ES modules
  - the codeFiles property in the manifest
 - The Figma document I’m testing the plugin has only one page
+
+## Checks
+- after every change, look to see if any of the changes could have resulted in the list of components going missing and fix them
