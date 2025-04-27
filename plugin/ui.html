@@ -2120,6 +2120,7 @@
         expandArrow.setAttribute('aria-hidden', 'true');
         expandArrow.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0)';
         expandArrow.style.transition = 'transform 0.2s ease';
+        expandArrow.style.cursor = 'pointer'; // Add pointer cursor to make it clearer it's clickable
         return expandArrow;
       }
       
@@ -2178,7 +2179,7 @@
       // Function to setup component collapse/select behavior
       function setupComponentToggle(component, title, expandArrow) {
         // Function to handle toggle action
-        const toggleAction = () => {
+        const toggleAction = (selectInFigma = true) => {
           // Toggle collapse state
           componentState[component.id].collapsed = !componentState[component.id].collapsed;
           componentState[component.id].userToggled = true; // Mark as user-toggled
@@ -2200,17 +2201,27 @@
             }
           }, '*');
 
-          // Select in Figma
-          parent.postMessage({ 
-            pluginMessage: { 
-              type: 'selectComponent',
-              componentId: component.id 
-            }
-          }, '*');
+          // Select in Figma only when the whole title is clicked
+          if (selectInFigma) {
+            parent.postMessage({ 
+              pluginMessage: { 
+                type: 'selectComponent',
+                componentId: component.id 
+              }
+            }, '*');
+          }
         };
         
-        // Add click handler
+        // Add click handler to the title
         title.onclick = toggleAction;
+        
+        // Add special click handler to the expand arrow
+        expandArrow.addEventListener('click', (e) => {
+          // Stop the event from bubbling up to the title
+          e.stopPropagation();
+          // Toggle only the expansion, don't select in Figma
+          toggleAction(false);
+        });
         
         // Add keyboard support
         title.addEventListener('keydown', (e) => {
@@ -3047,6 +3058,41 @@
             updateScore(message.componentId, message.checkedCount);
             // Component count update removed // Refresh the component count
           }
+        } else if (message.type === 'checkDeletedComponents') {
+          // Handle deleted components check
+          console.log('Checking for deleted components');
+          const existingComponentIds = new Set(message.existingComponentIds);
+          
+          // Find components in our list that no longer exist in Figma
+          const deletedComponents = [];
+          allComponents = allComponents.filter(component => {
+            if (existingComponentIds.has(component.id)) {
+              return true; // Keep components that still exist
+            } else {
+              deletedComponents.push(component);
+              return false; // Filter out deleted components
+            }
+          });
+          
+          // If any components were deleted, update the UI
+          if (deletedComponents.length > 0) {
+            console.log(`Removing ${deletedComponents.length} deleted components from UI`);
+            
+            // Update the component list
+            const componentList = document.getElementById('component-list');
+            deletedComponents.forEach(component => {
+              const section = document.querySelector(`#component-list div[data-id="${component.id}"]`);
+              if (section) {
+                componentList.removeChild(section);
+                console.log(`Removed deleted component ${component.id} from UI`);
+              }
+            });
+            
+            // Update state manager if available
+            if (window.stateManager) {
+              stateManager.setComponents(allComponents);
+            }
+          }
         } else if (message.type === 'documentTitle') {
           // Update the document title
           document.getElementById('document-title').textContent = message.title;
@@ -3174,6 +3220,9 @@
         const checkboxGroup = document.querySelector(`#component-list div[data-id="${componentId}"] .checkbox-group`);
         if (checkboxGroup) {
           checkboxGroup.classList.toggle('hidden');
+          console.log(`Toggled component ${componentId}: ${checkboxGroup.classList.contains('hidden') ? 'collapsed' : 'expanded'}`);
+        } else {
+          console.warn(`Could not find checkbox group for component ${componentId}`);
         }
       }
 

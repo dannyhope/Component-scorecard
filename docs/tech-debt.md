@@ -1,7 +1,6 @@
 - State Management
  - Complete migration of all state to the state manager
- - Add proper undo/redo functionality
- - Improve performance for large component libraries
+ - Improve performance for large component libraries by 
 - Data Structure/data model/data layer
  - Add more advanced querying capabilities (e.g., by status, by category)
  - Cache intermediate results more aggressively
@@ -29,7 +28,6 @@
  - Implement automated tests for the state manager
 - Bugs
  - Deleting items in Figma should delete them from the list but doesn't
- - Some items are a bit spaced out and could look a bit more Figma-ish
  - Selection and hover colors are incorrect
  - When you draw a frame over 2 or more components, the frame subsumes them. In this situation the frame is selected. Our rules say that in this type of situation, the component list should update according to out rules about selections.
  - Danny’s learning

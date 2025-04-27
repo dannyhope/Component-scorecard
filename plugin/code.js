@@ -1120,7 +1120,17 @@ async function loadComponents(skipCache = false) {
     try {
       // First pass - filter out variants and collect components
       allComponents
-        .filter(component => !component.parent || component.parent.type !== 'COMPONENT_SET')
+        .filter(component => {
+          // Check if the component still exists in the document (not deleted)
+          try {
+            // If the component has been deleted, this will throw an error
+            const exists = component.id && figma.getNodeById(component.id) !== null;
+            return exists && (!component.parent || component.parent.type !== 'COMPONENT_SET');
+          } catch (e) {
+            console.log(`Component ${component.id} no longer exists, filtering out`); 
+            return false;
+          }
+        })
         .forEach(component => {
           // Only add this component if we haven't seen its ID before
           if (!componentMap.has(component.id)) {
@@ -1847,6 +1857,45 @@ figma.ui.onmessage = async msg => {
     });
   }
 };
+
+// Function to check for deleted components and remove them from the UI
+function checkForDeletedComponents() {
+  try {
+    // Get the list of components from figma
+    const componentsInDocument = [];
+    
+    // Check all pages for components
+    figma.root.children.forEach(page => {
+      try {
+        const pageComponents = page.findAllWithCriteria({
+          types: ['COMPONENT']
+        });
+        componentsInDocument.push(...pageComponents);
+      } catch (e) {
+        console.warn(`Could not check for components on page ${page.name}:`, e);
+      }
+    });
+    
+    // Get the list of component IDs that still exist
+    const existingComponentIds = new Set(
+      componentsInDocument
+        .filter(component => !(component.parent && component.parent.type === 'COMPONENT_SET'))
+        .map(component => component.id)
+    );
+    
+    // Check if any components were removed
+    const deletedComponentIds = [];
+    figma.ui.postMessage({
+      type: 'checkDeletedComponents',
+      existingComponentIds: Array.from(existingComponentIds)
+    });
+  } catch (e) {
+    console.warn('Error checking for deleted components:', e);
+  }
+}
+
+// Set up periodic check for deleted components
+setInterval(checkForDeletedComponents, 5000); // Check every 5 seconds
 
 // Run the main function
 main();
