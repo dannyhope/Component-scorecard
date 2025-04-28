@@ -10,18 +10,13 @@
         --color-accent: #9B51E0;
         
         /* Text Colors */
-        --color-text-primary: #333;
+        --color-text-primary: #1a1a1a;
         --color-text-secondary: #666;
         
         /* UI Colors */
         --color-border: #C7D0D4;
         --color-background: white;
         --color-hover: rgba(0, 0, 0, 0.06);
-        
-        /* Score Colors */
-        --color-score-red: #E4003D;
-        --color-score-amber: orange;
-        --color-score-green: green;
         
         /* Spacing */
         --spacing-xs: 4px;
@@ -67,127 +62,6 @@
         width: 100%;
         margin-top: 0;
         transition: opacity 0.2s ease;
-      }
-      
-      /* Style for component list when filtering is in progress */
-      #component-list.filtering {
-        opacity: 0.7;
-      }
-
-      /* Search filter and settings section */
-      .filter-section {
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-md);
-        margin-top: 0;
-      }
-
-      /* Notification system styles */
-      #notification-container {
-        position: fixed;
-        bottom: 40px; /* Above the footer */
-        right: 8px;
-        width: 300px;
-        max-width: 90%;
-        z-index: var(--z-index-modal);
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-md);
-      }
-      
-      .notification {
-        padding: var(--spacing-md);
-        border-radius: var(--border-radius);
-        background-color: var(--color-background);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        animation: slide-in 0.3s ease-out;
-        transition: opacity 0.3s ease, transform 0.3s ease;
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-xs);
-      }
-      
-      .notification.error {
-        border-left: 4px solid var(--color-score-red);
-      }
-      
-      .notification.warning {
-        border-left: 4px solid var(--color-score-amber);
-      }
-      
-      .notification.success {
-        border-left: 4px solid var(--color-score-green);
-      }
-      
-      .notification.info {
-        border-left: 4px solid var(--color-accent);
-      }
-      
-      .notification-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      
-      .notification-title {
-        font-weight: 600;
-        margin: 0;
-      }
-      
-      .notification-close {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: var(--color-text-secondary);
-        padding: 2px;
-      }
-      
-      .notification-message {
-        
-        color: var(--color-text-secondary);
-        margin: 0;
-      }
-      
-      .notification-progress {
-        height: 3px;
-        background-color: #eee;
-        margin-top: var(--spacing-xs);
-        border-radius: 1.5px;
-        overflow: hidden;
-      }
-      
-      .notification-progress-bar {
-        height: 100%;
-        width: 0%;
-        transition: width 0.1s linear;
-      }
-      
-      .notification.error .notification-progress-bar {
-        background-color: var(--color-score-red);
-      }
-      
-      .notification.warning .notification-progress-bar {
-        background-color: var(--color-score-amber);
-      }
-      
-      .notification.success .notification-progress-bar {
-        background-color: var(--color-score-green);
-      }
-      
-      .notification.info .notification-progress-bar {
-        background-color: var(--color-accent);
-      }
-      
-      @keyframes slide-in {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
       }
       
       /* Error message styles */
@@ -345,18 +219,18 @@
       }
 
       #feedback-link {
-        width: auto !important;
-        height: auto !important;
-        padding: 4px 8px !important;
-        text-decoration: none !important;
+        width: auto;
+        height: auto;
+        padding: var(--spacing-sm) 8px;
+        text-decoration: none;
         margin-left: 8px;
       }
       
       #debug-toggle {
-        width: auto !important;
-        height: auto !important;
-        padding: 4px 8px !important;
-        text-decoration: none !important;
+        width: auto;
+        height: auto;
+        padding: 4px 8px;
+        text-decoration: none;
       }
 
       /* Component List Styles */
@@ -367,7 +241,7 @@
         transition: background-color 0.2s ease;
       }
       .component-section.selected {
-        background-color: #E8F4FE !important;
+        background-color: #f2f9ff;
       }
 
       /* Component Title Bar Styles */
@@ -386,7 +260,7 @@
 
       .component-section.selected .component-title {
         color: #7C3DDD;
-        font-weight: bold;
+        background-color: #e5f4ff;
       }
 
       /* Expand/Collapse Arrow Styles */
@@ -395,7 +269,7 @@
         padding: var(--spacing-xs);
         color: var(--color-text-secondary);
 
-        width: 16px;
+        width: var(--spacing-lg);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -427,7 +301,6 @@
       .changed-tag {
         display: inline-block;
         margin-left: var(--spacing-xs);
-
         padding: 1px var(--spacing-xs);
         border-radius: var(--border-radius);
         background-color: #FFF1E0;
@@ -509,14 +382,14 @@
       }
 
       .checkbox-label:hover {
-        background-color: #C4E2FC;
+        background-color: #f5f5f5;
       }
 
       /* Custom Rules Section Styles */
       .custom-heading {
 
         font-weight: bold;
-        margin-bottom: 10px;
+        margin-bottom: var(--spacing-lg);
       }
 
       /* Checkbox Group Styles */
@@ -1352,7 +1225,6 @@
       Build: 2025.04.24
     </div>
     
-    <!-- Resize handle removed to fix loading issues -->
     <script>
       // JavaScript Constants
       const TIMING = {
@@ -3690,11 +3562,8 @@
           }
         }
 
-        // Update component count since the checked status changed
-        // Component count update removed
       }
 
-      // The selectInstances function has been removed as the instance count feature is no longer needed
     </script>
   </body>
 </html>

@@ -29,8 +29,7 @@
  - When you draw a frame over 2 or more components, the frame subsumes them. In this situation the frame is selected. Our rules say that in this type of situation, the component list should update according to out rules about selections.
  - Danny’s learning
   - build
-  - text
+  - test
+  - mcp service
 # Undone work
 - make sure components deleted in figma are deleted in our list too, this should happen in realtime, maybe by implementing a message handler, this will ensure that the component list stays in sync with the actual Figma document
-- make sure the toggle icon shows and hides the criteria
-- completely removed the download data functionality (JSON and CSV export)

@@ -1471,9 +1471,9 @@ async function main() {
     }
   }
   
-  // Listen for document changes
+  // Improved document change handler with real-time component deletion detection
   figma.on('documentchange', async (event) => {
-    console.log('Document changed:', event);
+    console.log('Document changed (enhanced handler):', event);
     
     // Check if any components were modified in this change
     if (event && event.documentChanges) {
@@ -1484,53 +1484,37 @@ async function main() {
           // Update the component's last modified date
           await storage.updateModifiedDates(change.node.id, new Date().toISOString());
         }
+        
+        // If a component was deleted, handle it immediately
+        if (change.type === 'DELETE' && change.node && change.node.type === 'COMPONENT') {
+          console.log('Component deleted immediately detected:', change.node.id);
+          const deletedId = change.node.id;
+          
+          // Clean up storage for the deleted component
+          try {
+            await cleanupDeletedComponent(deletedId);
+            
+            // Notify UI about the deletion
+            figma.ui.postMessage({
+              type: 'componentsDeleted',
+              componentIds: [deletedId]
+            });
+          } catch (error) {
+            console.error(`Error handling immediate component deletion ${deletedId}:`, error);
+          }
+        }
       }
     }
     
-    // Run the component deletion check after any document change
-    const deletedComponents = await detectDeletedComponents();
-    const deletionDetected = deletedComponents.length > 0;
-    
-    // Handle any detected deletions
-    if (deletionDetected && deletedComponents.length > 0) {
-      try {
-        console.log(`Cleaning up ${deletedComponents.length} deleted components from storage`);
+    // Run the component deletion check after any document change to catch any missed deletions
+    try {
+      const deletedComponents = await detectDeletedComponents();
+      if (deletedComponents.length > 0) {
+        console.log(`Deletion check found ${deletedComponents.length} deleted components`);
         
         // Clean up storage for each deleted component
         for (const componentId of deletedComponents) {
-          try {
-            // Remove component state from checkboxStates
-            const checkboxStates = await storage.getAllComponentStates();
-            if (checkboxStates && checkboxStates[componentId]) {
-              delete checkboxStates[componentId];
-              await storage.set('checkboxStates', checkboxStates);
-            }
-            
-            // Remove component from modified dates
-            const modifiedDates = await storage.getAllModifiedDates();
-            if (modifiedDates && modifiedDates[componentId]) {
-              delete modifiedDates[componentId];
-              await storage.set('modifiedDates', modifiedDates);
-            }
-            
-            // Remove component from view states
-            const viewStates = await storage.getAllViewStates();
-            if (viewStates && viewStates[componentId]) {
-              delete viewStates[componentId];
-              await storage.set('viewStates', viewStates);
-            }
-            
-            // If using flattened structure, clean up flat items too
-            if (storage.useFlattened) {
-              const flatItems = await storage.getFlatCheckboxItems() || [];
-              const filteredItems = flatItems.filter(item => item.componentId !== componentId);
-              await storage.set('flatCheckboxItems', filteredItems);
-            }
-            
-            console.log(`Cleaned up deleted component: ${componentId}`);
-          } catch (componentError) {
-            console.error(`Error cleaning up deleted component ${componentId}:`, componentError);
-          }
+          await cleanupDeletedComponent(componentId);
         }
         
         // Notify UI about deletions
@@ -1538,9 +1522,9 @@ async function main() {
           type: 'componentsDeleted',
           componentIds: deletedComponents
         });
-      } catch (cleanupError) {
-        console.error('Error handling deleted components:', cleanupError);
       }
+    } catch (error) {
+      console.error('Error in deletion detection:', error);
     }
     
     // Reload components to reflect any changes
@@ -1550,6 +1534,47 @@ async function main() {
       console.error('Error reloading components after document change:', error);
     }
   });
+  
+  // Helper function to clean up a deleted component
+  async function cleanupDeletedComponent(componentId) {
+    try {
+      console.log(`Cleaning up deleted component: ${componentId}`);
+      
+      // Remove component state from checkboxStates
+      const checkboxStates = await storage.getAllComponentStates();
+      if (checkboxStates && checkboxStates[componentId]) {
+        delete checkboxStates[componentId];
+        await storage.set('checkboxStates', checkboxStates);
+      }
+      
+      // Remove component from modified dates
+      const modifiedDates = await storage.getAllModifiedDates();
+      if (modifiedDates && modifiedDates[componentId]) {
+        delete modifiedDates[componentId];
+        await storage.set('modifiedDates', modifiedDates);
+      }
+      
+      // Remove component from view states
+      const viewStates = await storage.getAllViewStates();
+      if (viewStates && viewStates[componentId]) {
+        delete viewStates[componentId];
+        await storage.set('viewStates', viewStates);
+      }
+      
+      // If using flattened structure, clean up flat items too
+      if (storage.useFlattened) {
+        const flatItems = await storage.getFlatCheckboxItems() || [];
+        const filteredItems = flatItems.filter(item => item.componentId !== componentId);
+        await storage.set('flatCheckboxItems', filteredItems);
+      }
+      
+      console.log(`Successfully cleaned up deleted component: ${componentId}`);
+      return true;
+    } catch (error) {
+      console.error(`Error cleaning up deleted component ${componentId}:`, error);
+      throw error;
+    }
+  }
   
   // Listen for selection changes
   figma.on('selectionchange', async () => {
@@ -1718,139 +1743,11 @@ async function main() {
   // Initialize the known component IDs
   await updateKnownComponentIds();
   
-  // Listen for document changes with targeted detection
-  figma.on('documentchange', async (changes) => {
-    console.log('Document changed, analyzing changes...');
-    let componentsChanged = false;
-    let needFullReload = false;
-    let changedComponentIds = new Set();
-    
-    // Process each change
-    for (const change of changes.documentChanges) {
-      const node = change.node;
-      const nodeType = node && node.type ? node.type : 'unknown';
-      const nodeId = node && node.id ? node.id : undefined;
-      
-      // Track specific change types
-      if (change.type === 'CREATE') {
-        // If a component was created, we need to update our tracking
-        if (nodeType === 'COMPONENT') {
-          console.log(`New component created: ${nodeId}`);
-          
-          // Check if we have existing data for this component ID
-          // This would happen if a component was deleted and then recreated via undo
-          const existingData = await storage.getComponentState(nodeId);
-          if (Object.keys(existingData).length > 0) {
-            console.log(`Found existing data for component ${nodeId}, likely an undo operation`);
-          }
-          
-          componentsChanged = true;
-          changedComponentIds.add(nodeId);
-        } else if (nodeType === 'COMPONENT_SET') {
-          // Component sets might contain components we need to track
-          console.log(`New component set created, checking for components`);
-          needFullReload = true;
-        } else if (nodeType === 'FRAME' || nodeType === 'GROUP') {
-          // Frames or groups might contain components
-          console.log(`New ${nodeType} created, checking for nested components`);
-          needFullReload = true;
-        } else if (nodeType === 'INSTANCE') {
-          // Instance creation might affect dependencies
-          console.log(`New instance created, will update dependencies`);
-          componentsChanged = true;
-        }
-      } else if (change.type === 'DELETE') {
-        // If a known component was deleted, we need to update
-        if (nodeType === 'COMPONENT' && knownComponentIds.has(nodeId)) {
-          console.log(`Known component deleted: ${nodeId}`);
-          // Mark as changed so the UI will update (remove from list)
-          componentsChanged = true;
-          // Remove from known components but DO NOT delete data from storage
-          // This allows the data to be preserved if the user undoes the deletion
-          knownComponentIds.delete(nodeId);
-        } else if (nodeType === 'COMPONENT_SET' || nodeType === 'FRAME' || nodeType === 'GROUP') {
-          // These might have contained components
-          console.log(`${nodeType} deleted, checking for component changes`);
-          needFullReload = true;
-        } else if (nodeType === 'INSTANCE') {
-          // Instance deletion might affect dependencies
-          console.log(`Instance deleted, will update dependencies`);
-          componentsChanged = true;
-        }
-      } else if (change.type === 'PROPERTY_CHANGE') {
-        // If a component property changed, update its modification date
-        if (nodeType === 'COMPONENT') {
-          console.log(`Component property changed: ${nodeId}`);
-          await storage.updateModifiedDates(nodeId, Date.now());
-          componentsChanged = true;
-          changedComponentIds.add(nodeId);
-        } else if (nodeType === 'INSTANCE') {
-          // Instance property change might affect dependencies
-          console.log(`Instance property changed, might affect dependencies`);
-          componentsChanged = true;
-        }
-      } else if (change.type === 'CHILD_CHANGE') {
-        // Child changes might affect component structure
-        if (nodeType === 'COMPONENT' || nodeType === 'COMPONENT_SET') {
-          console.log(`Child change in ${nodeType}: ${nodeId}`);
-          componentsChanged = true;
-          if (nodeId) changedComponentIds.add(nodeId);
-        } else if (nodeType === 'FRAME' || nodeType === 'GROUP' || nodeType === 'PAGE') {
-          // These might contain components that were moved
-          console.log(`Child change in ${nodeType}, checking for component changes`);
-          needFullReload = true;
-        }
-      }
-    }
-    
-    // Check for changes that might affect dependencies
-    const mightAffectDependencies = changes.documentChanges.some(change => 
-      ['CREATE', 'DELETE', 'PROPERTY_CHANGE'].includes(change.type) && 
-      change.node && change.node.type === 'INSTANCE'
-    );
-    
-    // If we detected specific component changes but don't need a full reload
-    if (componentsChanged && !needFullReload) {
-      console.log(`Detected changes to ${changedComponentIds.size} components`);
-      
-      // Update dependencies if there might be changes to instances
-      if (mightAffectDependencies) {
-        console.log('Detected changes that might affect component dependencies');
-        const { dependencyCounts } = await analyzeComponents();
-        
-        // Send updated dependency counts to the UI
-        figma.ui.postMessage({
-          type: 'dependencyCountsUpdated',
-          dependencyCounts: Object.fromEntries(dependencyCounts)
-        });
-      }
-      
-      // For now, we'll still do a full reload for consistency
-      loadComponents();
-    } 
-    // If we need a full reload (structure changes that might affect components)
-    else if (needFullReload) {
-      console.log('Structural changes detected, updating component tracking');
-      await updateKnownComponentIds();
-      loadComponents();
-      
-      // Also update dependencies if there might be changes to instances
-      if (mightAffectDependencies) {
-        console.log('Detected changes that might affect component dependencies');
-        const { dependencyCounts } = await analyzeComponents();
-        
-        // Send updated dependency counts to the UI
-        figma.ui.postMessage({
-          type: 'dependencyCountsUpdated',
-          dependencyCounts: Object.fromEntries(dependencyCounts)
-        });
-      }
-    }
-  });
-}
-
-// Listen to messages from the UI
-figma.ui.onmessage = async msg => {
+  // We've completely removed the duplicate document change handler to fix syntax errors.
+  // The enhanced handler above provides improved functionality for detecting deleted components.
+  
+  // Listen to messages from the UI
+  figma.ui.onmessage = async msg => {
   // Set a timeout for all message handling to prevent hanging
   let messageHandled = false;
   const messageTimeout = setTimeout(() => {
@@ -2028,6 +1925,8 @@ figma.ui.onmessage = async msg => {
     });
   }
 };
+
+} // End of main function
 
 // Run the main function
 main();
