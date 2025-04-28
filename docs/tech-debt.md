@@ -18,9 +18,6 @@
  - Implement virtualized lists for handling large component libraries
  - Optimize rendering by only updating changed components
  - Use event delegation for checkbox interactions instead of individual event listeners
-# Code deduplication
- - Storage class exists in both code.js and storage.js
- - Exports in storage.js need to be properly utilized or removed
 # QA
  - Need proper unit tests for score calculations
  - Need integration tests for state synchronization
@@ -37,5 +34,3 @@
 - make sure components deleted in figma are deleted in our list too, this should happen in realtime, maybe by implementing a message handler, this will ensure that the component list stays in sync with the actual Figma document
 - make sure the toggle icon shows and hides the criteria
 - completely removed the download data functionality (JSON and CSV export)
-- change the main text color from #333 to #18191A
-- Remove outdated references to storage.js from tech debt
