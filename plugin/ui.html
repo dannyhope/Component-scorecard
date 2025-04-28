@@ -1406,6 +1406,27 @@
       let allComponents = []; // Store all components for filtering
       let rules = null; // Rules for component evaluation
       
+      // DOM cache for frequently accessed elements
+      const domCache = {
+        elements: {},
+        // Get an element from the cache or query it and cache it
+        get(id) {
+          if (!this.elements[id]) {
+            this.elements[id] = document.getElementById(id);
+          }
+          return this.elements[id];
+        },
+        // Query multiple elements by selector
+        query(selector) {
+          return document.querySelectorAll(selector);
+        },
+        // Clear the cache (use when DOM is rebuilt)
+        clear() {
+          this.elements = {};
+          console.log('DOM cache cleared');
+        }
+      };
+
       // Setup state manager initialization
       window.addEventListener('load', () => {
         // Initialize filters in state manager
@@ -1539,7 +1560,7 @@
         console.log(`Filtering components: hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
         console.log(`Selected component IDs:`, selectedComponentIds);
         
-        const sections = document.querySelectorAll('.component-section');
+        const sections = domCache.query('.component-section');
         if (sections.length === 0) return;
         
         // Process filtering in sequence
@@ -1558,7 +1579,7 @@
       // Helper function to update UI after filtering
       function updateUIAfterFiltering(hiddenDueToCompletion) {
         // Remove the filtering class to indicate filtering is complete
-        document.getElementById('component-list').classList.remove('filtering');
+        domCache.get('component-list').classList.remove('filtering');
         
         // Update UI elements
         updateHiddenComponentsButton(hiddenDueToCompletion);
@@ -1590,7 +1611,7 @@
       
       // Function to update the hidden components button
       function updateHiddenComponentsButton(hiddenDueToCompletion) {
-        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
+        const hiddenComponentsButton = domCache.get('hiddenComponentsButton');
         if (!hiddenComponentsButton) return;
         
         if (hiddenDueToCompletion > 0) {
@@ -2061,8 +2082,9 @@
           });
         }
         
-        // Remove previous selection
-        document.querySelectorAll('.component-section').forEach(section => {
+        // Remove previous selection - use cached DOM element for better performance
+        const sections = domCache.query('.component-section');
+        sections.forEach(section => {
           section.classList.remove('selected');
         });
 
@@ -2080,7 +2102,19 @@
         // Make sure we're using the component ID as a string for consistency
         const componentIdStr = String(componentId);
         console.log('Looking for component with ID:', componentIdStr);
-        const section = document.querySelector(`[data-id="${componentIdStr}"]`);
+        
+        // Try to get component from cache first for better performance
+        let section = domCache.elements[`component-${componentIdStr}`];
+        
+        // Fallback to query if not in cache
+        if (!section) {
+          section = document.querySelector(`[data-id="${componentIdStr}"]`);
+          // Cache it for future use if found
+          if (section) {
+            domCache.elements[`component-${componentIdStr}`] = section;
+          }
+        }
+        
         console.log('Found section for component:', section ? 'Yes' : 'No');
         
         if (section) {
@@ -2623,39 +2657,60 @@
       
       // Main function to build the component list
       function buildComponentList(components, checkboxStates, rules) {
-        console.log('Building component list with components:', components);
+        console.log(`Building component list with ${components.length} components`);
         
-        // Ensure component list container exists
+        // Store all components for filtering
+        allComponents = components;
+        
+        // Clear DOM cache before rebuilding the component list
+        // This ensures we don't retain references to elements that will be removed
+        domCache.clear();
+        
+        // Prepare the list container and make sure it's empty
         const componentList = ensureComponentListExists();
-        componentList.innerHTML = ''; // Clear existing components
         
-        // Create or update hidden components button
+        // Create 'Show Hidden Components' button if needed
         ensureHiddenComponentsButtonExists(componentList);
         
-        // Create and add each component to the list
+        // Add components to the list
         components.forEach((component, index) => {
           const section = createComponentSection(component, index, checkboxStates, rules);
           componentList.appendChild(section);
+          
+          // Cache component section by ID for faster future access
+          domCache.elements[`component-${component.id}`] = section;
         });
       }
       
       // Helper function to ensure component list container exists
       function ensureComponentListExists() {
-        const componentList = document.getElementById('component-list');
-        if (componentList) return componentList;
+        let componentList = domCache.get('component-list');
         
-        console.error('Component list element not found, creating one...');
-        const newList = document.createElement('div');
-        newList.id = 'component-list';
-        newList.setAttribute('role', 'list');
-        newList.setAttribute('aria-label', 'Components');
-        document.body.appendChild(newList);
-        return newList;
+        if (!componentList) {
+          componentList = document.createElement('div');
+          componentList.id = 'component-list';
+          document.body.appendChild(componentList);
+          
+          // Update the cache with the new element
+          domCache.elements['component-list'] = componentList;
+        }
+        
+        // Clear existing components
+        componentList.innerHTML = '';
+        
+        // Clear the DOM cache since we're rebuilding the entire component list
+        // This ensures we don't keep references to elements that no longer exist
+        domCache.clear();
+        
+        // Re-add the component list to the cache
+        domCache.elements['component-list'] = componentList;
+        
+        return componentList;
       }
       
       // Helper function to create or update hidden components button
       function ensureHiddenComponentsButtonExists(componentList) {
-        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
+        const hiddenComponentsButton = domCache.get('hiddenComponentsButton');
         if (hiddenComponentsButton) return;
         
         const newButton = document.createElement('button');
@@ -2668,17 +2723,25 @@
         
         // Insert after component list
         componentList.parentNode.insertBefore(newButton, componentList.nextSibling);
+        
+        // Cache the button for future access
+        domCache.elements['hiddenComponentsButton'] = newButton;
       }
       
       // Handler for hidden components button click
       function handleHiddenComponentsButtonClick() {
-        const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+        const hideCompletedCheckbox = domCache.get('hide-completed-checkbox');
         if (!hideCompletedCheckbox) return;
         
         hideCompletedCheckbox.checked = false;
         // Trigger the change event to update the UI
-        const event = new Event('change');
-        hideCompletedCheckbox.dispatchEvent(event);
+        hideCompletedCheckbox.dispatchEvent(new Event('change'));
+        
+        // Hide the button
+        const hiddenButton = domCache.get('hiddenComponentsButton');
+        if (hiddenButton) {
+          hiddenButton.style.display = 'none';
+        }
       }
       
       // Helper function to create a component section

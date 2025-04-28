@@ -1,16 +1,3 @@
-# State Management
- - Complete migration of all state to the state manager
- - Add proper undo/redo functionality
- - Improve performance for large component libraries
-
-# Data Structure/data model/data layer
- - Add more advanced querying capabilities (e.g., by status, by category)
- - Cache intermediate results more aggressively
- - Implement more efficient querying patterns
- - Create a unified API for data access
- - Create a proper data model for components and their states
- - Implement proper caching for better performance
-
 # Event-Driven Architecture
  - Use a message-based approach where each operation is separate and independent
  - Implement a state machine pattern for managing plugin workflow
