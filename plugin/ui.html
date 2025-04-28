@@ -1593,6 +1593,50 @@
         console.log(`Filtering components: hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
         console.log(`Selected component IDs:`, selectedComponentIds);
         
+        // If using virtualization, handle filtering in virtual list
+        if (virtualList && allComponents.length > 0) {
+          console.log('Using virtualized filtering');
+          
+          // Prepare to track what's hidden
+          let hiddenDueToCompletion = 0;
+          
+          // Create a filtered copy of components
+          const filteredComponents = allComponents.filter(component => {
+            // Skip components that don't meet the filter criteria
+            let shouldShow = true;
+            
+            // Handle selection filtering
+            if (selectedComponentIds && selectedComponentIds.length > 0) {
+              // If we have selected components, only show those
+              shouldShow = selectedComponentIds.includes(component.id);
+            }
+            
+            // Handle completed component filtering
+            if (shouldShow && hideCompleted && forceApplyFilter) {
+              const completed = component.checkedCount >= component.totalCategories;
+              if (completed) {
+                shouldShow = false;
+                hiddenDueToCompletion++;
+                
+                // Track completed components
+                if (!hiddenComponents.includes(component.id)) {
+                  hiddenComponents.push(component.id);
+                }
+              }
+            }
+            
+            return shouldShow;
+          });
+          
+          // Update the virtual list with filtered components
+          virtualList.setItems(filteredComponents);
+          
+          // Update UI after filtering
+          updateUIAfterFiltering(hiddenDueToCompletion);
+          return;
+        }
+        
+        // Standard DOM-based filtering for non-virtualized list
         const sections = domCache.query('.component-section');
         if (sections.length === 0) return;
         
@@ -2779,6 +2823,69 @@
         // Store all components for filtering
         allComponents = components;
         
+        // If virtualization is enabled, use it instead of manual DOM handling
+        if (window.VirtualList) { // Check if VirtualList class is available
+          // Get or create the component list container
+          const componentList = ensureComponentListExists();
+          
+          // Create 'Show Hidden Components' button if needed
+          ensureHiddenComponentsButtonExists(componentList);
+          
+          // If we already have a virtualList instance, update it
+          if (virtualList) {
+            console.log('Updating existing virtual list with new components');
+            virtualList.setItems(components);
+            return;
+          }
+          
+          // Initialize virtualization if we have a large number of components
+          // We only use virtualization for more than 20 components to avoid overhead for small lists
+          if (components.length > 20) {
+            console.log('Initializing virtual list for large component library');
+            
+            // Use existing component list container but clear it
+            componentList.innerHTML = '';
+            
+            // Set up virtualization
+            virtualList = new VirtualList({
+              container: componentList,
+              // Set a reasonable estimate for component height
+              // This will be adjusted based on actual component sizes
+              itemHeight: 150, 
+              // Number of items to render above/below viewport
+              overscan: 3,
+              // Function to create DOM elements for each component
+              createItemFn: (component) => {
+                const index = components.indexOf(component);
+                const section = createComponentSection(component, index, checkboxStates, rules);
+                
+                // Cache component section by ID for faster future access
+                domCache.elements[`component-${component.id}`] = section;
+                
+                // Store current version for future comparison
+                const version = JSON.stringify({
+                  name: component.name,
+                  score: component.checkedCount,
+                  lastModified: component.lastModified,
+                  checkboxStates: checkboxStates[component.id] || {}
+                });
+                componentVersions.set(component.id, version);
+                
+                return section;
+              },
+              // Function to get a unique key for each item
+              getItemKey: (component) => component.id
+            });
+            
+            // Set the items to render
+            virtualList.setItems(components);
+            return; // Exit early, virtualization is handling the rendering
+          }
+        }
+        
+        // If virtualization is not available or we have few components, fall back to standard rendering
+        // The code below is the original non-virtualized implementation
+        
         // Check if we can do a selective update instead of a full rebuild
         // Only do selective update if the component list already exists
         const existingList = domCache.get('component-list');
@@ -2861,23 +2968,20 @@
         let componentList = domCache.get('component-list');
         
         if (!componentList) {
+          // Create the main component list container
           componentList = document.createElement('div');
           componentList.id = 'component-list';
+          componentList.className = 'virtual-list-container'; // Add class for virtualization
           document.body.appendChild(componentList);
           
           // Update the cache with the new element
           domCache.elements['component-list'] = componentList;
         }
         
-        // Clear existing components
-        componentList.innerHTML = '';
-        
-        // Clear the DOM cache since we're rebuilding the entire component list
-        // This ensures we don't keep references to elements that no longer exist
-        domCache.clear();
-        
-        // Re-add the component list to the cache
-        domCache.elements['component-list'] = componentList;
+        // Only clear if we're not using virtualization
+        if (!virtualList) {
+          componentList.innerHTML = '';
+        }
         
         return componentList;
       }
@@ -2902,19 +3006,35 @@
         domCache.elements['hiddenComponentsButton'] = newButton;
       }
       
-      // Handler for hidden components button click
+      // Function to handle show hidden components button click
       function handleHiddenComponentsButtonClick() {
-        const hideCompletedCheckbox = domCache.get('hide-completed-checkbox');
-        if (!hideCompletedCheckbox) return;
+        console.log('Show hidden components button clicked');
         
-        hideCompletedCheckbox.checked = false;
-        // Trigger the change event to update the UI
-        hideCompletedCheckbox.dispatchEvent(new Event('change'));
-        
-        // Hide the button
-        const hiddenButton = domCache.get('hiddenComponentsButton');
-        if (hiddenButton) {
-          hiddenButton.style.display = 'none';
+        // Change the hide completed checkbox
+        const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+        if (hideCompletedCheckbox) {
+          hideCompletedCheckbox.checked = false;
+          
+          // If using virtualization, we need to update the complete dataset
+          if (virtualList) {
+            // Reset the hidden components array
+            hiddenComponents = [];
+            
+            // Set the virtual list to show all components
+            virtualList.setItems(allComponents);
+          }
+          
+          // Trigger filtering again but with hideCompleted=false
+          filterComponents(false, true);
+          
+          // Also save the preference to client storage
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'savePreference', 
+              key: 'hideCompleted', 
+              value: false 
+            } 
+          }, '*');
         }
       }
       
@@ -3444,70 +3564,91 @@
           console.log('Components deleted in Figma:', message.componentIds);
           
           if (message.componentIds && message.componentIds.length > 0) {
-            // Track if any components were actually deleted from the DOM
-            let componentsRemoved = false;
-            
-            // Remove the component sections from the UI
-            message.componentIds.forEach(componentId => {
-              // Use our DOM cache for faster lookups
-              const section = domCache.elements[`component-${componentId}`];
-              if (section) {
-                console.log(`Removing deleted component from UI: ${componentId}`);
-                section.remove();
-                
-                // Clean up our DOM cache and version tracking
-                delete domCache.elements[`component-${componentId}`];
+            // If using virtualization, update the data model instead of direct DOM manipulation
+            if (virtualList) {
+              // Remove deleted components from the allComponents array
+              allComponents = allComponents.filter(comp => !message.componentIds.includes(comp.id));
+              
+              // Update the virtual list
+              virtualList.setItems(allComponents);
+              
+              // Clean up component versions
+              message.componentIds.forEach(componentId => {
                 componentVersions.delete(componentId);
-                componentsRemoved = true;
                 
-                // Also update local state if needed
-                if (checkboxStates[componentId]) {
-                  delete checkboxStates[componentId];
-                }
-                
-                if (componentState[componentId]) {
-                  delete componentState[componentId];
-                }
-                
-                if (viewStates[componentId]) {
-                  delete viewStates[componentId];
-                }
-                
-                // Update state manager if available
-                if (window.stateManager) {
-                  try {
-                    // Remove component from state manager
-                    // First get current components
-                    const components = stateManager.getComponents() || [];
-                    
-                    // If components is an array, filter out the deleted component
-                    if (Array.isArray(components)) {
-                      const filteredComponents = components.filter(comp => comp.id !== componentId);
-                      stateManager.setComponents(filteredComponents);
-                    } 
-                    // If components is a Map, delete the component
-                    else if (components instanceof Map) {
-                      components.delete(componentId);
-                      stateManager.setComponents(components);
-                    }
-                    
-                    // Notify state manager subscribers about the changes
-                    stateManager._notifyListeners('components');
-                    stateManager._notifyListeners('checkboxes');
-                  } catch (error) {
-                    console.error(`Error updating state manager for deleted component ${componentId}:`, error);
+                // Clean up all state data
+                if (checkboxStates[componentId]) delete checkboxStates[componentId];
+                if (componentState[componentId]) delete componentState[componentId];
+                if (viewStates[componentId]) delete viewStates[componentId];
+              });
+              
+              console.log(`Removed ${message.componentIds.length} components from virtualized list`);
+            } else {
+              // Standard DOM-based deletion for non-virtualized list
+              // Track if any components were actually deleted from the DOM
+              let componentsRemoved = false;
+              
+              // Remove the component sections from the UI
+              message.componentIds.forEach(componentId => {
+                // Use our DOM cache for faster lookups
+                const section = domCache.elements[`component-${componentId}`];
+                if (section) {
+                  console.log(`Removing deleted component from UI: ${componentId}`);
+                  section.remove();
+                  
+                  // Clean up our DOM cache and version tracking
+                  delete domCache.elements[`component-${componentId}`];
+                  componentVersions.delete(componentId);
+                  componentsRemoved = true;
+                  
+                  // Also update local state if needed
+                  if (checkboxStates[componentId]) {
+                    delete checkboxStates[componentId];
                   }
+                  
+                  if (componentState[componentId]) {
+                    delete componentState[componentId];
+                  }
+                  
+                  if (viewStates[componentId]) {
+                    delete viewStates[componentId];
+                  }
+                }
+              });
+            }
+            
+            // Update state manager if available
+            message.componentIds.forEach(componentId => {
+              if (window.stateManager) {
+                try {
+                  // Remove component from state manager
+                  // First get current components
+                  const components = stateManager.getComponents() || [];
+                  
+                  // If components is an array, filter out the deleted component
+                  if (Array.isArray(components)) {
+                    const filteredComponents = components.filter(comp => comp.id !== componentId);
+                    stateManager.setComponents(filteredComponents);
+                  } 
+                  // If components is a Map, delete the component
+                  else if (components instanceof Map) {
+                    components.delete(componentId);
+                    stateManager.setComponents(components);
+                  }
+                  
+                  // Notify state manager subscribers about the changes
+                  stateManager._notifyListeners('components');
+                  stateManager._notifyListeners('checkboxes');
+                } catch (error) {
+                  console.error(`Error updating state manager for deleted component ${componentId}:`, error);
                 }
               }
             });
             
-            // Update the component count if needed
-            // (No need to manually update as this function was removed)
-            
             // Update filters in case we need to show/hide the hidden components button
-            const searchText = document.getElementById('component-filter').value;
-            const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
-            filterComponents(searchText, hideCompleted, false);
+            const filterValue = document.getElementById('component-filter') ? document.getElementById('component-filter').value : '';
+            const hideCompleted = document.getElementById('hide-completed-checkbox') ? document.getElementById('hide-completed-checkbox').checked : false;
+            filterComponents(filterValue, hideCompleted, false);
           }
         } else if (message.type === 'storageError') {
           // Handle storage error notification
