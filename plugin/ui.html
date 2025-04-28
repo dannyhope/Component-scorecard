@@ -10,7 +10,7 @@
         --color-accent: #9B51E0;
         
         /* Text Colors */
-        --color-text-primary: #333;
+        --color-text-primary: #18191A;
         --color-text-secondary: #666;
         
         /* UI Colors */
@@ -2451,7 +2451,7 @@
               !componentState[lastAutoExpandedId].userToggled && 
               !componentState[lastAutoExpandedId].collapsed) {
             componentState[lastAutoExpandedId].collapsed = true;
-            toggleCollapse(lastAutoExpandedId);
+            toggleCollapse(lastAutoExpandedId, false); // Pass false as this is an automatic action, not user-initiated
           }
 
           // Make sure the component state exists
@@ -2468,7 +2468,7 @@
             console.log('Expanding collapsed component');
             componentState[componentId].collapsed = false;
             componentState[componentId].userToggled = false; // Mark as auto-expanded
-            toggleCollapse(componentId);
+            toggleCollapse(componentId, false); // Pass false to indicate this is not a user action
             lastAutoExpandedId = componentId;
           }
 
@@ -2634,7 +2634,7 @@
           
           // Update visual state
           expandArrow.style.transform = componentState[component.id].collapsed ? 'rotate(-90deg)' : 'rotate(0)';
-          toggleCollapse(component.id);
+          toggleCollapse(component.id, true); // Pass true to indicate this is a user action
           
           // Update accessibility attributes
           title.setAttribute('aria-expanded', !componentState[component.id].collapsed);
@@ -3697,7 +3697,7 @@
       });
 
       // Function to toggle the collapsed state of a component
-      function toggleCollapse(componentId) {
+      function toggleCollapse(componentId, isUserAction = true) {
         // Get the component section, checkbox group, and expand arrow
         const section = document.querySelector(`#component-list div[data-id="${componentId}"]`);
         const checkboxGroup = section?.querySelector('.checkbox-group');
@@ -3717,6 +3717,22 @@
         if (componentState[componentId]) {
           componentState[componentId].collapsed = !isCurrentlyHidden;
           
+          // If this is a user action, mark it as user-toggled
+          // This is crucial for allowing manual closing of auto-expanded components
+          if (isUserAction) {
+            componentState[componentId].userToggled = true;
+            
+            // Save the view state to storage when user manually toggles
+            parent.postMessage({
+              pluginMessage: {
+                type: 'saveViewState',
+                componentId: componentId,
+                collapsed: !isCurrentlyHidden, // New collapsed state
+                userToggled: true
+              }
+            }, '*');
+          }
+          
           // Update the expand arrow rotation if it exists
           if (expandArrow) {
             expandArrow.style.transform = !isCurrentlyHidden ? 'rotate(-90deg)' : 'rotate(0)';
@@ -3726,6 +3742,8 @@
           if (title) {
             title.setAttribute('aria-expanded', isCurrentlyHidden);
           }
+          
+          console.log(`Component ${componentId} ${!isCurrentlyHidden ? 'collapsed' : 'expanded'}, userToggled: ${componentState[componentId].userToggled}`);
         }
       }
 
