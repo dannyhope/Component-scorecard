@@ -27,11 +27,10 @@
  - Need integration tests for state synchronization
  - Implement automated tests for the state manager
 
-# Bugs
- - Danny’s learning
-  - build
-  - test
-  - mcp service
+# Danny’s learning
+- build
+- test
+- mcp service
 
 # Undone work
 - make sure components deleted in figma are deleted in our list too, this should happen in realtime, maybe by implementing a message handler, this will ensure that the component list stays in sync with the actual Figma document
