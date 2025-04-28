@@ -9,6 +9,43 @@
 **And** I can check/uncheck items  
 **And** I can see the component's quality score update in real-time
 
+### Component selection and criteria visibility
+**Given** I am reviewing components in the list  
+**When** I click on a component name  
+**Then** it expands to show its criteria  
+**And** it selects the corresponding component in Figma
+
+**Given** I have selected a component in Figma  
+**When** the plugin receives the selection event  
+**Then** it expands and highlights the component in the list  
+**And** scrolls to make it visible
+
+**Given** I have expanded a component's criteria  
+**When** I deselect the component in Figma  
+**Then** the criteria remain visible  
+**And** only the highlight is removed from the component
+
+## Usability Testing Tasks
+
+### Component Selection and Visibility
+
+**Task:** Work with component selection and criteria visibility
+
+1. Find a component named "Button" in the list and click on it to expand its criteria
+2. Verify that the Button component is selected in Figma
+3. Check a few criteria boxes for this component
+4. Select a different component in Figma
+5. Verify that the Button's criteria remain visible in the plugin
+6. Click on another component in the plugin list
+7. Verify that its criteria expand while the Button's criteria remain visible
+8. Try clicking on a component's expand/collapse arrow and verify it correctly toggles the visibility
+
+**Success criteria:**
+- Components properly expand when clicked
+- Component selection in the plugin and Figma stay in sync
+- Criteria remain visible when a component is deselected
+- The toggle arrow correctly reflects the expanded/collapsed state
+
 ### Customizing criteria
 **Given** I have specific quality requirements  
 **When** I edit the checklist  

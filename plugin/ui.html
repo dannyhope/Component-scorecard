@@ -69,7 +69,19 @@
         transition: opacity 0.2s ease;
       }
       
+      /* Style for component list when filtering is in progress */
+      #component-list.filtering {
+        opacity: 0.7;
+      }
 
+      /* Search filter and settings section */
+      .filter-section {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        margin-top: 0;
+      }
 
       /* Notification system styles */
       #notification-container {
@@ -561,7 +573,7 @@
         margin-bottom: 8px;
       }
 
-      .bug-report-link svg {
+      .download-button svg, .bug-report-link svg {
         width: 16px;
         height: 16px;
         flex-shrink: 0;
@@ -1355,8 +1367,25 @@
       </div>
     </div>
     <!-- Component count row removed to simplify UI -->
-
+    <!-- Filter section (hidden) -->
+    <!-- Filter section removed to simplify UI -->
     <div id="settings-dropdown" class="settings-dropdown">
+        <div class="settings-section">
+          <div class="settings-section-title">Data Export</div>
+          <button class="download-button" id="download-csv">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1.5a.5.5 0 01.5.5v6.793l2.146-2.147a.5.5 0 11.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 8.793V2a.5.5 0 01.5-.5zM2 12.5a.5.5 0 01.5-.5h11a.5.5 0 010 1h-11a.5.5 0 01-.5-.5z"/>
+            </svg>
+            Download Component Scores (CSV)
+          </button>
+          <button class="download-button" id="download-debug">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1l5 5v9H3V1h5zm-1 2H4v11h8V7H7V3z"/>
+            </svg>
+            Export Raw Data (JSON)
+          </button>
+        </div>
+
         <div class="settings-section">
           <div class="settings-section-title">Help & Feedback</div>
           <a href="https://github.com/dannyhope/Component-scorecard/issues" 
@@ -1395,7 +1424,10 @@
     <!-- Footer with Hide completed checkbox and other controls -->
     <div class="footer">
       <div class="footer-left">
-        <!-- Hide completed checkbox removed -->
+        <label class="footer-checkbox">
+          <input type="checkbox" id="hide-completed-checkbox">
+          <span>Hide completed</span>
+        </label>
       </div>
       <div class="footer-right">
         <a href="#" id="debug-toggle" class="settings-button" title="Toggle Debug Panel">Debug</a>
@@ -1514,7 +1546,7 @@
       let viewStates = {}; // Store component view states
       let selectedComponentIds = null; // Track which components are selected in Figma
       let lastAutoExpandedId = null; // Track which component was last auto-expanded
-      let allComponents = []; // Store all components
+      let allComponents = []; // Store all components for filtering
       let rules = null; // Rules for component evaluation
       
       // Setup state manager initialization
@@ -1584,8 +1616,10 @@
               searchInput.value = filters.search;
             }
             
-            // Hide completed checkbox removed
-            // Hide completed checkbox and related functionality removed
+            const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+            if (hideCompletedCheckbox && hideCompletedCheckbox.checked !== !filters.showChecked) {
+              hideCompletedCheckbox.checked = !filters.showChecked;
+            }
             
             // Update selection if needed
             if (filters.selectedComponentIds && filters.selectedComponentIds.length > 0) {
@@ -1601,7 +1635,7 @@
             }
             
             // Apply filters
-            // Removed filterComponents call
+            debouncedFilterComponents(filters.search, !filters.showChecked, false);
           });
           
           // Subscribe to checkbox state changes
@@ -1643,38 +1677,447 @@
       // Keep track of which checkboxes should be hidden
       let hiddenCheckboxes = new Map(); // Map of componentId -> Set of checkboxIds
       
-      // Function to update the hidden components button
-      function updateHiddenComponentsButton(hiddenDueToCompletion) {
-        const button = document.getElementById('show-hidden-components');
-        if (!button) return;
+      // Function to filter components based on hide completed setting and selection
+      function filterComponents(hideCompleted = false, forceApplyFilter = false) {
+        console.log(`Filtering components: hideCompleted=${hideCompleted}, forceApplyFilter=${forceApplyFilter}`);
+        console.log(`Selected component IDs:`, selectedComponentIds);
         
-        // No components should be hidden since we removed the filter feature
-        button.style.display = 'none';
+        const sections = document.querySelectorAll('.component-section');
+        if (sections.length === 0) return;
+        
+        // Process filtering in sequence
+        updateSelectionFilterIndicator();
+        handleFilterMode(forceApplyFilter, hideCompleted, sections);
+        const results = processComponentFiltering(hideCompleted, forceApplyFilter, sections);
+        updateUIAfterFiltering(results.hiddenDueToCompletion);
       }
       
-      // Helper function to check if component should be hidden due to selection filtering
-      function shouldHideComponentBySelection(componentId) {
-        // If we have selected components and this is not one of them, hide it
-        if (selectedComponentIds.length > 0 && !selectedComponentIds.includes(componentId)) {
-          return true;
-        }
-        
-        return false;
+      // Helper function to process component filtering
+      function processComponentFiltering(hideCompleted, forceApplyFilter, sections) {
+        const componentData = gatherComponentData(sections);
+        return applyFiltersToAllComponents(componentData, hideCompleted, forceApplyFilter);
       }
       
-      // Helper function to set component visibility
-      function setComponentVisibility(section, isVisible, reason) {
-        if (isVisible) {
-          section.classList.remove('hidden');
-          section.removeAttribute('data-hidden-reason');
-        } else {
-          section.classList.add('hidden');
-          if (reason) {
-            section.setAttribute('data-hidden-reason', reason);
+      // Helper function to update UI after filtering
+      function updateUIAfterFiltering(hiddenDueToCompletion) {
+        // Remove the filtering class to indicate filtering is complete
+        document.getElementById('component-list').classList.remove('filtering');
+        
+        // Update UI elements
+        updateHiddenComponentsButton(hiddenDueToCompletion);
+        // Component count update removed
+      }
+      
+      // Function to apply filters to all components and track results
+      function applyFiltersToAllComponents(componentData, hideCompleted, forceApplyFilter) {
+        let visibleCount = 0;
+        let hiddenCount = 0;
+        let hiddenDueToCompletion = 0;
+        
+        for (const compData of componentData) {
+          const result = applyFiltersToComponent(compData, hideCompleted, forceApplyFilter);
+          
+          if (result.isVisible) {
+            visibleCount++;
+          } else {
+            hiddenCount++;
+            if (result.hiddenDueToCompletion) {
+              hiddenDueToCompletion++;
+            }
           }
         }
         
-        return isVisible;
+        console.log(`Filter results: ${visibleCount} components visible, ${hiddenCount} hidden (${hiddenDueToCompletion} due to completion)`);
+        return { visibleCount, hiddenCount, hiddenDueToCompletion };
+      }
+      
+      // Function to update the hidden components button
+      function updateHiddenComponentsButton(hiddenDueToCompletion) {
+        const hiddenComponentsButton = document.getElementById('hiddenComponentsButton');
+        if (!hiddenComponentsButton) return;
+        
+        if (hiddenDueToCompletion > 0) {
+          hiddenComponentsButton.style.display = 'block';
+          hiddenComponentsButton.textContent = `Show ${hiddenDueToCompletion} hidden component${hiddenDueToCompletion !== 1 ? 's' : ''}`;
+        } else {
+          hiddenComponentsButton.style.display = 'none';
+        }
+      }
+      
+      // Helper function to handle filter mode (explicit application or normal interaction)
+      function handleFilterMode(forceApplyFilter, hideCompleted, sections) {
+        if (!forceApplyFilter) {
+          console.log('Normal filtering during user interaction - components will not be hidden');
+          return;
+        }
+        
+        console.log('Filter is being explicitly applied (plugin load or checkbox toggle)');
+        
+        // If hide completed is turned off, clear the hidden checkboxes map and return
+        if (!hideCompleted) {
+          hiddenCheckboxes.clear();
+          return;
+        }
+        
+        // Find all checked checkboxes and mark them as hidden
+        markCheckedCheckboxesAsHidden(sections);
+      }
+      
+      // Helper function to mark checked checkboxes as hidden
+      function markCheckedCheckboxesAsHidden(sections) {
+        sections.forEach(section => {
+          const componentId = section.getAttribute('data-id');
+          if (!componentId) return;
+          
+          // Skip sections hidden for non-completion reasons
+          if (section.style.display === 'none' && section.getAttribute('data-hidden-reason') !== 'completed') {
+            console.log(`Skipping ${componentId} because it's hidden for reasons other than completion`);
+            return;
+          }
+          
+          // Process checkboxes for this component
+          processComponentCheckboxes(componentId, section);
+        });
+      }
+      
+      // Helper function to determine if a hidden section should be skipped
+      function shouldSkipHiddenSection(section, componentId) {
+        if (section.style.display === 'none' && section.getAttribute('data-hidden-reason') !== 'completed') {
+          console.log(`Skipping ${componentId} because it's hidden for reasons other than completion`);
+          return true;
+        }
+        return false;
+      }
+      
+      // Helper function to process checkboxes for a component
+      function processComponentCheckboxes(componentId, section) {
+        // Create a set for this component if it doesn't exist
+        if (!hiddenCheckboxes.has(componentId)) {
+          hiddenCheckboxes.set(componentId, new Set());
+        }
+        
+        // Find all checked checkboxes in this component
+        const checkboxes = section.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+          if (checkbox.checked && checkbox.id) {
+            hiddenCheckboxes.get(componentId).add(checkbox.id);
+          }
+        });
+      }
+        
+      // Helper function to gather component data for filtering
+      function gatherComponentData(sections) {
+        const componentData = [];
+        
+        // Process each valid component section
+        for (const section of sections) {
+          const componentInfo = extractComponentInfo(section);
+          if (!componentInfo) continue;
+          
+          componentData.push(componentInfo);
+          logComponentInfo(componentInfo);
+        }
+        
+        console.log('Component data:', componentData);
+        debugRegistrationForm(componentData);
+        
+        return componentData;
+      }
+      
+      // Helper function to extract component information from a section
+      function extractComponentInfo(section) {
+        const componentId = section.getAttribute('data-id');
+        if (!componentId) return null;
+        
+        // Find component title element
+        const component = findComponentTitleElement(section, componentId);
+        if (!component) return null;
+        
+        // Get component name
+        const name = extractComponentName(component);
+        if (!name) return null;
+        
+        // Get checkbox information
+        const checkboxInfo = getCheckboxInfo(section);
+        
+        // Check if the component is expanded
+        const isExpanded = !section.querySelector('.checkbox-group')?.classList.contains('hidden');
+        
+        // Create and return component info object
+        return {
+          id: componentId,
+          name: name,
+          element: section,
+          checkedCount: checkboxInfo.checkedCount,
+          totalRules: checkboxInfo.totalRules,
+          isExpanded: isExpanded,
+          isFullyComplete: checkboxInfo.isFullyComplete
+        };
+      }
+      
+      // Helper function to find the component title element
+      function findComponentTitleElement(section, componentId) {
+        const component = Array.from(section.querySelectorAll('.component-title')).find(el => 
+          el.closest('.component-section') === section
+        );
+        
+        if (!component) {
+          console.log(`Warning: Could not find title element for component ${componentId}`);
+        }
+        
+        return component;
+      }
+      
+      // Helper function to extract component name
+      function extractComponentName(component) {
+        const nameEl = component.querySelector('.component-name');
+        if (!nameEl) return null;
+        
+        // Try to get name from text nodes first
+        let name = extractNameFromTextNodes(nameEl);
+        
+        // Fallback to full text content if needed
+        if (!name) {
+          name = nameEl.textContent.trim();
+        }
+        
+        return name;
+      }
+      
+      // Helper function to extract name from text nodes
+      function extractNameFromTextNodes(nameEl) {
+        for (const childNode of nameEl.childNodes) {
+          if (childNode.nodeType === Node.TEXT_NODE) {
+            return childNode.textContent.trim();
+          }
+        }
+        return '';
+      }
+      
+      // Helper function to get checkbox information
+      function getCheckboxInfo(section) {
+        const checkboxes = section.querySelectorAll('input[type="checkbox"]');
+        const totalRules = checkboxes.length;
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const isFullyComplete = totalRules > 0 && checkedCount === totalRules;
+        
+        return { checkedCount, totalRules, isFullyComplete };
+      }
+      
+      // Helper function to log component info
+      function logComponentInfo(componentInfo) {
+        console.log(
+          `Component ${componentInfo.name}: checked=${componentInfo.checkedCount}, ` +
+          `total=${componentInfo.totalRules}, expanded=${componentInfo.isExpanded}, ` +
+          `fullyComplete=${componentInfo.isFullyComplete}`
+        );
+      }
+      
+      // Helper function to debug the registration form component
+      function debugRegistrationForm(componentData) {
+        const registrationForm = componentData.find(c => c.name.includes('Example registration form'));
+        if (!registrationForm) return;
+        
+        console.log('Registration form details:', registrationForm);
+        
+        // Check all checkboxes in this component
+        const regFormSection = registrationForm.element;
+        const checkboxes = regFormSection.querySelectorAll('input[type="checkbox"]');
+        console.log(`Registration form has ${checkboxes.length} checkboxes`);
+        
+        checkboxes.forEach((cb, i) => {
+          console.log(`Checkbox ${i+1}: checked=${cb.checked}, rule=${cb.getAttribute('data-rule')}`);
+        });
+      }
+        
+      // Helper function to check if component should be hidden due to selection filtering
+      function shouldHideComponentBySelection(componentId) {
+        // If no selection filtering is active, don't hide anything
+        if (!selectedComponentIds) return false;
+        
+        // Hide component if it's not in the selection filter list
+        return !selectedComponentIds.includes(componentId);
+      }
+      
+      // Helper function to get clean component name for text matching
+      function getCleanComponentName(section) {
+        const componentName = section.querySelector('.component-name').textContent.toLowerCase();
+        const nameElement = section.querySelector('.component-name');
+        if (!nameElement) return componentName;
+        
+        // Extract just the text content (not from child elements)
+        let cleanName = '';
+        // Use the first text node content as the name
+        for (const childNode of nameElement.childNodes) {
+          if (childNode.nodeType === Node.TEXT_NODE) {
+            cleanName += childNode.textContent;
+          }
+        }
+        
+        cleanName = cleanName.toLowerCase().trim();
+        return cleanName || componentName; // Fallback to original if extraction failed
+      }
+      
+      // Helper function to set component visibility and track reason
+      function setComponentVisibility(section, isVisible, reason) {
+        if (isVisible) {
+          section.style.display = '';
+          section.removeAttribute('data-hidden-reason');
+          return;
+        }
+        
+        section.style.display = 'none';
+        if (reason) {
+          section.setAttribute('data-hidden-reason', reason);
+        }
+      }
+      
+      // Helper function to apply filters to a component
+      function applyFiltersToComponent(compData, hideCompleted, forceApplyFilter) {
+        const section = compData.element;
+        
+        // Check if component should be hidden based on filters
+        const filterResult = checkComponentFilters(compData, hideCompleted, forceApplyFilter);
+        if (filterResult.shouldHide) {
+          setComponentVisibility(section, false, filterResult.reason);
+          return { 
+            isVisible: false, 
+            hiddenDueToCompletion: filterResult.reason === 'completed' 
+          };
+        }
+        
+        // Component passed all filters, show it
+        setComponentVisibility(section, true);
+        
+        // Check if component should be hidden due to no visible checkboxes
+        if (shouldHideComponentDueToNoVisibleCheckboxes(compData, hideCompleted, forceApplyFilter)) {
+          console.log(`Hiding ${compData.name} because it has no visible checkboxes after filtering`);
+          setComponentVisibility(section, false, 'completed');
+          return { isVisible: false, hiddenDueToCompletion: true };
+        }
+        
+        return { isVisible: true, hiddenDueToCompletion: false };
+      }
+      
+      // Helper function to check if component should be hidden based on filters
+      function checkComponentFilters(compData, hideCompleted, forceApplyFilter) {
+        const section = compData.element;
+        const cleanName = getCleanComponentName(section);
+        
+        // Check all filter conditions
+        const shouldHideBasedOnCompletion = shouldHideComponent(compData, hideCompleted, forceApplyFilter);
+        const shouldHideBasedOnSelection = shouldHideComponentBySelection(compData.id);
+        
+        // Determine if component should be hidden and why
+        if (shouldHideBasedOnCompletion) {
+          return { shouldHide: true, reason: 'completed' };
+        }
+        
+        if (shouldHideBasedOnSelection) {
+          return { shouldHide: true, reason: 'selection-filter' };
+        }
+        
+        return { shouldHide: false };
+      }
+      
+      // Helper function to check if component should be hidden due to no visible checkboxes
+      function shouldHideComponentDueToNoVisibleCheckboxes(compData, hideCompleted, forceApplyFilter) {
+        if (!hideCompleted || !compData.isExpanded) return false;
+        
+        const hasVisibleCheckboxes = handleCheckboxVisibility(compData, hideCompleted, forceApplyFilter);
+        return !hasVisibleCheckboxes;
+      }
+      
+      // Helper function to determine if a component should be hidden based on completion
+      function shouldHideComponent(compData, hideCompleted, forceApplyFilter) {
+        if (!hideCompleted) return false;
+        if (!compData.isFullyComplete) {
+          console.log(`Component ${compData.name}: Not fully complete (${compData.checkedCount}/${compData.totalRules}), showing it.`);
+          return false;
+        }
+        
+        // Component is fully complete, but only hide if explicitly applying filter
+        if (forceApplyFilter) {
+          console.log(`Component ${compData.name}: ALL criteria checked (${compData.checkedCount}/${compData.totalRules}), hiding component`);
+          return true;
+        } 
+        
+        console.log(`Component ${compData.name}: ALL criteria checked but not hiding during normal interaction`);
+        return false;
+      }
+      
+      // Helper function to handle checkbox visibility
+      function handleCheckboxVisibility(compData, hideCompleted, forceApplyFilter) {
+        // Show all checkboxes if not hiding completed
+        if (!hideCompleted) {
+          return showAllCheckboxes(compData);
+        }
+        
+        // Process checkboxes when hiding completed items
+        return processCheckboxesWithHiding(compData, forceApplyFilter);
+      }
+      
+      // Helper function to show all checkboxes
+      function showAllCheckboxes(compData) {
+        const checkboxLabels = compData.element.querySelectorAll('.checkbox-label');
+        checkboxLabels.forEach(label => label.style.display = '');
+        return true;
+      }
+      
+      // Helper function to process checkboxes with hiding logic
+      function processCheckboxesWithHiding(compData, forceApplyFilter) {
+        const checkboxLabels = compData.element.querySelectorAll('.checkbox-label');
+        let visibleCheckboxes = 0;
+        
+        checkboxLabels.forEach(label => {
+          const checkbox = label.querySelector('input[type="checkbox"]');
+          if (!checkbox) return;
+          
+          if (checkbox.checked) {
+            visibleCheckboxes += processCheckedCheckbox(compData.id, checkbox.id, label, forceApplyFilter);
+          } else {
+            visibleCheckboxes += processUncheckedCheckbox(compData.id, checkbox.id, label);
+          }
+        });
+        
+        return visibleCheckboxes > 0;
+      }
+      
+      // Helper function to process a checked checkbox
+      function processCheckedCheckbox(componentId, checkboxId, label, forceApplyFilter) {
+        if (shouldHideCheckbox(componentId, checkboxId, forceApplyFilter)) {
+          label.style.display = 'none';
+          return 0;
+        }
+        
+        label.style.display = '';
+        return 1;
+      }
+      
+      // Helper function to process an unchecked checkbox
+      function processUncheckedCheckbox(componentId, checkboxId, label) {
+        // Always show unchecked checkboxes
+        label.style.display = '';
+        
+        // Remove from hidden set if it exists
+        removeFromHiddenCheckboxes(componentId, checkboxId);
+        return 1;
+      }
+      
+      // Helper function to determine if a checkbox should be hidden
+      function shouldHideCheckbox(componentId, checkboxId, forceApplyFilter) {
+        if (forceApplyFilter) return true;
+        
+        return hiddenCheckboxes.has(componentId) && 
+               checkboxId && 
+               hiddenCheckboxes.get(componentId).has(checkboxId);
+      }
+      
+      // Helper function to remove a checkbox from the hidden set
+      function removeFromHiddenCheckboxes(componentId, checkboxId) {
+        if (hiddenCheckboxes.has(componentId) && checkboxId) {
+          hiddenCheckboxes.get(componentId).delete(checkboxId);
+        }
       }
 
       // Debounce utility function to limit how often a function can be called
@@ -1687,17 +2130,41 @@
         };
       }
       
-      // Debounce utility function retained for other potential uses
-      function debounce(func, wait) {
-        let timeout;
-        return function(...args) {
-          const context = this;
-          clearTimeout(timeout);
-          timeout = setTimeout(() => func.apply(context, args), wait);
-        };
-      }
+      // Create debounced version of filterComponents with 300ms delay
+      const debouncedFilterComponents = debounce((hideCompleted, forceApplyFilter) => {
+        filterComponents(hideCompleted, forceApplyFilter);
+      }, 300);
       
-      // Hide completed checkbox handler removed - filter feature has been removed
+      // Set up hide completed checkbox handler
+      document.getElementById('hide-completed-checkbox').addEventListener('change', (e) => {
+        console.log('Hide completed checkbox changed:', e.target.checked);
+        // Save the preference
+        parent.postMessage({
+          pluginMessage: {
+            type: 'saveUserPreferences',
+            preferences: {
+              hideCompleted: e.target.checked
+            }
+          }
+        }, '*');
+        
+        // Update state manager with checkbox state
+        if (window.stateManager) {
+          stateManager.setFilters({
+            showChecked: !e.target.checked
+          });
+        }
+        
+        // Apply the filter with the new checkbox state immediately
+        // Pass true for forceApplyFilter to ensure items are hidden when checkbox is toggled
+        filterComponents(e.target.checked, true);
+        
+        // Update the footer text to explain what's being hidden
+        const hideCompletedLabel = document.querySelector('.footer-checkbox span');
+        if (hideCompletedLabel) {
+          hideCompletedLabel.textContent = e.target.checked ? 'Hide completed' : 'Hide completed';
+        }
+      });
       
       // Component detection is now reliable enough that we don't need manual refresh
       
@@ -1721,6 +2188,225 @@
       });
 
       // Set up back button handler
+      // document.getElementById('back-button').addEventListener('click', () => {
+      //   document.getElementById('settings-page').classList.add('hidden');
+      // });
+
+      // Helper function to format date for filename
+      function formatDateForFilename(date) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}-${pad(date.getMinutes())}`;
+      }
+
+      // Helper function to sanitize filename
+      function sanitizeFilename(name) {
+        // Replace characters that are problematic in various filesystems
+        // Windows: \ / : * ? " < > |
+        // macOS: : /
+        // Linux: /
+        const sanitized = name
+          .replace(/[\\/:\*\?"<>\|]/g, '-') // Replace Windows/Unix invalid chars
+          .replace(/\s+/g, ' ')               // Collapse multiple spaces
+          .trim();                           // Remove leading/trailing spaces
+        
+        return sanitized;
+      }
+
+      // Function to download data as JSON file
+      function downloadJson(data, filename) {
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      // Function to properly escape a field for CSV
+      function escapeCSVField(field) {
+        // Convert to string and handle null/undefined
+        const str = field?.toString() || '';
+        // If the field contains quotes, commas, or newlines, it needs to be quoted
+        if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+          // Escape quotes by doubling them and wrap in quotes
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        // If no special characters, return as is
+        return str;
+      }
+
+      // Set up debug data download handler
+      document.getElementById('download-debug').addEventListener('click', () => {
+        const dateStr = formatDateForFilename(new Date());
+        const filename = `component-scorecard-data-${dateStr}.json`;
+        
+        // Get all scoring criteria from the first component section
+        const firstComponent = document.querySelector('.component-section');
+        const categories = [];
+        
+        if (firstComponent) {
+          firstComponent.querySelectorAll('.category-title').forEach(categoryTitle => {
+            const category = categoryTitle.textContent;
+            const checkboxGroup = categoryTitle.closest('.checkbox-group');
+            const rules = [];
+            
+            checkboxGroup.querySelectorAll('.checkbox-label').forEach(label => {
+              const checkbox = label.querySelector('input[type="checkbox"]');
+              rules.push({
+                rule: checkbox.getAttribute('data-rule'),
+                id: checkbox.id
+              });
+            });
+            
+            categories.push({
+              name: category,
+              rules: rules
+            });
+          });
+        }
+        
+        // Export the enhanced data structure
+        const debugData = {
+          // Raw checkbox states as stored in Figma
+          checkboxStates,
+          
+          // Scoring criteria structure
+          scoringCriteria: categories,
+          
+          // Component data with detailed scoring
+          components: allComponents.map(comp => {
+            // Get all scores for this component
+            const scores = {};
+            categories.forEach(category => {
+              scores[category.name] = {
+                categoryName: category.name,
+                rules: category.rules.map(rule => ({
+                  rule: rule.rule,
+                  checked: checkboxStates[comp.id]?.[category.name]?.[rule.rule]?.checked === true,
+                  lastModified: checkboxStates[comp.id]?.[category.name]?.[rule.rule]?.timestamp
+                }))
+              };
+            });
+            
+            return {
+              id: comp.id,
+              name: comp.name,
+              usageCount: comp.usageCount,
+              checkedCount: comp.checkedCount,
+              totalCategories: comp.totalCategories,
+              scores: scores
+            };
+          })
+        };
+        
+        downloadJson(debugData, filename);
+      });
+
+      // Set up CSV download handler
+      document.getElementById('download-csv').addEventListener('click', () => {
+        // Get all checkboxes from the first component section (they all have the same structure)
+        const firstComponent = document.querySelector('.component-section');
+        if (!firstComponent) return; // No components to export
+
+        const columns = [];
+        
+        // Get all category titles and their associated checkboxes
+        firstComponent.querySelectorAll('.category-title').forEach(categoryTitle => {
+          const category = categoryTitle.textContent;
+          const checkboxGroup = categoryTitle.closest('.checkbox-group');
+          
+          // Get all checkboxes in this category
+          checkboxGroup.querySelectorAll('.checkbox-label').forEach(label => {
+            const checkbox = label.querySelector('input[type="checkbox"]');
+            const ruleText = checkbox.getAttribute('data-rule');
+            
+            columns.push({
+              // Create properly escaped header
+              header: escapeCSVField(`${category} - ${ruleText}`),
+              category: category,
+              rule: ruleText,
+              // Store the actual checkbox element for state verification
+              checkbox: checkbox
+            });
+          });
+        });
+
+        // Create header row with escaped fields
+        const headers = [
+          escapeCSVField('Component Name'),
+          escapeCSVField('Usage Count'),
+          ...columns.map(col => col.header)
+        ];
+        const csvRows = [headers.join(',')];
+        
+        // Add a row for each component
+        allComponents.forEach(component => {
+          const row = [];
+          
+          // Add component name (properly escaped)
+          row.push(escapeCSVField(component.name));
+          
+          // Add usage count
+          row.push(escapeCSVField(component.usageCount));
+          
+          // Add checkmark symbols for each scoring criteria
+          columns.forEach(({category, rule, checkbox}) => {
+            // First check the actual checkbox state in the UI
+            const uiChecked = checkbox.checked;
+            // Then verify against stored state
+            const storedState = checkboxStates[component.id]?.[category]?.[rule];
+            // Use a checkmark if either the UI or stored state shows it's checked
+            const isChecked = uiChecked || storedState?.checked === true;
+            row.push(escapeCSVField(isChecked ? '✓' : ''));
+          });
+          
+          csvRows.push(row.join(','));
+        });
+
+        // Create CSV content with UTF-8 BOM for Excel compatibility
+        const csvContent = '\ufeff' + csvRows.join('\n');
+        
+        // Get document title from Figma for the filename
+        parent.postMessage({
+          pluginMessage: { type: 'getDocumentTitle' }
+        }, '*');
+
+        // Listen for the response with the document title
+        const messageHandler = (event) => {
+          if (event.data.pluginMessage && event.data.pluginMessage.type === 'documentTitle') {
+            const docTitle = event.data.pluginMessage.title;
+            const dateStr = formatDateForFilename(new Date());
+            const filename = `${sanitizeFilename(docTitle)} component scorecards (${dateStr}).csv`;
+
+            // Create and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url); // Clean up the URL object
+
+            // Clean up the event listener
+            window.removeEventListener('message', messageHandler);
+          }
+        };
+
+        window.addEventListener('message', messageHandler);
+      });
+
       // Function to handle component selection
       function selectComponent(componentId, fromFigma = false) {
         console.log('Selecting component in UI:', componentId, 'fromFigma:', fromFigma);
@@ -1739,13 +2425,11 @@
         });
 
         // If no component is selected (componentId is null), just clear selection
+        // IMPORTANT: We no longer hide criteria when deselecting components
         if (!componentId) {
           console.log('No component ID provided, clearing selection');
-          // Close the last auto-expanded component if it wasn't user-toggled
-          if (lastAutoExpandedId && !componentState[lastAutoExpandedId].userToggled && !componentState[lastAutoExpandedId].collapsed) {
-            componentState[lastAutoExpandedId].collapsed = true;
-            toggleCollapse(lastAutoExpandedId);
-          }
+          // DON'T collapse components when deselected - keep criteria visible
+          // Just reset the auto-expanded ID tracking
           lastAutoExpandedId = null;
           return;
         }
@@ -1885,7 +2569,6 @@
         expandArrow.setAttribute('aria-hidden', 'true');
         expandArrow.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0)';
         expandArrow.style.transition = 'transform 0.2s ease';
-        expandArrow.style.cursor = 'pointer'; // Add pointer cursor to make it clearer it's clickable
         return expandArrow;
       }
       
@@ -1944,7 +2627,7 @@
       // Function to setup component collapse/select behavior
       function setupComponentToggle(component, title, expandArrow) {
         // Function to handle toggle action
-        const toggleAction = (selectInFigma = true) => {
+        const toggleAction = () => {
           // Toggle collapse state
           componentState[component.id].collapsed = !componentState[component.id].collapsed;
           componentState[component.id].userToggled = true; // Mark as user-toggled
@@ -1966,27 +2649,17 @@
             }
           }, '*');
 
-          // Select in Figma only when the whole title is clicked
-          if (selectInFigma) {
-            parent.postMessage({ 
-              pluginMessage: { 
-                type: 'selectComponent',
-                componentId: component.id 
-              }
-            }, '*');
-          }
+          // Select in Figma
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'selectComponent',
+              componentId: component.id 
+            }
+          }, '*');
         };
         
-        // Add click handler to the title
+        // Add click handler
         title.onclick = toggleAction;
-        
-        // Add special click handler to the expand arrow
-        expandArrow.addEventListener('click', (e) => {
-          // Stop the event from bubbling up to the title
-          e.stopPropagation();
-          // Toggle only the expansion, don't select in Figma
-          toggleAction(false);
-        });
         
         // Add keyboard support
         title.addEventListener('keydown', (e) => {
@@ -2070,7 +2743,7 @@
           
           // When a checkbox is checked, we need to track if it should be hidden
           // but we don't actually hide it until the filter is applied
-          if (checkbox.checked) {
+          if (checkbox.checked && document.getElementById('hide-completed-checkbox').checked) {
             // If Hide completed is active, add this checkbox to the hidden map
             // but don't actually hide it yet
             const componentId = component.id;
@@ -2722,7 +3395,24 @@
         
         // Load user preferences if available
         if (message.userPreferences) {
-          // Hide completed checkbox and related functionality removed
+          const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+          if (hideCompletedCheckbox && message.userPreferences.hideCompleted !== undefined) {
+            hideCompletedCheckbox.checked = message.userPreferences.hideCompleted;
+            
+            // Update the label text based on the preference
+            const hideCompletedLabel = document.querySelector('.footer-checkbox span');
+            if (hideCompletedLabel) {
+              hideCompletedLabel.textContent = message.userPreferences.hideCompleted ? 'Hide completed' : 'Hide completed';
+            }
+            
+            // Apply the filter if hide completed is checked
+            if (message.userPreferences.hideCompleted) {
+              setTimeout(() => {
+                // Pass true for forceApplyFilter to ensure items are hidden when plugin loads
+                filterComponents(document.getElementById('component-filter').value, true, true);
+              }, TIMING.SHORT_DELAY); // Small delay to ensure UI is ready
+            }
+          }
         }
 
         // Load custom rules if available
@@ -2823,41 +3513,6 @@
             updateScore(message.componentId, message.checkedCount);
             // Component count update removed // Refresh the component count
           }
-        } else if (message.type === 'checkDeletedComponents') {
-          // Handle deleted components check
-          console.log('Checking for deleted components');
-          const existingComponentIds = new Set(message.existingComponentIds);
-          
-          // Find components in our list that no longer exist in Figma
-          const deletedComponents = [];
-          allComponents = allComponents.filter(component => {
-            if (existingComponentIds.has(component.id)) {
-              return true; // Keep components that still exist
-            } else {
-              deletedComponents.push(component);
-              return false; // Filter out deleted components
-            }
-          });
-          
-          // If any components were deleted, update the UI
-          if (deletedComponents.length > 0) {
-            console.log(`Removing ${deletedComponents.length} deleted components from UI`);
-            
-            // Update the component list
-            const componentList = document.getElementById('component-list');
-            deletedComponents.forEach(component => {
-              const section = document.querySelector(`#component-list div[data-id="${component.id}"]`);
-              if (section) {
-                componentList.removeChild(section);
-                console.log(`Removed deleted component ${component.id} from UI`);
-              }
-            });
-            
-            // Update state manager if available
-            if (window.stateManager) {
-              stateManager.setComponents(allComponents);
-            }
-          }
         } else if (message.type === 'documentTitle') {
           // Update the document title
           document.getElementById('document-title').textContent = message.title;
@@ -2894,6 +3549,67 @@
           const messageText = `Retrying to save all data... Next attempt in ${delay}ms`;
           
           notifications.retry(title, messageText, attempt, maxRetries);
+        } else if (message.type === 'componentsDeleted') {
+          // Handle component deletions from Figma
+          console.log('Components deleted in Figma:', message.componentIds);
+          
+          if (message.componentIds && message.componentIds.length > 0) {
+            // Remove the component sections from the UI
+            message.componentIds.forEach(componentId => {
+              const section = document.getElementById(`component-${componentId}`);
+              if (section) {
+                console.log(`Removing deleted component from UI: ${componentId}`);
+                section.remove();
+                
+                // Also update local state if needed
+                if (checkboxStates[componentId]) {
+                  delete checkboxStates[componentId];
+                }
+                
+                if (componentState[componentId]) {
+                  delete componentState[componentId];
+                }
+                
+                if (viewStates[componentId]) {
+                  delete viewStates[componentId];
+                }
+                
+                // Update state manager if available
+                if (window.stateManager) {
+                  try {
+                    // Remove component from state manager
+                    // First get current components
+                    const components = stateManager.getComponents() || [];
+                    
+                    // If components is an array, filter out the deleted component
+                    if (Array.isArray(components)) {
+                      const filteredComponents = components.filter(comp => comp.id !== componentId);
+                      stateManager.setComponents(filteredComponents);
+                    } 
+                    // If components is a Map, delete the component
+                    else if (components instanceof Map) {
+                      components.delete(componentId);
+                      stateManager.setComponents(components);
+                    }
+                    
+                    // Notify state manager subscribers about the changes
+                    stateManager._notifyListeners('components');
+                    stateManager._notifyListeners('checkboxes');
+                  } catch (error) {
+                    console.error(`Error updating state manager for deleted component ${componentId}:`, error);
+                  }
+                }
+              }
+            });
+            
+            // Update the component count if needed
+            // (No need to manually update as this function was removed)
+            
+            // Update filters in case we need to show/hide the hidden components button
+            const searchText = document.getElementById('component-filter').value;
+            const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
+            filterComponents(searchText, hideCompleted, false);
+          }
         } else if (message.type === 'storageError') {
           // Handle storage error notification
           const error = message.error || 'Unknown error';
@@ -2909,9 +3625,9 @@
           selectedComponentIds = message.selectedComponentIds; // Could be null (show all) or array of IDs
           
           // Apply filtering with current filter state
-          // No search text needed anymore
-          // Hide completed checkbox removed
-          // No filtering needed - filter feature has been removed
+          const searchText = document.getElementById('component-filter').value;
+          const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
+          filterComponents(searchText, hideCompleted, true); // Force apply the filter
           
           // Show/hide selection filter indicator
           updateSelectionFilterIndicator();
@@ -2982,12 +3698,34 @@
 
       // Function to toggle the collapsed state of a component
       function toggleCollapse(componentId) {
-        const checkboxGroup = document.querySelector(`#component-list div[data-id="${componentId}"] .checkbox-group`);
-        if (checkboxGroup) {
-          checkboxGroup.classList.toggle('hidden');
-          console.log(`Toggled component ${componentId}: ${checkboxGroup.classList.contains('hidden') ? 'collapsed' : 'expanded'}`);
-        } else {
-          console.warn(`Could not find checkbox group for component ${componentId}`);
+        // Get the component section, checkbox group, and expand arrow
+        const section = document.querySelector(`#component-list div[data-id="${componentId}"]`);
+        const checkboxGroup = section?.querySelector('.checkbox-group');
+        const expandArrow = section?.querySelector('.expand-arrow');
+        const title = section?.querySelector('.component-title');
+        
+        if (!section || !checkboxGroup) return;
+        
+        // Check if the checkbox group is currently hidden
+        const isCurrentlyHidden = checkboxGroup.classList.contains('hidden');
+        
+        // Toggle the hidden class
+        checkboxGroup.classList.toggle('hidden');
+        
+        // Update our state to match what's happening in the UI
+        // This ensures the arrow direction is in sync with visibility state
+        if (componentState[componentId]) {
+          componentState[componentId].collapsed = !isCurrentlyHidden;
+          
+          // Update the expand arrow rotation if it exists
+          if (expandArrow) {
+            expandArrow.style.transform = !isCurrentlyHidden ? 'rotate(-90deg)' : 'rotate(0)';
+          }
+          
+          // Update accessibility attribute if the title exists
+          if (title) {
+            title.setAttribute('aria-expanded', isCurrentlyHidden);
+          }
         }
       }
 
@@ -3154,9 +3892,9 @@
           nameSpan.innerHTML = `${modifiedIndicator}${component.name} <span class="${scoreClass}" style="display: none !important;">(${checkedCount}/${component.totalCategories})</span>${lastModified}${usageCount}`;
           
           // If hide completed is checked, apply the filter
-          if (false) { // Hide completed feature removed
-            // No search text needed anymore
-            // No filtering needed - filter feature has been removed
+          if (document.getElementById('hide-completed-checkbox').checked) {
+            const searchText = document.getElementById('component-filter').value;
+            filterComponents(searchText, true);
           }
         }
 

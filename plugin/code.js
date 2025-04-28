@@ -1120,17 +1120,7 @@ async function loadComponents(skipCache = false) {
     try {
       // First pass - filter out variants and collect components
       allComponents
-        .filter(component => {
-          // Check if the component still exists in the document (not deleted)
-          try {
-            // If the component has been deleted, this will throw an error
-            const exists = component.id && figma.getNodeById(component.id) !== null;
-            return exists && (!component.parent || component.parent.type !== 'COMPONENT_SET');
-          } catch (e) {
-            console.log(`Component ${component.id} no longer exists, filtering out`); 
-            return false;
-          }
-        })
+        .filter(component => !component.parent || component.parent.type !== 'COMPONENT_SET')
         .forEach(component => {
           // Only add this component if we haven't seen its ID before
           if (!componentMap.has(component.id)) {
@@ -1421,6 +1411,66 @@ async function main() {
     }
   }
   
+  // Function to detect deleted components by comparing stored components to what's in the document
+  async function detectDeletedComponents() {
+    try {
+      console.log('Running component deletion check...');
+      
+      // Get all component IDs from storage
+      const storedComponentStates = await storage.getAllComponentStates();
+      const storedComponentIds = Object.keys(storedComponentStates || {});
+      
+      if (storedComponentIds.length === 0) {
+        console.log('No stored components to check for deletions');
+        return [];
+      }
+      
+      console.log(`Checking ${storedComponentIds.length} stored components against document...`);
+      
+      // Get all current components in the document
+      // Load all pages first to ensure we have access to all components
+      try {
+        await figma.loadAllPagesAsync();
+      } catch (err) {
+        console.warn('Error loading all pages:', err);
+        // Continue with currently loaded pages
+      }
+      
+      // Find all current components across all pages
+      const currentComponentIds = new Set();
+      for (const page of figma.root.children) {
+        try {
+          // Find all components on this page
+          const pageComponents = page.findAllWithCriteria({
+            types: ['COMPONENT']
+          });
+          
+          pageComponents.forEach(comp => {
+            currentComponentIds.add(comp.id);
+          });
+        } catch (pageError) {
+          console.warn(`Error finding components on page ${page.name}:`, pageError);
+        }
+      }
+      
+      console.log(`Found ${currentComponentIds.size} components in document`);
+      
+      // Find deleted components (in storage but not in document)
+      const deletedComponents = [];
+      for (const storedId of storedComponentIds) {
+        if (!currentComponentIds.has(storedId)) {
+          console.log('Deleted component detected:', storedId);
+          deletedComponents.push(storedId);
+        }
+      }
+      
+      return deletedComponents;
+    } catch (error) {
+      console.error('Error in detectDeletedComponents:', error);
+      return [];
+    }
+  }
+  
   // Listen for document changes
   figma.on('documentchange', async (event) => {
     console.log('Document changed:', event);
@@ -1437,6 +1487,62 @@ async function main() {
       }
     }
     
+    // Run the component deletion check after any document change
+    const deletedComponents = await detectDeletedComponents();
+    const deletionDetected = deletedComponents.length > 0;
+    
+    // Handle any detected deletions
+    if (deletionDetected && deletedComponents.length > 0) {
+      try {
+        console.log(`Cleaning up ${deletedComponents.length} deleted components from storage`);
+        
+        // Clean up storage for each deleted component
+        for (const componentId of deletedComponents) {
+          try {
+            // Remove component state from checkboxStates
+            const checkboxStates = await storage.getAllComponentStates();
+            if (checkboxStates && checkboxStates[componentId]) {
+              delete checkboxStates[componentId];
+              await storage.set('checkboxStates', checkboxStates);
+            }
+            
+            // Remove component from modified dates
+            const modifiedDates = await storage.getAllModifiedDates();
+            if (modifiedDates && modifiedDates[componentId]) {
+              delete modifiedDates[componentId];
+              await storage.set('modifiedDates', modifiedDates);
+            }
+            
+            // Remove component from view states
+            const viewStates = await storage.getAllViewStates();
+            if (viewStates && viewStates[componentId]) {
+              delete viewStates[componentId];
+              await storage.set('viewStates', viewStates);
+            }
+            
+            // If using flattened structure, clean up flat items too
+            if (storage.useFlattened) {
+              const flatItems = await storage.getFlatCheckboxItems() || [];
+              const filteredItems = flatItems.filter(item => item.componentId !== componentId);
+              await storage.set('flatCheckboxItems', filteredItems);
+            }
+            
+            console.log(`Cleaned up deleted component: ${componentId}`);
+          } catch (componentError) {
+            console.error(`Error cleaning up deleted component ${componentId}:`, componentError);
+          }
+        }
+        
+        // Notify UI about deletions
+        figma.ui.postMessage({
+          type: 'componentsDeleted',
+          componentIds: deletedComponents
+        });
+      } catch (cleanupError) {
+        console.error('Error handling deleted components:', cleanupError);
+      }
+    }
+    
     // Reload components to reflect any changes
     try {
       await loadComponents();
@@ -1450,6 +1556,71 @@ async function main() {
     console.log('Selection changed, checking relevant components...');
     await handleSelectionChange();
   });
+  
+  // Set up periodic check for deleted components
+  // This ensures that even if document change events miss deletions, we'll catch them
+  const componentCheckInterval = setInterval(async () => {
+    try {
+      // Only run the check if the plugin has been open for a while (avoid startup conflicts)
+      const deletedComponents = await detectDeletedComponents();
+      
+      if (deletedComponents.length > 0) {
+        console.log(`Periodic check found ${deletedComponents.length} deleted components`);
+        
+        // Clean up storage for each deleted component
+        for (const componentId of deletedComponents) {
+          try {
+            // Remove component state from checkboxStates
+            const checkboxStates = await storage.getAllComponentStates();
+            if (checkboxStates && checkboxStates[componentId]) {
+              delete checkboxStates[componentId];
+              await storage.set('checkboxStates', checkboxStates);
+            }
+            
+            // Remove component from modified dates
+            const modifiedDates = await storage.getAllModifiedDates();
+            if (modifiedDates && modifiedDates[componentId]) {
+              delete modifiedDates[componentId];
+              await storage.set('modifiedDates', modifiedDates);
+            }
+            
+            // Remove component from view states
+            const viewStates = await storage.getAllViewStates();
+            if (viewStates && viewStates[componentId]) {
+              delete viewStates[componentId];
+              await storage.set('viewStates', viewStates);
+            }
+            
+            // If using flattened structure, clean up flat items too
+            if (storage.useFlattened) {
+              const flatItems = await storage.getFlatCheckboxItems() || [];
+              const filteredItems = flatItems.filter(item => item.componentId !== componentId);
+              await storage.set('flatCheckboxItems', filteredItems);
+            }
+            
+            console.log(`Cleaned up deleted component: ${componentId}`);
+          } catch (componentError) {
+            console.error(`Error cleaning up deleted component ${componentId}:`, componentError);
+          }
+        }
+        
+        // Notify UI about deletions
+        figma.ui.postMessage({
+          type: 'componentsDeleted',
+          componentIds: deletedComponents
+        });
+        
+        // Reload components to reflect any changes
+        try {
+          await loadComponents();
+        } catch (error) {
+          console.error('Error reloading components after deletion cleanup:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error in periodic component deletion check:', error);
+    }
+  }, 15000); // Check every 15 seconds
   
   // Function to handle selection changes and filter components accordingly
   async function handleSelectionChange() {
@@ -1857,45 +2028,6 @@ figma.ui.onmessage = async msg => {
     });
   }
 };
-
-// Function to check for deleted components and remove them from the UI
-function checkForDeletedComponents() {
-  try {
-    // Get the list of components from figma
-    const componentsInDocument = [];
-    
-    // Check all pages for components
-    figma.root.children.forEach(page => {
-      try {
-        const pageComponents = page.findAllWithCriteria({
-          types: ['COMPONENT']
-        });
-        componentsInDocument.push(...pageComponents);
-      } catch (e) {
-        console.warn(`Could not check for components on page ${page.name}:`, e);
-      }
-    });
-    
-    // Get the list of component IDs that still exist
-    const existingComponentIds = new Set(
-      componentsInDocument
-        .filter(component => !(component.parent && component.parent.type === 'COMPONENT_SET'))
-        .map(component => component.id)
-    );
-    
-    // Check if any components were removed
-    const deletedComponentIds = [];
-    figma.ui.postMessage({
-      type: 'checkDeletedComponents',
-      existingComponentIds: Array.from(existingComponentIds)
-    });
-  } catch (e) {
-    console.warn('Error checking for deleted components:', e);
-  }
-}
-
-// Set up periodic check for deleted components
-setInterval(checkForDeletedComponents, 5000); // Check every 5 seconds
 
 // Run the main function
 main();
