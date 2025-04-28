@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <script src="virtual-list.js"></script>
     <style>
       /* CSS Variables for consistent values */
       :root {
@@ -242,6 +243,26 @@
       }
       .component-section.selected {
         background-color: #f2f9ff;
+      }
+      
+      /* Virtualized List Styles */
+      .virtual-list-container {
+        height: 100%;
+        overflow: auto;
+        position: relative;
+      }
+      
+      .virtual-list-items {
+        width: 100%;
+      }
+      
+      .virtual-list-debug {
+        font-family: monospace;
+        line-height: 1.4;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       /* Component Title Bar Styles */
@@ -1398,12 +1419,14 @@
       }
 
       // Initialize global state
+      let allComponents = [];
+      let hiddenComponents = [];
       let checkboxStates = {};
-      const componentState = {};
-      let viewStates = {}; // Store component view states
+      let componentState = {};
+      let viewStates = {};
+      let virtualList = null; // Reference to virtualized list
       let selectedComponentIds = null; // Track which components are selected in Figma
       let lastAutoExpandedId = null; // Track which component was last auto-expanded
-      let allComponents = []; // Store all components for filtering
       let rules = null; // Rules for component evaluation
       
       // DOM cache for frequently accessed elements
