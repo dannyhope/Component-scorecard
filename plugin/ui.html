@@ -2702,12 +2702,107 @@
         return;
       }
       
+      // Keep track of the rendered state of components for optimization
+      const componentVersions = new Map();
+      
+      // Function to selectively update a component when it changes
+      // This avoids rebuilding the entire component list when only a few components change
+      function updateComponentSelectively(component, index, checkboxStates, rules) {
+        console.log(`Selectively updating component: ${component.name} (${component.id})`);
+        
+        // Get current version of the component (combination of data that affects rendering)
+        const currentVersion = JSON.stringify({
+          name: component.name,
+          score: component.checkedCount,
+          lastModified: component.lastModified,
+          checkboxStates: checkboxStates[component.id] || {}
+        });
+        
+        // Check if we need to update by comparing versions
+        const previousVersion = componentVersions.get(component.id);
+        if (previousVersion === currentVersion) {
+          console.log(`Component ${component.id} unchanged, skipping render`);
+          return false; // No changes, no update needed
+        }
+        
+        // Update tracked version
+        componentVersions.set(component.id, currentVersion);
+        
+        // Find existing component section or create it if it doesn't exist
+        let section = domCache.elements[`component-${component.id}`];
+        const componentList = domCache.get('component-list');
+        
+        if (!section) {
+          // Component doesn't exist yet, create it
+          console.log(`Creating new component section for ${component.id}`);
+          section = createComponentSection(component, index, checkboxStates, rules);
+          componentList.appendChild(section);
+          domCache.elements[`component-${component.id}`] = section;
+          return true; // New component added
+        }
+        
+        // Replace existing component with updated version
+        console.log(`Replacing existing component section for ${component.id}`);
+        const newSection = createComponentSection(component, index, checkboxStates, rules);
+        section.parentNode.replaceChild(newSection, section);
+        domCache.elements[`component-${component.id}`] = newSection;
+        return true; // Component updated
+      }
+      
       // Main function to build the component list
       function buildComponentList(components, checkboxStates, rules) {
         console.log(`Building component list with ${components.length} components`);
         
         // Store all components for filtering
         allComponents = components;
+        
+        // Check if we can do a selective update instead of a full rebuild
+        // Only do selective update if the component list already exists
+        const existingList = domCache.get('component-list');
+        const isSelectiveUpdatePossible = existingList && existingList.children.length > 0;
+        
+        if (isSelectiveUpdatePossible) {
+          console.log('Attempting selective update of changed components');
+          let updateCount = 0;
+          
+          components.forEach((component, index) => {
+            const wasUpdated = updateComponentSelectively(component, index, checkboxStates, rules);
+            if (wasUpdated) updateCount++;
+          });
+          
+          console.log(`Selective update complete: ${updateCount} components updated out of ${components.length}`);
+          
+          // If less than 50% changed, we consider the selective update successful
+          if (updateCount <= components.length / 2) {
+            // Remove any components that are no longer in the list
+            const currentIds = new Set(components.map(comp => comp.id));
+            const elementsToRemove = [];
+            
+            // Find elements that need to be removed
+            existingList.querySelectorAll('.component-section').forEach(section => {
+              const sectionId = section.getAttribute('data-id');
+              if (!currentIds.has(sectionId)) {
+                elementsToRemove.push(section);
+                
+                // Clean up the version tracking and cache
+                componentVersions.delete(sectionId);
+                delete domCache.elements[`component-${sectionId}`];
+              }
+            });
+            
+            // Remove elements
+            elementsToRemove.forEach(element => element.remove());
+            console.log(`Removed ${elementsToRemove.length} components that no longer exist`);
+            
+            return; // Exit early, we've done the selective update
+          }
+          
+          // If too many components changed, fall back to full rebuild
+          console.log('Too many components changed, falling back to full rebuild');
+        }
+        
+        // Clear component versions - we're doing a full rebuild
+        componentVersions.clear();
         
         // Clear DOM cache before rebuilding the component list
         // This ensures we don't retain references to elements that will be removed
@@ -2726,6 +2821,15 @@
           
           // Cache component section by ID for faster future access
           domCache.elements[`component-${component.id}`] = section;
+          
+          // Store current version for future comparison
+          const version = JSON.stringify({
+            name: component.name,
+            score: component.checkedCount,
+            lastModified: component.lastModified,
+            checkboxStates: checkboxStates[component.id] || {}
+          });
+          componentVersions.set(component.id, version);
         });
       }
       
@@ -3233,12 +3337,17 @@
           // Keep local reference for backward compatibility
           allComponents = components;
           
-          // Build the component list
-          const componentList = document.getElementById('component-list');
-          componentList.innerHTML = ''; // Clear existing list
-          
           // Get the custom rules from the textarea and parse them
           const rules = parseRules(document.getElementById('custom-rules').value);
+          
+          // Build the component list 
+          // For initial load we do a full rebuild since all components are new
+          const componentList = domCache.get('component-list');
+          if (componentList) {
+            componentList.innerHTML = ''; // Clear existing list for initial load
+            // Clear component versions for fresh start
+            componentVersions.clear();
+          }
           
           // Build the component list
           buildComponentList(components, checkboxStates, rules);
@@ -3262,8 +3371,14 @@
           if (component) {
             component.checkedCount = message.checkedCount;
             component.totalCategories = message.totalRules;
-            updateScore(message.componentId, message.checkedCount);
-            // Component count update removed // Refresh the component count
+            
+            // Instead of just updating the score, selectively update the whole component
+            // This ensures any visual changes are reflected while avoiding a full rebuild
+            const rules = parseRules(document.getElementById('custom-rules').value);
+            const index = allComponents.indexOf(component);
+            
+            // Use our selective update system to only update this component
+            updateComponentSelectively(component, index, checkboxStates, rules);
           }
         } else if (message.type === 'documentTitle') {
           // Update the document title
@@ -3306,12 +3421,21 @@
           console.log('Components deleted in Figma:', message.componentIds);
           
           if (message.componentIds && message.componentIds.length > 0) {
+            // Track if any components were actually deleted from the DOM
+            let componentsRemoved = false;
+            
             // Remove the component sections from the UI
             message.componentIds.forEach(componentId => {
-              const section = document.getElementById(`component-${componentId}`);
+              // Use our DOM cache for faster lookups
+              const section = domCache.elements[`component-${componentId}`];
               if (section) {
                 console.log(`Removing deleted component from UI: ${componentId}`);
                 section.remove();
+                
+                // Clean up our DOM cache and version tracking
+                delete domCache.elements[`component-${componentId}`];
+                componentVersions.delete(componentId);
+                componentsRemoved = true;
                 
                 // Also update local state if needed
                 if (checkboxStates[componentId]) {
