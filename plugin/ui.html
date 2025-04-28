@@ -6,6 +6,12 @@
     <script src="error-manager.js"></script>
     <script src="notification-manager.js"></script>
     <script src="plugin-states.js"></script>
+    <!-- Test framework and tests -->
+    <script src="test-framework.js"></script>
+    <script src="test-ui.js"></script>
+    <script src="tests/storage-tests.js"></script>
+    <script src="tests/error-handling-tests.js"></script>
+    <script src="tests/data-migration-tests.js"></script>
     <style>
       /* CSS Variables for consistent values */
       :root {
@@ -1312,6 +1318,7 @@
       </div>
       <div class="debug-controls">
         <button id="debug-refresh">Refresh</button>
+        <button id="debug-test">Run Tests</button>
         <select id="debug-view-select">
           <option value="currentState">Current State</option>
           <option value="history">State History</option>
@@ -3388,10 +3395,16 @@
           document.getElementById('debug-toggle').addEventListener('click', () => this.togglePanel());
           document.getElementById('debug-close').addEventListener('click', () => this.hidePanel());
           document.getElementById('debug-refresh').addEventListener('click', () => this.refreshData());
+          document.getElementById('debug-test').addEventListener('click', () => this.showTestPanel());
           document.getElementById('debug-view-select').addEventListener('change', (e) => {
             this.currentView = e.target.value;
             this.refreshData();
           });
+          
+          // Initialize test UI if available
+          if (window.testUI) {
+            testUI.init();
+          }
           
           // Set build time in the debug info
           const buildDate = new Date();
@@ -3444,6 +3457,20 @@
           if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
             this.refreshInterval = null;
+          }
+        },
+        
+        // Show test panel
+        showTestPanel() {
+          // Hide debug panel first
+          this.hidePanel();
+          
+          // Show test UI if available
+          if (window.testUI) {
+            testUI.show();
+          } else {
+            console.error('Test UI not available');
+            notifications.error('Test Error', 'Test UI not available');
           }
         },
         
