@@ -1429,6 +1429,16 @@
 
       // Setup state manager initialization
       window.addEventListener('load', () => {
+        // Set up event delegation for checkboxes - one listener instead of many individual ones
+        // This greatly improves performance with many checkboxes
+        console.log('Setting up checkbox event delegation');
+        document.addEventListener('change', (event) => {
+          // Only process checkbox changes
+          if (event.target.type === 'checkbox' && event.target.hasAttribute('data-category')) {
+            handleCheckboxEvent(event);
+          }
+        });
+        
         // Initialize filters in state manager
         if (window.stateManager) {
           console.log('Setting up state manager integration');
@@ -2346,115 +2356,85 @@
         });
       }
 
-      // Function to handle checkbox state changes
-      function handleCheckboxChange(component, checkbox, checkboxLabel, category, ruleText) {
-        checkbox.onchange = () => {
-          console.log(`Checkbox changed for ${component.name}, category: ${category}, rule: ${ruleText}, checked: ${checkbox.checked}`);
-          const timestamp = checkbox.checked ? new Date() : null;
-          const statusSpan = checkboxLabel.querySelector('.checkbox-status');
-          
-          if (statusSpan) {
-            // Clear any existing content
-            statusSpan.innerHTML = '';
+      // Checkbox event delegation handler - single event listener for all checkboxes
+      function handleCheckboxEvent(event) {
+        // Only process checkbox clicks
+        const checkbox = event.target;
+        if (checkbox.type !== 'checkbox') return;
+        
+        // Extract data from checkbox's data attributes and parent elements
+        const checkboxLabel = checkbox.closest('.checkbox-label');
+        if (!checkboxLabel) return;
+        
+        // Get component section
+        const componentSection = checkbox.closest('.component-section');
+        if (!componentSection) return;
+        
+        // Get component ID, category, and rule text from data attributes
+        const componentId = componentSection.getAttribute('data-id');
+        const category = checkbox.getAttribute('data-category');
+        const ruleText = checkbox.getAttribute('data-rule');
+        
+        // Find component in the allComponents array
+        const component = allComponents.find(c => c.id === componentId);
+        if (!component) {
+          console.error('Component not found:', componentId);
+          return;
+        }
+        
+        console.log(`Checkbox changed for ${component.name}, category: ${category}, rule: ${ruleText}, checked: ${checkbox.checked}`);
+        const timestamp = checkbox.checked ? new Date() : null;
+        const statusSpan = checkboxLabel.querySelector('.checkbox-status');
+        
+        if (statusSpan) {
+          // Clear any existing content
+          statusSpan.innerHTML = '';
+        }
+        
+        // Process the checkbox change
+        processCheckboxChange(component, checkbox, checkboxLabel, category, ruleText, timestamp);
+      }
+      
+      // Process checkbox changes - extracted to keep functions focused
+      function processCheckboxChange(component, checkbox, checkboxLabel, category, ruleText, timestamp) {
+        // Use state manager if available
+        if (window.stateManager) {
+          // Update state in state manager
+          stateManager.setCheckboxState(component.id, category, ruleText, checkbox.checked)
+            .then(() => {
+              console.log(`State manager updated checkbox state for ${component.id}`);
+              // The state manager will handle storage and notifications
+              
+              // Still send the message to the plugin to maintain compatibility
+              // during the transition to the state manager
+              parent.postMessage({ 
+                pluginMessage: { 
+                  type: 'checkboxChanged', 
+                  componentId: component.id, 
+                  category, 
+                  label: ruleText, 
+                  isChecked: checkbox.checked,
+                  timestamp: timestamp ? timestamp.toISOString() : null
+                } 
+              }, '*');
+            })
+            .catch(error => {
+              console.error('Error updating checkbox state:', error);
+            });
+        } else {
+          // Fallback to original implementation if state manager not available
+          // Update local state
+          if (!checkboxStates[component.id]) {
+            checkboxStates[component.id] = {};
+          }
+          if (!checkboxStates[component.id][category]) {
+            checkboxStates[component.id][category] = {};
           }
           
-          // Use state manager if available
-          if (window.stateManager) {
-            // Update state in state manager
-            stateManager.setCheckboxState(component.id, category, ruleText, checkbox.checked)
-              .then(() => {
-                console.log(`State manager updated checkbox state for ${component.id}`);
-                // The state manager will handle storage and notifications
-                
-                // Still send the message to the plugin to maintain compatibility
-                // during the transition to the state manager
-                parent.postMessage({ 
-                  pluginMessage: { 
-                    type: 'checkboxChanged', 
-                    componentId: component.id, 
-                    category, 
-                    label: ruleText, 
-                    isChecked: checkbox.checked,
-                    timestamp: timestamp ? timestamp.toISOString() : null
-                  } 
-                }, '*');
-              })
-              .catch(error => {
-                console.error('Error updating checkbox state:', error);
-              });
-          } else {
-            // Fallback to original implementation if state manager not available
-            // Update local state
-            if (!checkboxStates[component.id]) {
-              checkboxStates[component.id] = {};
-            }
-            if (!checkboxStates[component.id][category]) {
-              checkboxStates[component.id][category] = {};
-            }
-            
-            checkboxStates[component.id][category][ruleText] = {
-              checked: checkbox.checked,
-              timestamp: timestamp ? timestamp.toISOString() : null
-            };
-          }
-          
-          // Calculate score using state manager if available
-          let checkedCount;
-          
-          if (window.stateManager) {
-            // Get score from state manager
-            const score = stateManager.calculateComponentScore(component.id);
-            checkedCount = score.checked;
-            console.log(`${component.name}: ${checkedCount}/${score.total} items checked (${score.percentage}%)`);
-          } else {
-            // Fallback to local calculation
-            checkedCount = Object.values(checkboxStates[component.id] || {})
-              .flatMap(categoryState => Object.values(categoryState))
-              .filter(state => state && state.checked === true).length;
-            console.log(`${component.name}: ${checkedCount} items checked`);
-          }
-          
-          // Update the score
-          updateScore(component.id, checkedCount);
-          
-          // When a checkbox is checked, we need to track if it should be hidden
-          // but we don't actually hide it until the filter is applied
-          if (checkbox.checked && document.getElementById('hide-completed-checkbox').checked) {
-            // If Hide completed is active, add this checkbox to the hidden map
-            // but don't actually hide it yet
-            const componentId = component.id;
-            if (!hiddenCheckboxes.has(componentId)) {
-              hiddenCheckboxes.set(componentId, new Set());
-            }
-            if (checkbox.id) {
-              // Don't add the checkbox we just clicked
-              // This ensures it stays visible until the filter is toggled
-              // hiddenCheckboxes.get(componentId).add(checkbox.id);
-            }
-            
-            // Make sure all OTHER checked checkboxes in this component stay hidden
-            const section = checkboxLabel.closest('.component-section');
-            if (section) {
-              const allCheckboxLabels = section.querySelectorAll('.checkbox-label');
-              allCheckboxLabels.forEach(label => {
-                if (label !== checkboxLabel) { // Don't hide the one we just clicked
-                  const cb = label.querySelector('input[type="checkbox"]');
-                  if (cb && cb.checked && cb.id) {
-                    // Keep other checked checkboxes hidden if they're in our map
-                    if (hiddenCheckboxes.get(componentId).has(cb.id)) {
-                      label.style.display = 'none';
-                    }
-                  }
-                }
-              });
-            }
-          } else if (!checkbox.checked) {
-            // If a checkbox is unchecked, remove it from the hidden map
-            const componentId = component.id;
-            if (hiddenCheckboxes.has(componentId) && checkbox.id) {
-              hiddenCheckboxes.get(componentId).delete(checkbox.id);
-            }
-          }
+          checkboxStates[component.id][category][ruleText] = {
+            checked: checkbox.checked,
+            timestamp: timestamp ? timestamp.toISOString() : null
+          };
           
           // Send message to update state
           parent.postMessage({ 
@@ -2467,14 +2447,81 @@
               timestamp: timestamp ? timestamp.toISOString() : null
             } 
           }, '*');
+        }
+        
+        // Calculate score using state manager if available
+        let checkedCount;
+        let totalRules;
+        
+        if (window.stateManager) {
+          // Get counts from state manager
+          const score = stateManager.calculateComponentScore(component.id);
+          checkedCount = score.checked;
+          totalRules = score.total;
+        } else {
+          // Fallback to local calculation
+          checkedCount = Object.values(checkboxStates[component.id] || {})
+            .flatMap(categoryState => Object.values(categoryState))
+            .filter(state => state && state.checked === true).length;
           
-          // When using state manager, we no longer need to run updateModificationIndicator directly
-          // as it will be handled by state change notifications
-          if (!window.stateManager) {
-            // Only run this directly when state manager is not available
-            setTimeout(() => updateModificationIndicator(component.id), TIMING.SHORT_DELAY); // Small delay to ensure state is updated
+          totalRules = Object.values(checkboxStates[component.id] || {})
+            .reduce((total, categoryState) => total + Object.keys(categoryState).length, 0);
+        }
+        
+        // Update score
+        if (window.stateManager) {
+          // State manager will handle score updates via the subscription
+        } else {
+          updateScore(component.id, checkedCount);
+        }
+        
+        // Handle checkbox visibility when checkbox state changes
+        handleCheckboxVisibilityChange(component, checkbox, checkboxLabel);
+      }
+      
+      // Function to handle checkbox visibility when checkbox state changes
+      function handleCheckboxVisibilityChange(component, checkbox, checkboxLabel) {
+        // When a checkbox is checked, we need to track if it should be hidden
+        // but we don't actually hide it until the filter is applied
+        const hideCompleted = domCache.get('hide-completed-checkbox');
+        
+        if (checkbox.checked && hideCompleted && hideCompleted.checked) {
+          // If Hide completed is active, add this checkbox to the hidden map
+          // but don't actually hide it yet
+          const componentId = component.id;
+          if (!hiddenCheckboxes.has(componentId)) {
+            hiddenCheckboxes.set(componentId, new Set());
           }
-        };
+          
+          // Don't add the checkbox we just clicked
+          // This ensures it stays visible until the filter is toggled
+          // if (checkbox.id) {
+          //   hiddenCheckboxes.get(componentId).add(checkbox.id);
+          // }
+          
+          // Make sure all OTHER checked checkboxes in this component stay hidden
+          const section = checkboxLabel.closest('.component-section');
+          if (section) {
+            const allCheckboxLabels = section.querySelectorAll('.checkbox-label');
+            allCheckboxLabels.forEach(label => {
+              if (label !== checkboxLabel) { // Don't hide the one we just clicked
+                const cb = label.querySelector('input[type="checkbox"]');
+                if (cb && cb.checked && cb.id) {
+                  // Keep other checked checkboxes hidden if they're in our map
+                  if (hiddenCheckboxes.get(componentId).has(cb.id)) {
+                    label.style.display = 'none';
+                  }
+                }
+              }
+            });
+          }
+        } else if (!checkbox.checked) {
+          // If a checkbox is unchecked, remove it from the hidden map
+          const componentId = component.id;
+          if (hiddenCheckboxes.has(componentId) && checkbox.id) {
+            hiddenCheckboxes.get(componentId).delete(checkbox.id);
+          }
+        }
       }
 
       // Function to create a checkbox item
@@ -2499,10 +2546,10 @@
         // Add data attributes for finding the checkbox later
         checkbox.setAttribute('data-category', category);
         checkbox.setAttribute('data-rule', ruleText);
+        checkbox.setAttribute('data-component-id', component.id);
         checkbox.setAttribute('aria-label', `${ruleText} for ${component.name}`);
         
-        // Set up change handler
-        handleCheckboxChange(component, checkbox, checkboxLabel, category, ruleText);
+        // No longer attaching individual event listeners - using event delegation instead
 
         checkboxLabel.className = 'checkbox-label';
         checkboxLabel.setAttribute('for', checkboxId);
