@@ -2,6 +2,63 @@
  * StorageManager - Handles all storage operations for the Component Scorecard plugin
  * Provides caching, error handling, and a clean API for data access
  */
+
+// Error handling categories and severities for consistent reporting
+const errorCategories = {
+  STORAGE: 'storage',
+  COMPONENT: 'component',
+  PLUGIN: 'plugin',
+  UI: 'ui',
+  NETWORK: 'network',
+  UNKNOWN: 'unknown'
+};
+
+const errorSeverity = {
+  CRITICAL: 'critical', // App can't continue
+  ERROR: 'error',       // Feature broken
+  WARNING: 'warning',   // Can continue with caution
+  INFO: 'info'          // Informational only
+};
+
+/**
+ * Report an error to the UI's error manager
+ * @param {Error|string} error - The error object or message
+ * @param {string} category - Error category
+ * @param {string} severity - Error severity
+ * @param {Object} context - Additional context
+ */
+function reportError(error, category, severity, context = {}) {
+  try {
+    figma.ui.postMessage({
+      type: 'reportError',
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : null,
+      category: errorCategories[category] || errorCategories.UNKNOWN,
+      severity: errorSeverity[severity] || errorSeverity.ERROR,
+      context: JSON.parse(JSON.stringify(context)) // Ensure serializable
+    });
+  } catch (e) {
+    console.error('Error reporting error:', e);
+    console.error('Original error:', error);
+  }
+}
+
+/**
+ * Safely execute a function with error reporting
+ * @param {Function} fn - Function to try
+ * @param {string} category - Error category
+ * @param {string} severity - Error severity 
+ * @param {Object} context - Error context
+ * @returns {Promise} Promise resolving with result or rejecting with error
+ */
+async function safeExec(fn, category, severity, context = {}) {
+  try {
+    return await fn();
+  } catch (error) {
+    reportError(error, category, severity, context);
+    throw error; // Re-throw for caller to handle
+  }
+}
 class StorageManager {
   constructor() {
     this.cache = {

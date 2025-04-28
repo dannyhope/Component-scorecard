@@ -3,6 +3,8 @@
   <head>
     <script src="virtual-list.js"></script>
     <script src="state-machine.js"></script>
+    <script src="error-manager.js"></script>
+    <script src="notification-manager.js"></script>
     <script src="plugin-states.js"></script>
     <style>
       /* CSS Variables for consistent values */
@@ -100,6 +102,98 @@
       
       .error-message .context-menu-item:hover {
         background-color: var(--color-hover);
+      }
+      
+      /* Notification styles */
+      #notification-container {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1000;
+        width: 320px;
+        max-width: 90%;
+      }
+      
+      .notification {
+        margin-bottom: 8px;
+        padding: 12px 16px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: flex-start;
+        animation: slideIn 0.3s ease-out;
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .notification.error {
+        background-color: #FFE8E8;
+        border-left: 4px solid #E4003D;
+      }
+      
+      .notification.warning {
+        background-color: #FFF8E0;
+        border-left: 4px solid #FFB200;
+      }
+      
+      .notification.info {
+        background-color: #E1F7FF;
+        border-left: 4px solid #60BFEB;
+      }
+      
+      .notification.success {
+        background-color: #E5F8E8;
+        border-left: 4px solid #00B400;
+      }
+      
+      .notification-icon {
+        margin-right: 12px;
+        flex-shrink: 0;
+      }
+      
+      .notification-content {
+        flex-grow: 1;
+      }
+      
+      .notification-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      
+      .notification-message {
+        font-size: 13px;
+        color: #333;
+        margin: 0;
+        word-wrap: break-word;
+      }
+      
+      .notification-close {
+        cursor: pointer;
+        font-size: 18px;
+        color: #666;
+        margin-left: 8px;
+        padding: 0 4px;
+        background: none;
+        border: none;
+      }
+      
+      .notification-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background-color: rgba(0, 0, 0, 0.1);
+        width: 100%;
+      }
+      
+      @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
+      @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
       }
       
       /* Debug panel styles */
@@ -1207,7 +1301,7 @@
     </script>
   </head>
   <body>
-    <!-- Notification container for storage retries and errors -->
+    <!-- Notification container for all messages (errors, warnings, info) -->
     <div id="notification-container"></div>
     
     <!-- Debug panel for state visualization -->
@@ -2431,6 +2525,9 @@
         const checkbox = event.target;
         if (checkbox.type !== 'checkbox') return;
         
+        // Stop event propagation to prevent component collapsing when clicking checkboxes
+        event.stopPropagation();
+        
         // Extract data from checkbox's data attributes and parent elements
         const checkboxLabel = checkbox.closest('.checkbox-label');
         if (!checkboxLabel) return;
@@ -3416,6 +3513,31 @@
         if (!message) return;
         
         console.log('Received message:', message.type);
+        
+        // Handle error reporting from the plugin
+        if (message.type === 'reportError') {
+          // Use our error manager if available
+          if (window.errorManager) {
+            errorManager.report(
+              message.error,
+              message.category,
+              message.severity,
+              message.context
+            );
+            return; // Handled by error manager
+          } else {
+            // Fallback to console if error manager not available
+            console.error(`Error [${message.category}][${message.severity}]: ${message.error}`, message.context);
+            if (message.stack) console.error(message.stack);
+            
+            // For critical errors, show a notification
+            if (message.severity === 'critical' || message.severity === 'error') {
+              if (window.notifications) {
+                notifications.error(message.category, message.error);
+              }
+            }
+          }
+        }
         
         // Handle flattened structure toggle response
         if (message.type === 'flattenedStructureToggled') {
