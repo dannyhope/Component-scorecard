@@ -2,6 +2,8 @@
 <html>
   <head>
     <script src="virtual-list.js"></script>
+    <script src="state-machine.js"></script>
+    <script src="plugin-states.js"></script>
     <style>
       /* CSS Variables for consistent values */
       :root {
@@ -3372,7 +3374,41 @@
       window.addEventListener('load', () => {
         // Wait a bit to make sure stateManager is initialized
         setTimeout(() => debugPanel.init(), 1000);
+        
+        // Initialize plugin state machine
+        const stateMachine = initializePluginStateMachine();
+        
+        // Add debug state display to the UI if it doesn't already exist
+        addStateDebugDisplay();
       });
+      
+      // Function to add state machine debug display
+      function addStateDebugDisplay() {
+        // Check if debug panel exists
+        const debugPanel = document.getElementById('debug-panel');
+        if (!debugPanel) return;
+        
+        // Add state machine section to debug panel
+        const stateSection = document.createElement('div');
+        stateSection.className = 'debug-section';
+        
+        const stateTitle = document.createElement('h4');
+        stateTitle.textContent = 'State Machine';
+        
+        const stateDisplay = document.createElement('div');
+        stateDisplay.id = 'current-state-display';
+        stateDisplay.className = 'state-display';
+        stateDisplay.textContent = pluginStateMachine ? pluginStateMachine.getState() : 'Not initialized';
+        
+        stateSection.appendChild(stateTitle);
+        stateSection.appendChild(stateDisplay);
+        
+        // Find the debug data container and insert before it
+        const debugData = document.getElementById('debug-data');
+        if (debugData && debugData.parentNode) {
+          debugData.parentNode.insertBefore(stateSection, debugData);
+        }
+      }
       
       // Listen for messages from the plugin code
       window.onmessage = event => {
@@ -3423,16 +3459,27 @@
 
         if (message.type === 'loadError') {
           console.error('Error loading components:', message.error);
-          // Show error message in the UI
-          const componentList = document.getElementById('component-list');
-          componentList.innerHTML = `
-            <div class="error-message">
-              <h3>Error loading components</h3>
-              <p>${message.error}</p>
-              <p>Try refreshing the plugin or restarting Figma.</p>
-              <button id="retry-button" class="primary-button">Retry</button>
-            </div>
-          `;
+          
+          // Use state machine to transition to error state if available
+          if (window.pluginStateMachine) {
+            pluginStateMachine.transition('error', {
+              error: message.error,
+              errorType: 'load',
+              retryable: true
+            });
+          } else {
+            // Fallback to traditional error handling if state machine is not available
+            // Show error message in the UI
+            const componentList = document.getElementById('component-list');
+            componentList.innerHTML = `
+              <div class="error-message">
+                <h3>Error loading components</h3>
+                <p>${message.error}</p>
+                <p>Try refreshing the plugin or restarting Figma.</p>
+                <button id="retry-button" class="primary-button">Retry</button>
+              </div>
+            `;
+          }
           
           // Add retry button handler
           document.getElementById('retry-button').addEventListener('click', () => {
@@ -3450,6 +3497,11 @@
             }, 2000);
           });
         } else if (message.type === 'loadComponents') {
+          // Transition to loading state first if we have the state machine
+          if (window.pluginStateMachine) {
+            pluginStateMachine.transition('loading');
+          }
+          
           // Store the component data
           const components = message.components;
           checkboxStates = message.checkboxStates || {};
@@ -3475,6 +3527,11 @@
                 stateManager._notifyListeners('checkboxes');
               }
             }
+          }
+          
+          // After data is processed, transition to idle state
+          if (window.pluginStateMachine) {
+            pluginStateMachine.transition('idle');
           }
           
           // Keep local reference for backward compatibility
@@ -3529,6 +3586,14 @@
         } else if (message.type === 'componentSelected') {
           // A component was selected in Figma
           console.log('Component selected in Figma:', message.componentId);
+          
+          // Use state machine to transition to component selection state
+          if (window.pluginStateMachine) {
+            pluginStateMachine.transition('componentSelection', {
+              selectedComponentIds: message.componentId ? [message.componentId] : []
+            });
+          }
+          
           if (message.componentId) {
             // Select the component in the UI (with fromFigma=true to prevent infinite loop)
             selectComponent(message.componentId, true);
@@ -3664,10 +3729,29 @@
           console.log('Filtering by selection:', message.selectedComponentIds);
           selectedComponentIds = message.selectedComponentIds; // Could be null (show all) or array of IDs
           
-          // Apply filtering with current filter state
-          const searchText = document.getElementById('component-filter').value;
-          const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
-          filterComponents(searchText, hideCompleted, true); // Force apply the filter
+          // If using state machine, transition to filtering state with filter data
+          if (window.pluginStateMachine) {
+            // Gather filter data
+            const searchText = document.getElementById('component-filter') ? 
+              document.getElementById('component-filter').value : '';
+            const hideCompleted = document.getElementById('hide-completed-checkbox') ? 
+              document.getElementById('hide-completed-checkbox').checked : false;
+              
+            // Transition to filtering state
+            pluginStateMachine.transition('filtering', {
+              filters: {
+                searchText,
+                hideCompleted,
+                forceApply: true,
+                selectedComponentIds
+              }
+            });
+          } else {
+            // Apply filtering with current filter state (legacy approach)
+            const searchText = document.getElementById('component-filter').value;
+            const hideCompleted = document.getElementById('hide-completed-checkbox').checked;
+            filterComponents(searchText, hideCompleted, true); // Force apply the filter
+          }
           
           // Show/hide selection filter indicator
           updateSelectionFilterIndicator();
