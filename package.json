@@ -1,0 +1,27 @@
+{
+  "name": "component-scorecard",
+  "version": "1.0.0",
+  "description": "Figma plugin for scoring component quality",
+  "main": "plugin/code.js",
+  "scripts": {
+    "build": "node build.js",
+    "build:prod": "node build.js --production",
+    "dev": "node build.js --watch",
+    "test": "node build.js --test",
+    "deploy": "node build.js --production && cp -r dist/production/* path/to/figma/plugin/directory"
+  },
+  "keywords": [
+    "figma",
+    "plugin",
+    "components",
+    "quality"
+  ],
+  "author": "Danny Hope",
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "chokidar": "^3.5.3",
+    "puppeteer": "^21.3.8",
+    "serve-handler": "^6.1.5"
+  }
+}
