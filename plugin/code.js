@@ -3,6 +3,52 @@
  * Provides caching, error handling, and a clean API for data access
  */
 
+// Constants for storage keys
+const STORAGE_KEYS = {
+  CHECKBOX_STATES: 'checkboxStates',
+  MODIFIED_DATES: 'modifiedDates',
+  FLAT_CHECKBOX_ITEMS: 'flatCheckboxItems',
+  USE_FLATTENED: 'useFlattened',
+  VIEW_STATE: 'viewState',
+  USER_PREFERENCES: 'userPreferences',
+  CUSTOM_RULES: 'customRules'
+};
+
+// Constants for message types
+const MESSAGE_TYPES = {
+  INIT_UI: 'initUI', // Deprecated, use COMPONENT_DATA and VIEW_STATE_DATA
+  UPDATE_CHECKBOX: 'updateCheckbox',
+  GET_INITIAL_DATA: 'getInitialData',
+  SAVE_VIEW_STATE: 'saveViewState',
+  REFRESH_COMPONENTS: 'refreshComponents',
+  ERROR: 'error',
+  LOG: 'log',
+  COMPONENT_DATA: 'componentData',
+  VIEW_STATE_DATA: 'viewStateData',
+  LOAD_COMPONENTS: 'loadComponents',
+  LOAD_ERROR: 'loadError',
+  LOAD_WARNING: 'loadWarning',
+  FILTER_BY_SELECTION: 'filterBySelection',
+  TOGGLE_FLATTENED_STRUCTURE: 'toggleFlattenedStructure',
+  DOCUMENT_TITLE: 'documentTitle',
+  DOCUMENT_TITLE_ERROR: 'documentTitleError',
+  SELECT_COMPONENT: 'selectComponent',
+  COMPONENT_SELECTED: 'componentSelected',
+  COMPONENT_NOT_FOUND: 'componentNotFound',
+  SELECT_ERROR: 'selectError',
+  CHECKBOX_CHANGED: 'checkboxChanged',
+  CHECKBOX_ERROR: 'checkboxError',
+  SAVE_USER_PREFERENCES: 'saveUserPreferences',
+  PREFERENCES_SAVED: 'preferencesSaved',
+  PREFERENCES_ERROR: 'preferencesError',
+  SAVE_CUSTOM_RULES: 'saveCustomRules',
+  CUSTOM_RULES_SAVED: 'customRulesSaved',
+  CUSTOM_RULES_ERROR: 'customRulesError',
+  OPERATION_TIMEOUT: 'operationTimeout',
+  OPERATION_ERROR: 'operationError',
+  COMPONENTS_DELETED: 'componentsDeleted'
+};
+
 // Error handling categories and severities for consistent reporting
 const errorCategories = {
   STORAGE: 'storage',
@@ -30,7 +76,7 @@ const errorSeverity = {
 function reportError(error, category, severity, context = {}) {
   try {
     figma.ui.postMessage({
-      type: 'reportError',
+      type: MESSAGE_TYPES.ERROR,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : null,
       category: errorCategories[category] || errorCategories.UNKNOWN,
@@ -59,6 +105,7 @@ async function safeExec(fn, category, severity, context = {}) {
     throw error; // Re-throw for caller to handle
   }
 }
+
 class StorageManager {
   constructor() {
     this.cache = {
@@ -96,12 +143,12 @@ class StorageManager {
         }, 5000);
         
         const [checkboxStates, modifiedDates, viewStates, userPreferences, customRules, flatCheckboxItems] = await Promise.all([
-          this.getStorageWithFallback('checkboxStates', {}),
-          this.getStorageWithFallback('modifiedDates', {}),
-          this.getStorageWithFallback('viewStates', {}),
-          this.getStorageWithFallback('userPreferences', { hideCompleted: false }),
-          this.getStorageWithFallback('customRules', null),
-          this.getStorageWithFallback('flatCheckboxItems', null)
+          this.getStorageWithFallback(STORAGE_KEYS.CHECKBOX_STATES, {}),
+          this.getStorageWithFallback(STORAGE_KEYS.MODIFIED_DATES, {}),
+          this.getStorageWithFallback(STORAGE_KEYS.VIEW_STATE, {}),
+          this.getStorageWithFallback(STORAGE_KEYS.USER_PREFERENCES, { hideCompleted: false }),
+          this.getStorageWithFallback(STORAGE_KEYS.CUSTOM_RULES, null),
+          this.getStorageWithFallback(STORAGE_KEYS.FLAT_CHECKBOX_ITEMS, null)
         ]);
         
         clearTimeout(storageTimeout);
@@ -117,7 +164,7 @@ class StorageManager {
           console.log('Flattened data structure not found, creating from nested structure...');
           this.cache.flatCheckboxItems = this.migrateToFlatStructure();
           // Save the flattened structure
-          await figma.clientStorage.setAsync('flatCheckboxItems', this.cache.flatCheckboxItems);
+          await figma.clientStorage.setAsync(STORAGE_KEYS.FLAT_CHECKBOX_ITEMS, this.cache.flatCheckboxItems);
         } else {
           this.cache.flatCheckboxItems = flatCheckboxItems;
         }
@@ -137,7 +184,7 @@ class StorageManager {
         
         this.initialized = true; // Still mark as initialized so we don't keep retrying
         figma.ui.postMessage({
-          type: 'storageError',
+          type: MESSAGE_TYPES.ERROR,
           error: 'Failed to load stored data: ' + error.message
         });
         resolve(); // Resolve anyway to allow the plugin to function
@@ -252,7 +299,7 @@ class StorageManager {
         (attempt, delay, error) => {
           // Notify UI of retry attempt
           figma.ui.postMessage({
-            type: 'storageRetry',
+            type: MESSAGE_TYPES.STORAGE_RETRY,
             key: key,
             attempt: attempt + 1,
             maxRetries: 3,
@@ -268,7 +315,7 @@ class StorageManager {
       
       // Notify UI of final failure
       figma.ui.postMessage({
-        type: 'storageError',
+        type: MESSAGE_TYPES.STORAGE_ERROR,
         error: `Failed to save ${key} after multiple attempts: ${error.message}`,
         key: key
       });
@@ -437,7 +484,7 @@ class StorageManager {
     } catch (error) {
       console.error(`Error updating checkbox state for ${componentId}:`, error);
       figma.ui.postMessage({
-        type: 'saveError',
+        type: MESSAGE_TYPES.CHECKBOX_ERROR,
         error: 'Failed to save checkbox state: ' + error.message,
         componentId
       });
@@ -482,16 +529,16 @@ class StorageManager {
         await this.retryWithBackoff(
           async () => {
             const storageOperations = [
-              figma.clientStorage.setAsync('checkboxStates', this.cache.checkboxStates),
-              figma.clientStorage.setAsync('modifiedDates', this.cache.modifiedDates),
-              figma.clientStorage.setAsync('viewStates', this.cache.viewStates),
-              figma.clientStorage.setAsync('userPreferences', this.cache.userPreferences),
-              figma.clientStorage.setAsync('customRules', this.cache.customRules)
+              figma.clientStorage.setAsync(STORAGE_KEYS.CHECKBOX_STATES, this.cache.checkboxStates),
+              figma.clientStorage.setAsync(STORAGE_KEYS.MODIFIED_DATES, this.cache.modifiedDates),
+              figma.clientStorage.setAsync(STORAGE_KEYS.VIEW_STATE, this.cache.viewStates),
+              figma.clientStorage.setAsync(STORAGE_KEYS.USER_PREFERENCES, this.cache.userPreferences),
+              figma.clientStorage.setAsync(STORAGE_KEYS.CUSTOM_RULES, this.cache.customRules)
             ];
             
             // Add flattened structure to storage operations if it exists
             if (this.cache.flatCheckboxItems) {
-              storageOperations.push(figma.clientStorage.setAsync('flatCheckboxItems', this.cache.flatCheckboxItems));
+              storageOperations.push(figma.clientStorage.setAsync(STORAGE_KEYS.FLAT_CHECKBOX_ITEMS, this.cache.flatCheckboxItems));
             }
             
             await Promise.all(storageOperations);
@@ -501,7 +548,7 @@ class StorageManager {
           (attempt, delay, error) => {
             // Notify UI of retry attempt
             figma.ui.postMessage({
-              type: 'bulkStorageRetry',
+              type: MESSAGE_TYPES.BULK_STORAGE_RETRY,
               attempt: attempt + 1,
               maxRetries: 3,
               delay: Math.round(delay),
@@ -515,7 +562,7 @@ class StorageManager {
       } catch (error) {
         console.error('Error persisting storage after retries:', error);
         figma.ui.postMessage({
-          type: 'storageError',
+          type: MESSAGE_TYPES.STORAGE_ERROR,
           error: 'Failed to save data after multiple attempts: ' + error.message,
           isBulkOperation: true
         });
@@ -647,7 +694,7 @@ class StorageManager {
     } catch (error) {
       console.error('Error updating user preferences:', error);
       figma.ui.postMessage({
-        type: 'saveError',
+        type: MESSAGE_TYPES.PREFERENCES_ERROR,
         error: 'Failed to save preferences: ' + error.message
       });
       return this.cache.userPreferences;
@@ -679,7 +726,7 @@ class StorageManager {
     } catch (error) {
       console.error('Error saving custom rules:', error);
       figma.ui.postMessage({
-        type: 'saveError',
+        type: MESSAGE_TYPES.CUSTOM_RULES_ERROR,
         error: 'Failed to save custom rules: ' + error.message
       });
       return this.cache.customRules;
@@ -834,7 +881,7 @@ async function loadComponents(skipCache = false) {
     if (!loadingCompleted) {
       console.error('Component loading timed out after 15 seconds');
       figma.ui.postMessage({
-        type: 'loadError',
+        type: MESSAGE_TYPES.LOAD_ERROR,
         error: 'Loading components timed out. Your document may be too large or complex.',
         partial: true // Indicate this is a timeout, not a complete failure
       });
@@ -860,7 +907,7 @@ async function loadComponents(skipCache = false) {
       console.error('Error loading pages:', pageLoadError);
       // Continue with currently loaded pages
       figma.ui.postMessage({
-        type: 'loadWarning',
+        type: MESSAGE_TYPES.LOAD_WARNING,
         warning: 'Some pages could not be loaded. Only currently loaded pages will be processed.'
       });
     }
@@ -879,7 +926,7 @@ async function loadComponents(skipCache = false) {
         console.error(`Error searching for components on page ${page.name}:`, pageError);
         // Continue with next page
         figma.ui.postMessage({
-          type: 'loadWarning',
+          type: MESSAGE_TYPES.LOAD_WARNING,
           warning: `Could not search for components on page "${page.name}". This page will be skipped.`
         });
       }
@@ -933,13 +980,13 @@ async function loadComponents(skipCache = false) {
       customRules = await storage.getCustomRules();
     } catch (storageError) {
       console.error('Error getting data from storage:', storageError);
-      // Will continue with empty defaults set above
+      // Continue anyway - the storage class has internal fallbacks
       figma.ui.postMessage({
-        type: 'loadWarning',
+        type: MESSAGE_TYPES.LOAD_WARNING,
         warning: 'Could not load saved data. Starting with empty data.'
       });
     }
-
+    
     try {
       // Get component usage and dependency counts with a timeout
       const analysisPromise = analyzeComponents();
@@ -954,7 +1001,7 @@ async function loadComponents(skipCache = false) {
       console.error('Error analyzing component dependencies:', analysisError);
       // Continue with empty dependency data
       figma.ui.postMessage({
-        type: 'loadWarning',
+        type: MESSAGE_TYPES.LOAD_WARNING,
         warning: 'Could not analyze component dependencies. Usage counts may be inaccurate.'
       });
     }
@@ -1069,7 +1116,7 @@ async function loadComponents(skipCache = false) {
     // Send data to the UI
     try {
       figma.ui.postMessage({
-        type: 'loadComponents',
+        type: MESSAGE_TYPES.LOAD_COMPONENTS,
         viewStates,
         components: componentData,
         checkboxStates: states,
@@ -1081,7 +1128,7 @@ async function loadComponents(skipCache = false) {
     } catch (postError) {
       console.error('Error sending data to UI:', postError);
       figma.ui.postMessage({
-        type: 'loadError',
+        type: MESSAGE_TYPES.LOAD_ERROR,
         error: 'Error sending component data to UI: ' + postError.message
       });
     }
@@ -1094,16 +1141,25 @@ async function loadComponents(skipCache = false) {
     // Send a detailed error message to the UI
     try {
       figma.ui.postMessage({
-        type: 'loadError',
+        type: MESSAGE_TYPES.LOAD_ERROR,
         error: 'Failed to load components: ' + error.message,
         details: error.stack
       });
     } catch (msgError) {
-      console.error('Could not send error message to UI:', msgError);
+      console.error('Could not send error message to UI');
     }
   }
 }
 
+// Function to analyze components and their dependencies
+async function analyzeComponents() {
+  // TO DO: implement component analysis logic here
+  // For now, return empty usage and dependency counts
+  return {
+    usageCounts: new Map(),
+    dependencyCounts: new Map()
+  };
+}
 
 async function main() {
   try {
@@ -1111,7 +1167,7 @@ async function main() {
     const initTimeout = setTimeout(() => {
       console.error('Plugin initialization timed out after 30 seconds');
       figma.ui.postMessage({
-        type: 'criticalError',
+        type: MESSAGE_TYPES.CRITICAL_ERROR,
         error: 'Plugin initialization timed out. Please try restarting the plugin.'
       });
     }, 30000); // 30 second timeout for the entire initialization process
@@ -1124,7 +1180,7 @@ async function main() {
       console.error('Storage initialization failed:', storageError);
       // Continue anyway - the storage class has internal fallbacks
       figma.ui.postMessage({
-        type: 'loadWarning',
+        type: MESSAGE_TYPES.LOAD_WARNING,
         warning: 'Could not load saved preferences. Starting with default settings.'
       });
     }
@@ -1150,7 +1206,7 @@ async function main() {
       console.error('Error loading all pages:', pageError);
       // Continue with currently loaded pages
       figma.ui.postMessage({
-        type: 'loadWarning',
+        type: MESSAGE_TYPES.LOAD_WARNING,
         warning: 'Could not load all document pages. Some components may not be visible.'
       });
     }
@@ -1163,7 +1219,7 @@ async function main() {
     } catch (error) {
       console.error('Error during initial component load:', error);
       figma.ui.postMessage({
-        type: 'loadError',
+        type: MESSAGE_TYPES.LOAD_ERROR,
         error: 'Failed to load components: ' + error.message
       });
     }
@@ -1175,7 +1231,7 @@ async function main() {
     // Try to notify the user
     try {
       figma.ui.postMessage({
-        type: 'criticalError',
+        type: MESSAGE_TYPES.CRITICAL_ERROR,
         error: 'Failed to initialize plugin: ' + criticalError.message,
         details: criticalError.stack
       });
@@ -1218,7 +1274,7 @@ async function main() {
           const pageComponents = page.findAllWithCriteria({
             types: ['COMPONENT']
           });
-          
+          console.log(`Found ${pageComponents.length} components on page ${page.name}`);
           pageComponents.forEach(comp => {
             currentComponentIds.add(comp.id);
           });
@@ -1270,7 +1326,7 @@ async function main() {
             
             // Notify UI about the deletion
             figma.ui.postMessage({
-              type: 'componentsDeleted',
+              type: MESSAGE_TYPES.COMPONENTS_DELETED,
               componentIds: [deletedId]
             });
           } catch (error) {
@@ -1293,7 +1349,7 @@ async function main() {
         
         // Notify UI about deletions
         figma.ui.postMessage({
-          type: 'componentsDeleted',
+          type: MESSAGE_TYPES.COMPONENTS_DELETED,
           componentIds: deletedComponents
         });
       }
@@ -1318,28 +1374,28 @@ async function main() {
       const checkboxStates = await storage.getAllComponentStates();
       if (checkboxStates && checkboxStates[componentId]) {
         delete checkboxStates[componentId];
-        await storage.set('checkboxStates', checkboxStates);
+        await storage.set(STORAGE_KEYS.CHECKBOX_STATES, checkboxStates);
       }
       
       // Remove component from modified dates
       const modifiedDates = await storage.getAllModifiedDates();
       if (modifiedDates && modifiedDates[componentId]) {
         delete modifiedDates[componentId];
-        await storage.set('modifiedDates', modifiedDates);
+        await storage.set(STORAGE_KEYS.MODIFIED_DATES, modifiedDates);
       }
       
       // Remove component from view states
       const viewStates = await storage.getAllViewStates();
       if (viewStates && viewStates[componentId]) {
         delete viewStates[componentId];
-        await storage.set('viewStates', viewStates);
+        await storage.set(STORAGE_KEYS.VIEW_STATE, viewStates);
       }
       
       // If using flattened structure, clean up flat items too
       if (storage.useFlattened) {
         const flatItems = await storage.getFlatCheckboxItems() || [];
         const filteredItems = flatItems.filter(item => item.componentId !== componentId);
-        await storage.set('flatCheckboxItems', filteredItems);
+        await storage.set(STORAGE_KEYS.FLAT_CHECKBOX_ITEMS, filteredItems);
       }
       
       console.log(`Successfully cleaned up deleted component: ${componentId}`);
@@ -1373,28 +1429,28 @@ async function main() {
             const checkboxStates = await storage.getAllComponentStates();
             if (checkboxStates && checkboxStates[componentId]) {
               delete checkboxStates[componentId];
-              await storage.set('checkboxStates', checkboxStates);
+              await storage.set(STORAGE_KEYS.CHECKBOX_STATES, checkboxStates);
             }
             
             // Remove component from modified dates
             const modifiedDates = await storage.getAllModifiedDates();
             if (modifiedDates && modifiedDates[componentId]) {
               delete modifiedDates[componentId];
-              await storage.set('modifiedDates', modifiedDates);
+              await storage.set(STORAGE_KEYS.MODIFIED_DATES, modifiedDates);
             }
             
             // Remove component from view states
             const viewStates = await storage.getAllViewStates();
             if (viewStates && viewStates[componentId]) {
               delete viewStates[componentId];
-              await storage.set('viewStates', viewStates);
+              await storage.set(STORAGE_KEYS.VIEW_STATE, viewStates);
             }
             
             // If using flattened structure, clean up flat items too
             if (storage.useFlattened) {
               const flatItems = await storage.getFlatCheckboxItems() || [];
               const filteredItems = flatItems.filter(item => item.componentId !== componentId);
-              await storage.set('flatCheckboxItems', filteredItems);
+              await storage.set(STORAGE_KEYS.FLAT_CHECKBOX_ITEMS, filteredItems);
             }
             
             console.log(`Cleaned up deleted component: ${componentId}`);
@@ -1405,7 +1461,7 @@ async function main() {
         
         // Notify UI about deletions
         figma.ui.postMessage({
-          type: 'componentsDeleted',
+          type: MESSAGE_TYPES.COMPONENTS_DELETED,
           componentIds: deletedComponents
         });
         
@@ -1435,7 +1491,7 @@ async function main() {
     if (selection.length === 0) {
       console.log('Nothing selected, showing all components');
       figma.ui.postMessage({
-        type: 'filterBySelection',
+        type: MESSAGE_TYPES.FILTER_BY_SELECTION,
         selectedComponentIds: null // null means show all
       });
       return;
@@ -1447,7 +1503,7 @@ async function main() {
       console.log(`${selectedComponents.length} components directly selected`);
       const componentIds = selectedComponents.map(comp => comp.id);
       figma.ui.postMessage({
-        type: 'filterBySelection',
+        type: MESSAGE_TYPES.FILTER_BY_SELECTION,
         selectedComponentIds: componentIds
       });
       return;
@@ -1488,7 +1544,7 @@ async function main() {
     if (containedComponentIds.length > 0) {
       console.log(`Found ${containedComponentIds.length} components within selected containers`);
       figma.ui.postMessage({
-        type: 'filterBySelection',
+        type: MESSAGE_TYPES.FILTER_BY_SELECTION,
         selectedComponentIds: containedComponentIds
       });
       return;
@@ -1497,7 +1553,7 @@ async function main() {
     // If no special criteria met, show all components
     console.log('No selection criteria met, showing all components');
     figma.ui.postMessage({
-      type: 'filterBySelection',
+      type: MESSAGE_TYPES.FILTER_BY_SELECTION,
       selectedComponentIds: null
     });
   }
@@ -1538,7 +1594,7 @@ async function main() {
     if (!messageHandled) {
       console.error(`Message handler timed out for message type: ${msg.type}`);
       figma.ui.postMessage({
-        type: 'operationTimeout',
+        type: MESSAGE_TYPES.OPERATION_TIMEOUT,
         originalMessageType: msg.type,
         error: 'Operation timed out. The document may be too large or complex.'
       });
@@ -1552,30 +1608,31 @@ async function main() {
     // The refreshComponents message handler has been removed
     
     // Handle data structure toggle
-    if (msg.type === 'toggleFlattenedStructure') {
+    if (msg.type === MESSAGE_TYPES.TOGGLE_FLATTENED_STRUCTURE) {
       storage.setUseFlattenedStructure(msg.useFlattened);
       figma.ui.postMessage({
-        type: 'flattenedStructureToggled',
+        type: MESSAGE_TYPES.FLATTENED_STRUCTURE_TOGGLED,
         useFlattened: msg.useFlattened
       });
+      
       messageHandled = true;
       clearTimeout(messageTimeout);
       return;
     }
-    if (msg.type === 'getDocumentTitle') {
+    if (msg.type === MESSAGE_TYPES.GET_DOCUMENT_TITLE) {
       try {
         figma.ui.postMessage({
-          type: 'documentTitle',
+          type: MESSAGE_TYPES.DOCUMENT_TITLE,
           title: figma.root.name
         });
       } catch (titleError) {
         console.error('Error getting document title:', titleError);
         figma.ui.postMessage({
-          type: 'documentTitleError',
+          type: MESSAGE_TYPES.DOCUMENT_TITLE_ERROR,
           error: 'Could not get document title'
         });
       }
-    } else if (msg.type === 'selectComponent') {
+    } else if (msg.type === MESSAGE_TYPES.SELECT_COMPONENT) {
       try {
         // Find the component with a timeout
         const findTimeout = setTimeout(() => {
@@ -1597,25 +1654,25 @@ async function main() {
           figma.viewport.scrollAndZoomIntoView([component]);
           
           figma.ui.postMessage({
-            type: 'componentSelected',
+            type: MESSAGE_TYPES.COMPONENT_SELECTED,
             componentId: msg.componentId
           });
         } else {
           console.warn(`Component not found: ${msg.componentId}`);
           figma.ui.postMessage({
-            type: 'componentNotFound',
+            type: MESSAGE_TYPES.COMPONENT_NOT_FOUND,
             componentId: msg.componentId
           });
         }
       } catch (selectError) {
         console.error('Error selecting component:', selectError);
         figma.ui.postMessage({
-          type: 'selectError',
+          type: MESSAGE_TYPES.SELECT_ERROR,
           error: 'Failed to select component: ' + selectError.message,
           componentId: msg.componentId
         });
       }
-    } else if (msg.type === 'checkboxChanged') {
+    } else if (msg.type === MESSAGE_TYPES.CHECKBOX_CHANGED) {
       try {
         const { componentId, category, label, isChecked } = msg;
 
@@ -1642,7 +1699,7 @@ async function main() {
         // Calculate and update the score
         const score = await storage.calculateComponentScore(componentId);
         figma.ui.postMessage({
-          type: 'updateScore',
+          type: MESSAGE_TYPES.UPDATE_SCORE,
           componentId,
           checkedCount: score.checkedCount,
           totalRules: score.totalRules
@@ -1650,54 +1707,54 @@ async function main() {
       } catch (checkboxError) {
         console.error('Error updating checkbox state:', checkboxError);
         figma.ui.postMessage({
-          type: 'checkboxError',
+          type: MESSAGE_TYPES.CHECKBOX_ERROR,
           error: 'Failed to update component state: ' + checkboxError.message,
           componentId: msg.componentId,
           category: msg.category,
           label: msg.label
         });
       }
-    } else if (msg.type === 'saveViewState') {
+    } else if (msg.type === MESSAGE_TYPES.SAVE_VIEW_STATE) {
       try {
         // Save the component view state
         const { componentId, collapsed, userToggled } = msg;
         await storage.updateViewState(componentId, collapsed, userToggled);
         
         figma.ui.postMessage({
-          type: 'viewStateSaved',
+          type: MESSAGE_TYPES.VIEW_STATE_SAVED,
           componentId
         });
       } catch (viewStateError) {
         console.error('Error saving view state:', viewStateError);
         // Non-critical, can continue without notifying UI
       }
-    } else if (msg.type === 'saveUserPreferences') {
+    } else if (msg.type === MESSAGE_TYPES.SAVE_USER_PREFERENCES) {
       try {
         // Save user preferences
         await storage.updateUserPreferences(msg.preferences);
         
         figma.ui.postMessage({
-          type: 'preferencesSaved'
+          type: MESSAGE_TYPES.PREFERENCES_SAVED
         });
       } catch (prefError) {
         console.error('Error saving user preferences:', prefError);
         figma.ui.postMessage({
-          type: 'preferencesError',
+          type: MESSAGE_TYPES.PREFERENCES_ERROR,
           error: 'Failed to save preferences: ' + prefError.message
         });
       }
-    } else if (msg.type === 'saveCustomRules') {
+    } else if (msg.type === MESSAGE_TYPES.SAVE_CUSTOM_RULES) {
       try {
         console.log('Saving custom rules');
         await storage.saveCustomRules(msg.customRules);
         
         figma.ui.postMessage({
-          type: 'customRulesSaved'
+          type: MESSAGE_TYPES.CUSTOM_RULES_SAVED
         });
       } catch (rulesError) {
         console.error('Error saving custom rules:', rulesError);
         figma.ui.postMessage({
-          type: 'customRulesError',
+          type: MESSAGE_TYPES.CUSTOM_RULES_ERROR,
           error: 'Failed to save custom rules: ' + rulesError.message
         });
       }
@@ -1716,7 +1773,7 @@ async function main() {
     
     // Send generic error for unhandled message errors
     figma.ui.postMessage({
-      type: 'operationError',
+      type: MESSAGE_TYPES.OPERATION_ERROR,
       originalMessageType: msg.type,
       error: 'Operation failed: ' + error.message
     });

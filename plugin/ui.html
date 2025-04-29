@@ -4047,7 +4047,7 @@
         let leastRecentCheckDate = null;
         if (checkboxStates[componentId]) {
           const timestamps = Object.values(checkboxStates[componentId])
-            .flatMap(category => Object.values(category))
+            .flatMap(categoryState => Object.values(categoryState))
             .filter(state => state.checked && state.timestamp)
             .map(state => new Date(state.timestamp));
           if (timestamps.length > 0) {

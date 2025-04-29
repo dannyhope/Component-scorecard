@@ -33,10 +33,71 @@
 - Align UI/metadata with Brand/Community Guidelines.
 
 ## Figma
-- Figma doesn't support
- - CommonJS require statements
- - ES modules
- - the codeFiles property in the manifest
-- The Figma document I’m testing the plugin has only one page
+- Before you claim something it finished, make sure you verify compatibility with Figma's environment
 
-## 
+### JavaScript Compatibility Requirements for Figma Plugins
+Here's an exhaustive list of JavaScript compatibility limitations in the Figma plugin environment:
+
+#### Syntax Limitations
+- No ES Modules - Cannot use import/export syntax or ES modules
+- No CommonJS Modules - Cannot use require() statements
+- No Optional Chaining - Cannot use ?. syntax (e.g., obj?.prop?.method())
+- No Nullish Coalescing - Cannot use ?? operator
+- No Spread Syntax - Cannot use ... for objects or arrays (e.g., {...obj} or [...array])
+- No Object/Array Destructuring with Default Values - Basic destructuring works, but not with defaults
+- Limited Template Literals - Basic template literals work, but not with expressions in some contexts
+- No Dynamic Imports - Cannot use import() function
+- No Private Class Fields - Cannot use #privateField syntax
+- No Class Static Initialization Blocks - Cannot use static {} blocks
+- No BigInt Literals - Cannot use 123n syntax
+- No Numeric Separators - Cannot use 1_000_000 syntax
+- No Logical Assignment Operators - Cannot use ||=, &&=, or ??=
+- No Top-level Await - Cannot use await outside of async functions
+
+#### API and Runtime Limitations
+- No DOM API - Cannot access document, window, or DOM APIs directly
+- No Browser APIs - No access to localStorage, sessionStorage, indexedDB, etc.
+- Limited Timer Functions - setTimeout/setInterval work but with limitations
+- No Web Workers - Cannot use Web Workers
+- No Fetch API - Must use figma.ui.postMessage for communication
+- No WebSockets - No direct WebSocket support
+- Limited Console Methods - Some console methods may not work as expected
+- No Blob/File APIs - Limited support for binary data handling
+- No URL/URLSearchParams - Limited URL parsing capabilities
+- No Intl API - Limited internationalization support
+- No Proxy Objects - Cannot use Proxy for object interception
+- No Shared Array Buffers - Limited shared memory capabilities
+- No Service Workers - Cannot use service workers
+- No Geolocation API - No access to user location
+- No Web Audio API - Limited audio capabilities
+- No WebGL/Canvas API - Cannot directly render graphics
+- No Clipboard API - Limited clipboard access
+
+#### Best Practices for Figma Plugin Development
+- Use ES5 Syntax - Stick to ES5 syntax for maximum compatibility
+- Avoid Arrow Functions in critical code paths
+- Use Function Declarations instead of expressions where possible
+- Use var instead of let/const in critical code
+- Use Object.assign instead of spread syntax
+- Use Array.prototype methods instead of spread for arrays
+- Use traditional for loops instead of for...of where performance matters
+- Use explicit property access instead of optional chaining
+- Use if checks instead of nullish coalescing
+- Use simple string concatenation instead of complex template literals
+- Polyfill missing features when needed
+- Test thoroughly in the Figma plugin environment
+- Use figma.clientStorage instead of localStorage
+- Use figma.ui.postMessage for UI communication
+- Handle async operations with proper error handling
+
+#### Figma-Specific Limitations
+- No direct file system access - Must use Figma APIs for file operations
+- Limited network requests - Must use UI iframe for network requests
+- No direct access to user's clipboard - Must use Figma APIs
+- No direct access to system fonts - Must use figma.loadFontAsync()
+- Limited plugin size - Keep plugin code compact
+- No direct access to the main thread - UI runs in a separate context
+- No direct manipulation of Figma UI - Must use Figma APIs
+- Limited plugin persistence - Use clientStorage for data persistence
+- No background processing - Plugin only runs when active
+- Limited access to user's system - No file system or OS integration
