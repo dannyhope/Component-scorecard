@@ -977,9 +977,10 @@ async function loadComponents(skipCache = false) {
           const chunk = components.slice(i, i + CHUNK_SIZE);
           await Promise.all(chunk.map(async component => {
             try {
-              // If component doesn't have a modified date or we need to refresh it
-              if (!modifiedDates[component.id] || skipCache) {
-                // Set the current time as the modification date
+              // Only set lastModified for new components that don't have a date yet
+              // Don't update existing dates during loading - they should only change when scorecard data changes
+              if (!modifiedDates[component.id]) {
+                // Initial timestamp for tracking - this is when the component was first seen by the plugin
                 const timestamp = new Date().toISOString();
                 await storage.updateModifiedDates(component.id, timestamp);
                 updatedModifiedDates[component.id] = timestamp;
@@ -1254,8 +1255,8 @@ async function main() {
         // If a node was modified and it's a component
         if (change.type === 'PROPERTY_CHANGE' && change.node && change.node.type === 'COMPONENT') {
           console.log('Component modified:', change.node.name);
-          // Update the component's last modified date
-          await storage.updateModifiedDates(change.node.id, new Date().toISOString());
+          // We no longer update lastModified here, as property changes in Figma
+          // don't change the scorecard data itself
         }
         
         // If a component was deleted, handle it immediately
@@ -1618,12 +1619,25 @@ async function main() {
       try {
         const { componentId, category, label, isChecked } = msg;
 
+        // Get current state to check if this is actually changing
+        const currentState = await storage.getComponentState(componentId);
+        let currentValue = false;
+        if (currentState && currentState[category] && currentState[category][label]) {
+          currentValue = currentState[category][label].checked || false;
+        }
+        const isRealChange = currentValue !== isChecked;
+
         // Update the checkbox state
         const timestamp = msg.applyToAll ? msg.timestamp : (isChecked ? new Date().toISOString() : null);
         await storage.updateCheckboxState(componentId, category, label, {
           checked: isChecked,
           timestamp: timestamp
         });
+
+        // If this was an actual change to the scorecard data, update the lastModified date
+        if (isRealChange) {
+          await storage.updateModifiedDates(componentId, new Date().toISOString());
+        }
 
         // Calculate and update the score
         const score = await storage.calculateComponentScore(componentId);
