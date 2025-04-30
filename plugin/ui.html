@@ -2460,12 +2460,13 @@
       
       // Helper function to add dependency indicator
       function addDependencyIndicator(component, nameSpan) {
-        if (component.dependencyCount <= 0) return;
+        // Only show dependency indicator when count is greater than 0
+        if (!component.dependencyCount || component.dependencyCount <= 0) return;
         
         const dependencyIndicator = document.createElement('span');
         dependencyIndicator.className = 'dependency-indicator';
         dependencyIndicator.textContent = component.dependencyCount;
-        dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${component.dependencyCount !== 1 ? 's' : ''}`);
+        dependencyIndicator.setAttribute('title', `Contains instances of ${component.dependencyCount} component${(component.dependencyCount !== 1) ? 's' : ''}`);
         
         nameSpan.appendChild(dependencyIndicator);
         nameSpan.appendChild(document.createTextNode(' '));

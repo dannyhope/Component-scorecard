@@ -826,6 +826,76 @@ class StorageManager {
 // Create storage instance
 const storage = new StorageManager();
 
+/**
+ * Analyze component dependencies and usage
+ * @returns {Promise<{usageCounts: Map<string, number>, dependencyCounts: Map<string, number>}>} Maps of component IDs to counts
+ */
+async function analyzeComponents() {
+  console.log('Analyzing component dependencies and usage...');
+  
+  // Initialize maps for tracking
+  const usageCounts = new Map(); // How many times a component is used elsewhere
+  const dependencyCounts = new Map(); // How many subcomponents are inside each component
+  
+  try {
+    // Make sure all pages are loaded
+    await figma.loadAllPagesAsync();
+    
+    // First find all components across all pages
+    const allComponents = [];
+    for (const page of figma.root.children) {
+      const pageComponents = page.findAllWithCriteria({
+        types: ['COMPONENT']
+      });
+      allComponents.push(...pageComponents);
+    }
+    
+    console.log(`Found ${allComponents.length} components to analyze`);
+    
+    // Initialize the maps with zero counts
+    for (const component of allComponents) {
+      usageCounts.set(component.id, 0);
+      dependencyCounts.set(component.id, 0);
+    }
+    
+    // For each component, analyze its children for instances and dependencies
+    for (const component of allComponents) {
+      try {
+        // Get all instances within this component
+        const instances = component.findAllWithCriteria({
+          types: ['INSTANCE']
+        });
+        
+        if (instances.length > 0) {
+          console.log(`Component ${component.name} contains ${instances.length} instances`);
+          dependencyCounts.set(component.id, instances.length);
+          
+          // For each instance, increment the usage count of its main component
+          for (const instance of instances) {
+            // Get the main component of this instance
+            const mainComponent = instance.mainComponent;
+            
+            if (mainComponent) {
+              // Increment the usage count of the main component
+              const currentCount = usageCounts.get(mainComponent.id) || 0;
+              usageCounts.set(mainComponent.id, currentCount + 1);
+            }
+          }
+        }
+      } catch (componentError) {
+        console.warn(`Error analyzing dependencies for component ${component.name}:`, componentError);
+        // Continue with next component
+      }
+    }
+    
+    console.log('Component analysis complete');
+    return { usageCounts, dependencyCounts };
+  } catch (error) {
+    console.error('Error analyzing component dependencies:', error);
+    return { usageCounts: new Map(), dependencyCounts: new Map() };
+  }
+}
+
 // Function to load components and send data to the UI
 async function loadComponents(skipCache = false) {
   // Set up loading timeout
