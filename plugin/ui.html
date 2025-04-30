@@ -28,6 +28,7 @@
         --color-border: #C7D0D4;
         --color-background: white;
         --color-hover: rgba(0, 0, 0, 0.06);
+        --color-footer-text: #4b4b4b;
         
         /* Spacing */
         --spacing-xs: 4px;
@@ -253,7 +254,6 @@
       .debug-controls button,
       .debug-controls select {
         padding: var(--spacing-xs) var(--spacing-md);
-        
         border: 1px solid var(--color-border);
         border-radius: var(--border-radius);
         background-color: var(--color-background);
@@ -277,16 +277,10 @@
       
       .debug-info {
         padding: var(--spacing-xs) var(--spacing-md);
-        
         color: var(--color-text-secondary);
         background-color: #f0f2f2;
         border-top: 1px solid var(--color-border);
         text-align: right;
-      }
-      
-      #debug-toggle {
-        opacity: 0.7;
-        transition: opacity 0.2s;
       }
       
       #debug-toggle:hover {
@@ -301,7 +295,7 @@
         border: none;
         background: none;
         cursor: pointer;
-        color: var(--color-text-secondary);
+        color: var(--color-footer-text);
         border-radius: 999px;
       }
 
@@ -499,6 +493,7 @@
         align-items: center;
         gap: var(--spacing-md);
         cursor: pointer;
+        color: var(--color-footer-text);
       }
       
       .footer-checkbox input[type="checkbox"] {
