@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Publish Component scorecard to Figma Community</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --card: #fff;
+      --text: #1a1a1a;
+      --muted: #5f6368;
+      --line: #e3e5e8;
+      --accent: #430079;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 1.5rem; }
+    h2 { font-size: 1.05rem; margin: 1.75rem 0 0.75rem; }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1rem 1.1rem 0.4rem;
+      margin: 0 0 1rem;
+    }
+    .task {
+      display: grid;
+      grid-template-columns: 1.25rem 1fr;
+      column-gap: 0.65rem;
+      padding: 0.85rem 0;
+    }
+    .task.is-done .body { display: none; }
+    .task.is-done label { color: var(--muted); text-decoration: line-through; }
+    label { font-weight: 600; cursor: pointer; }
+    .where { font-size: 0.85rem; color: var(--muted); margin: 0.25rem 0 0.5rem; }
+    .copy-wrap { position: relative; background: #f1f3f4; border-radius: 8px; }
+    pre {
+      margin: 0;
+      padding: 0.75rem 2.4rem 0.75rem 0.85rem;
+      white-space: pre-wrap;
+      font-size: 0.85rem;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .copy {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.4rem;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    img.icon { width: 64px; height: 64px; border-radius: 12px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Publish Component scorecard to Figma Community</h1>
+
+    <section class="card">
+      <h2>Build</h2>
+      <div class="task" data-id="build">
+        <input type="checkbox" id="build">
+        <div>
+          <label for="build">Build the plugin</label>
+          <p class="where">Terminal in this repo</p>
+          <div class="body">
+            <div class="copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>pnpm run build</pre></div>
+            <p>Import <code>manifest.json</code> from this folder in Figma desktop if it is not already loaded, then run the plugin once to confirm it opens.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Figma Community</h2>
+      <div class="task" data-id="publish-dialog">
+        <input type="checkbox" id="publish-dialog">
+        <div>
+          <label for="publish-dialog">Open the publish dialog</label>
+          <p class="where"><a href="https://www.figma.com/files">Figma desktop</a> → Plugins → Development → Component scorecard → Publish</p>
+        </div>
+      </div>
+      <div class="task" data-id="name">
+        <input type="checkbox" id="name">
+        <div>
+          <label for="name">Name</label>
+          <p class="where">Publish dialog → name</p>
+          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>Component scorecard</pre></div>
+        </div>
+      </div>
+      <div class="task" data-id="tagline">
+        <input type="checkbox" id="tagline">
+        <div>
+          <label for="tagline">Tagline</label>
+          <p class="where">Publish dialog → tagline</p>
+          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>Score design-system components against a checklist you control</pre></div>
+        </div>
+      </div>
+      <div class="task" data-id="description">
+        <input type="checkbox" id="description">
+        <div>
+          <label for="description">Description</label>
+          <p class="where">Publish dialog → description</p>
+          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>Component scorecard lists every standalone component in the open Figma file and lets you tick it against a checklist your team edits in Markdown.
+
+Use it while you maintain a design system: open a library file, work through layout, naming, accessibility, and instance hygiene, then hide completed items to see what is left.
+
+Ticks and your checklist stay in Figma on your account. The plugin does not use the network.
+
+Feedback: https://dannyhope.co.uk/feedback
+A Danny Hope plugin: https://dannyhope.co.uk</pre></div>
+        </div>
+      </div>
+      <div class="task" data-id="icon">
+        <input type="checkbox" id="icon">
+        <div>
+          <label for="icon">Icon</label>
+          <p class="where">Publish dialog → icon · file in this pack</p>
+          <div class="body">
+            <p><img class="icon" src="../icons/icon.svg" alt="Plugin icon"></p>
+            <p>Upload <code>publish/icon-128.png</code> (128×128).</p>
+          </div>
+        </div>
+      </div>
+      <div class="task" data-id="network">
+        <input type="checkbox" id="network">
+        <div>
+          <label for="network">Confirm network access is none</label>
+          <p class="where">Publish dialog → security / network · from <code>manifest.json</code></p>
+          <div class="body"><p><code>allowedDomains: ["none"]</code>. Do not add hosts.</p></div>
+        </div>
+      </div>
+      <div class="task" data-id="support">
+        <input type="checkbox" id="support">
+        <div>
+          <label for="support">Homepage and support URLs</label>
+          <p class="where">Publish dialog → contact links</p>
+          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>https://dannyhope.co.uk/component-scorecard
+https://dannyhope.co.uk/feedback</pre></div>
+        </div>
+      </div>
+      <div class="task" data-id="visibility">
+        <input type="checkbox" id="visibility">
+        <div>
+          <label for="visibility">Visibility: Unlisted unless you asked for Public</label>
+          <p class="where">Publish dialog → distribution</p>
+        </div>
+      </div>
+      <div class="task" data-id="submit">
+        <input type="checkbox" id="submit">
+        <div>
+          <label for="submit">Submit for review</label>
+          <p class="where">Publish dialog → Publish</p>
+          <div class="body">
+            <p>Review can take longer than two hours. The hop <a href="https://dannyhope.co.uk/component-scorecard">dannyhope.co.uk/component-scorecard</a> already points at the Community plugin id. It is not live until dannyhope.co.uk is deployed.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const key = 'component-scorecard-publish-done-v1'
+    const saved = JSON.parse(localStorage.getItem(key) || '{}')
+    document.querySelectorAll('.task').forEach((task) => {
+      const id = task.dataset.id
+      const box = task.querySelector('input[type=checkbox]')
+      const apply = (on) => {
+        box.checked = on
+        task.classList.toggle('is-done', on)
+        saved[id] = on
+        localStorage.setItem(key, JSON.stringify(saved))
+      }
+      apply(Boolean(saved[id]))
+      box.addEventListener('change', () => apply(box.checked))
+      task.querySelector('label').addEventListener('click', (event) => {
+        event.preventDefault()
+        apply(!box.checked)
+      })
+    })
+    document.querySelectorAll('.copy').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const text = button.parentElement.querySelector('pre').textContent
+        await navigator.clipboard.writeText(text)
+        button.textContent = '✓'
+        setTimeout(() => { button.textContent = '⧉' }, 1200)
+      })
+    })
+  </script>
+</body>
+</html>
