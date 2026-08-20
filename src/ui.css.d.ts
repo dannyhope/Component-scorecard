@@ -1,0 +1,33 @@
+declare const styles: {
+  readonly "app": string;
+  readonly "attribution": string;
+  readonly "banner": string;
+  readonly "category": string;
+  readonly "checklist-editor": string;
+  readonly "chevron": string;
+  readonly "collapsed": string;
+  readonly "component": string;
+  readonly "component-title": string;
+  readonly "context-menu": string;
+  readonly "criteria": string;
+  readonly "deps": string;
+  readonly "diamond": string;
+  readonly "edited": string;
+  readonly "empty": string;
+  readonly "error": string;
+  readonly "footer": string;
+  readonly "footer-links": string;
+  readonly "list": string;
+  readonly "name": string;
+  readonly "rule": string;
+  readonly "score": string;
+  readonly "score-amber": string;
+  readonly "score-green": string;
+  readonly "score-muted": string;
+  readonly "score-red": string;
+  readonly "selected": string;
+  readonly "text-button": string;
+  readonly "warning": string;
+};
+export = styles;
+

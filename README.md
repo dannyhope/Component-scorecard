@@ -1,42 +1,18 @@
-# Component-scorecard
-Component-level design system quality checks
+# Component scorecard
 
-A Figma plugin that allows you to track and score components based on a customizable checklist of design guidelines. This plugin dynamically updates the score of each component based on checked or unchecked items in real time. It also allows users to define their own set of design checks and automatically updates the list of checkboxes as the input is changed.
+Score design-system components in Figma against a checklist you control.
 
-By default, the plugin comes pre-loaded with the following design checks:
+Ticks, the checklist, and which rows you have open are saved in Figma for your account. The plugin does not use the network.
 
-```
+## Install (development)
 
-Sizing, layout
-- [ ] Resizes sensibly (including sensible default size)
-- [ ] Uses Autolayout where appropriate
-- [ ] has appropriate spacers/padding (toggle-able where appropriate)
-- [ ] Respects the grid (line height, paragraph spacing, list spacing)
-- [ ] proportions of drag-resizable components are constrained where appropriate
+1. `pnpm install` then `pnpm run watch`
+2. In the **Figma desktop** app, Quick Actions → **Import plugin from manifest…**
+3. Choose `manifest.json` in this folder
+4. Run **Component scorecard** from the Plugins menu. After a code change, run it again.
 
-Naming
-- [ ] Text layers have descriptive names (or at least are named Text, Text 2 etc.)
+## Feedback
 
-Accessibility
-- [ ] WCAG2 A contrast
+https://dannyhope.co.uk/feedback
 
-Lint
-- [ ] No design lint (check with Design Lint plugin)
-- [ ] Components all the way down (where appropriate)
-
-Properties and variants
-- [ ] It’s clear how to swap any images the component contains
-- [ ] ‘Expose child element properties’ (design panel › ‘Properties’) is selected
-- [ ] ‘Simplify all instances’ is selected
-- [ ] Uses Figma tokens
-
-Instances
-- [ ] There is at least one instance of the component in existence
-
-Deprecated components
-- [ ] If it’s deprecated, it says why and what to do instead of using it
-
-```
-
-## What it looks like
-![image](https://github.com/user-attachments/assets/c13b5e93-c620-452b-8d78-79e07c0204dd)
+A Danny Hope plugin — https://dannyhope.co.uk

@@ -1,0 +1,205 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color-scheme: light dark;
+}
+
+.banner {
+  margin: 8px 12px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.banner.error {
+  background: #ffebeb;
+  color: #63001e;
+}
+
+.banner.warning {
+  background: #fff8e0;
+  color: #6d1600;
+}
+
+.list {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px 8px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 4px;
+}
+
+.component {
+  border-radius: 6px;
+}
+
+.component.selected {
+  background: rgba(155, 81, 224, 0.08);
+}
+
+.component-title {
+  display: grid;
+  grid-template-columns: 16px 14px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  align-items: center;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+.chevron {
+  grid-row: 1 / span 2;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  transform: rotate(0deg);
+  transition: transform 0.15s ease;
+}
+
+.chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.diamond {
+  grid-row: 1 / span 2;
+  color: #7c3ddd;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.deps {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #f3daf4;
+  color: #9b51e0;
+  font-size: 10px;
+}
+
+.score {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.score-red { color: #e4003d; }
+.score-amber { color: #ff7209; }
+.score-green { color: #008c00; }
+.score-muted { color: #7b858a; }
+
+.edited {
+  grid-column: 3 / span 2;
+  font-size: 10px;
+  color: #7b858a;
+}
+
+.criteria {
+  padding: 0 8px 10px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.category {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #616e73;
+  text-transform: lowercase;
+}
+
+.rule {
+  display: block;
+}
+
+.checklist-editor {
+  padding: 8px 12px;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 10px;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.footer-links a,
+.text-button {
+  color: #616e73;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.footer-links a:hover,
+.text-button:hover {
+  color: inherit;
+}
+
+.attribution {
+  opacity: 0.75;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 20;
+  padding: 8px 10px;
+  border: 1px solid #c7d0d4;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .banner.error {
+    background: #3a1018;
+    color: #ffd1cf;
+  }
+  .banner.warning {
+    background: #3a2208;
+    color: #ffe399;
+  }
+  .component.selected {
+    background: rgba(155, 81, 224, 0.18);
+  }
+  .deps {
+    background: #240049;
+    color: #e0afe4;
+  }
+  .edited,
+  .category {
+    color: #a5b0b5;
+  }
+  .context-menu {
+    background: #1a272c;
+    border-color: #4b565a;
+    color: #f0f2f2;
+  }
+}
