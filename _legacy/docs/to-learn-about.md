@@ -1,0 +1,4 @@
+- build
+- test
+- mcp service
+- f/e framework

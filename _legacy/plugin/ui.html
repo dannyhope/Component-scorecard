@@ -626,8 +626,8 @@
       }
 
       /* Hidden components button */
+      /* @group Hidden Components Button Styles */
       .hiddenComponentsButton {
-        display: none; /* Hidden by default */
         width: 100%;
         text-align: center;
         padding: 8px;
@@ -635,15 +635,26 @@
         border: none;
         background-color: #f0f0f0;
         color: #666;
-
         border-radius: 4px;
         cursor: pointer;
-        transition: background-color 0.2s ease;
+        transition: all 0.2s ease;
+        font-size: 0.9em;
+      }
+      
+      .hiddenComponentsButton.has-hidden {
+        background-color: var(--color-primary);
+        color: white;
+        font-weight: 500;
       }
       
       .hiddenComponentsButton:hover {
         background-color: #e0e0e0;
       }
+      
+      .hiddenComponentsButton.has-hidden:hover {
+        background-color: var(--color-primary-dark);
+      }
+      /* @end */
 
       /* Component Count Styles */
       /* Component count row CSS removed */
@@ -1793,11 +1804,15 @@
         const hiddenComponentsButton = domCache.get('hiddenComponentsButton');
         if (!hiddenComponentsButton) return;
         
+        // Always display the button
+        hiddenComponentsButton.style.display = 'block';
+        
         if (hiddenDueToCompletion > 0) {
-          hiddenComponentsButton.style.display = 'block';
           hiddenComponentsButton.textContent = `Show ${hiddenDueToCompletion} hidden component${hiddenDueToCompletion !== 1 ? 's' : ''}`;
+          hiddenComponentsButton.classList.add('has-hidden');
         } else {
-          hiddenComponentsButton.style.display = 'none';
+          hiddenComponentsButton.textContent = 'All components visible';
+          hiddenComponentsButton.classList.remove('has-hidden');
         }
       }
       
@@ -2253,12 +2268,13 @@
       function selectComponent(componentId, fromFigma = false) {
         console.log('Selecting component in UI:', componentId, 'fromFigma:', fromFigma);
         
-        // Update state manager if available and not called from Figma already
-        if (window.stateManager && !fromFigma) {
+        // Always update state manager if available, regardless of selection source
+        if (window.stateManager) {
           // Update selected component in state manager
           stateManager.setFilters({
             selectedComponentIds: componentId ? [componentId] : []
           });
+          console.log('Updated state manager with selection:', componentId ? [componentId] : []);
         }
         
         // Remove previous selection - use cached DOM element for better performance
@@ -3114,33 +3130,55 @@
       
       // Function to handle show hidden components button click
       function handleHiddenComponentsButtonClick() {
-        console.log('Show hidden components button clicked');
+        console.log('Hidden components button clicked');
+        const button = domCache.get('hiddenComponentsButton');
         
-        // Change the hide completed checkbox
-        const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
-        if (hideCompletedCheckbox) {
-          hideCompletedCheckbox.checked = false;
-          
-          // If using virtualization, we need to update the complete dataset
-          if (virtualList) {
-            // Reset the hidden components array
-            hiddenComponents = [];
+        // Check if we have hidden components (button has the has-hidden class)
+        if (button && button.classList.contains('has-hidden')) {
+          // Show hidden components - change the hide completed checkbox
+          const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+          if (hideCompletedCheckbox) {
+            hideCompletedCheckbox.checked = false;
             
-            // Set the virtual list to show all components
-            virtualList.setItems(allComponents);
+            // If using virtualization, we need to update the complete dataset
+            if (virtualList) {
+              // Reset the hidden components array
+              hiddenComponents = [];
+              
+              // Set the virtual list to show all components
+              virtualList.setItems(allComponents);
+            }
+            
+            // Trigger filtering again but with hideCompleted=false
+            filterComponents(false, true);
+            
+            // Also save the preference to client storage
+            parent.postMessage({ 
+              pluginMessage: { 
+                type: 'savePreference', 
+                key: 'hideCompleted', 
+                value: false 
+              } 
+            }, '*');
           }
-          
-          // Trigger filtering again but with hideCompleted=false
-          filterComponents(false, true);
-          
-          // Also save the preference to client storage
-          parent.postMessage({ 
-            pluginMessage: { 
-              type: 'savePreference', 
-              key: 'hideCompleted', 
-              value: false 
-            } 
-          }, '*');
+        } else {
+          // All components are already visible, so toggle hide completed on
+          const hideCompletedCheckbox = document.getElementById('hide-completed-checkbox');
+          if (hideCompletedCheckbox && !hideCompletedCheckbox.checked) {
+            hideCompletedCheckbox.checked = true;
+            
+            // Trigger the filter to hide completed components
+            filterComponents(true);
+            
+            // Save the preference to client storage
+            parent.postMessage({ 
+              pluginMessage: { 
+                type: 'savePreference', 
+                key: 'hideCompleted', 
+                value: true 
+              } 
+            }, '*');
+          }
         }
       }
       
