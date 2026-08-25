@@ -4,14 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Publish Component scorecard to Figma Community</title>
+  <link rel="stylesheet" href="operator.css">
   <style>
     :root {
-      --bg: #f4f5f7;
-      --card: #fff;
-      --text: #1a1a1a;
-      --muted: #5f6368;
-      --line: #e3e5e8;
-      --accent: #430079;
+      --done-bg: var(--status-public-bg);
     }
     * { box-sizing: border-box; }
     body {
@@ -21,179 +17,492 @@
       color: var(--text);
       line-height: 1.5;
     }
-    .wrap { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
-    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 1.5rem; }
-    h2 { font-size: 1.05rem; margin: 1.75rem 0 0.75rem; }
-    .card {
+    header {
+      background: transparent;
+      border: 0;
+      padding: 1.5rem 1.25rem 0.75rem;
+    }
+    header .inner, main {
+      max-width: 54rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h1 {
+      font-size: 1.35rem;
+      margin: 0;
+      line-height: 1.3;
+      color: var(--text);
+      font-weight: 600;
+    }
+    main {
+      max-width: calc(54rem + 2.5rem);
+      padding: 0 1.25rem 2rem;
+      margin: 1rem auto 2rem;
+    }
+    .panel {
       background: var(--card);
       border-radius: 12px;
-      padding: 1rem 1.1rem 0.4rem;
+      border: 1px solid var(--line);
+      padding: 1.5rem 1.5rem 1.75rem;
       margin: 0 0 1rem;
     }
-    .task {
-      display: grid;
-      grid-template-columns: 1.25rem 1fr;
-      column-gap: 0.65rem;
-      padding: 0.85rem 0;
+    .panel > h2 {
+      margin: 0 0 1rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
     }
-    .task.is-done .body { display: none; }
-    .task.is-done label { color: var(--muted); text-decoration: line-through; }
-    label { font-weight: 600; cursor: pointer; }
-    .where { font-size: 0.85rem; color: var(--muted); margin: 0.25rem 0 0.5rem; }
-    .copy-wrap { position: relative; background: #f1f3f4; border-radius: 8px; }
-    pre {
-      margin: 0;
-      padding: 0.75rem 2.4rem 0.75rem 0.85rem;
-      white-space: pre-wrap;
+    .status-card .label {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0 0 0.35rem;
+      color: var(--status-private);
+    }
+    .status-card p { margin: 0; color: var(--muted); }
+    .where {
       font-size: 0.85rem;
-      font-family: ui-monospace, Menlo, Consolas, monospace;
+      color: var(--muted);
+      margin: 0 0 0.65rem;
     }
-    .copy {
-      position: absolute;
-      top: 0.4rem;
-      right: 0.4rem;
-      border: 0;
-      background: transparent;
+    .where a { color: var(--accent); }
+    .step-head {
+      display: grid;
+      grid-template-columns: var(--tick-col, 1.25rem) minmax(0, 1fr);
+      column-gap: var(--tick-gap, 0.65rem);
+      align-items: start;
+      margin-bottom: 0.5rem;
       cursor: pointer;
-      font-size: 1rem;
     }
-    img.icon { width: 64px; height: 64px; border-radius: 12px; }
+    .step-head h3 {
+      margin: 0;
+      grid-column: 2;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .step-head > .done-toggle { grid-column: 1; }
+    .done-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--tick-col, 1.25rem);
+      flex-shrink: 0;
+      margin-top: 0.15rem;
+      cursor: pointer;
+      user-select: none;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+    .done-toggle input {
+      width: 1.125rem;
+      height: 1.125rem;
+      margin: 0;
+      accent-color: var(--done);
+      cursor: pointer;
+    }
+    .step.is-done {
+      margin-top: 0.35rem;
+      padding-top: 0.15rem;
+      padding-bottom: 0.15rem;
+    }
+    .step.is-done > :not(.step-head) { display: none; }
+    .step.is-done .step-head { margin-bottom: 0; align-items: center; }
+    .step.is-done .step-head h3 {
+      color: var(--muted);
+      font-weight: 400;
+      text-decoration: line-through;
+    }
+    .step.substep {
+      --tick-col: 1.25rem;
+      --tick-gap: 0.65rem;
+      margin-top: 1.1rem;
+      padding-top: 0;
+    }
+    .step.substep:first-of-type { margin-top: 0; }
+    .step.substep > :not(.step-head) {
+      margin-left: calc(var(--tick-col) + var(--tick-gap));
+    }
+    p, li { color: var(--muted); }
+    p.form-hint {
+      font-size: 0.85rem;
+      margin: 0 0 0.75rem;
+      color: var(--muted);
+    }
     a { color: var(--accent); }
+    code {
+      font-size: 0.85em;
+      background: var(--code);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+    }
+    .copy-wrap {
+      position: relative;
+      background: var(--code);
+      border-radius: 8px;
+      margin: 0 0 0.75rem;
+    }
+    pre.copy-block {
+      margin: 0;
+      padding: 0.85rem 2.5rem 0.85rem 1rem;
+      background: transparent;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.85rem;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      line-height: 1.45;
+    }
+    .copy-wrap > button.copy {
+      position: absolute;
+      top: 0.45rem;
+      right: 0.45rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.85rem;
+      height: 1.85rem;
+      padding: 0;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .copy-wrap > button.copy:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #fff;
+    }
+    .copy-wrap > button.copy.copied {
+      background: var(--done-bg);
+      border-color: var(--done);
+      color: var(--done);
+    }
+    .copy-wrap > button.copy.copied svg { display: none; }
+    .copy-wrap > button.copy.copied::after {
+      content: "✓";
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .answer-row {
+      display: grid;
+      grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr);
+      gap: 0.35rem 1rem;
+      align-items: baseline;
+      margin: 0.35rem 0;
+      font-size: 0.9rem;
+    }
+    .answer-row .label { color: var(--muted); }
+    .answer-row .value { color: var(--text); font-weight: 500; }
+    .asset {
+      display: flex;
+      gap: 0.85rem;
+      align-items: center;
+      margin: 0.5rem 0 0.75rem;
+    }
+    .asset img {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      background: #eee;
+    }
+    .asset .meta { font-size: 0.85rem; color: var(--muted); }
+    .asset .meta strong { display: block; color: var(--text); }
+    .toast {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      background: #202124;
+      color: #fff;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Publish Component scorecard to Figma Community</h1>
+  <header>
+    <div class="inner">
+      <h1>Publish Component scorecard to Figma Community</h1>
+    </div>
+  </header>
 
-    <section class="card">
-      <h2>Build</h2>
-      <div class="task" data-id="build">
-        <input type="checkbox" id="build">
-        <div>
-          <label for="build">Build the plugin</label>
-          <p class="where">Terminal in this repo</p>
-          <div class="body">
-            <div class="copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>pnpm run build</pre></div>
-            <p>Import <code>manifest.json</code> from this folder in Figma desktop if it is not already loaded, then run the plugin once to confirm it opens.</p>
-          </div>
+  <main>
+    <section class="panel status-card" id="status">
+      <p class="label">Not public</p>
+      <p>Default listing visibility is Unlisted. Figma review can take longer than a sitting. Do not tick Submit until the listing copy is what you want.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Load in Figma</h2>
+
+      <div class="step substep" data-step="import-manifest">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Import the packed plugin</h3>
         </div>
+        <p class="where"><a href="https://www.figma.com/downloads/">Figma desktop</a> · Quick Actions → <strong>Import plugin from manifest…</strong> → <code>publish/plugin/manifest.json</code> in this folder (already built).</p>
+      </div>
+
+      <div class="step substep" data-step="smoke-test">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Run it once on a file with components</h3>
+        </div>
+        <p class="where">Figma desktop · Plugins → Development → Component scorecard.</p>
+        <p class="form-hint">Tick one criterion, hide completed, click Feedback and confirm it opens the hop.</p>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Figma Community</h2>
-      <div class="task" data-id="publish-dialog">
-        <input type="checkbox" id="publish-dialog">
-        <div>
-          <label for="publish-dialog">Open the publish dialog</label>
-          <p class="where"><a href="https://www.figma.com/files">Figma desktop</a> → Plugins → Development → Component scorecard → Publish</p>
+    <section class="panel">
+      <h2>Listing</h2>
+
+      <div class="step substep" data-step="publish-dialog">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Open the publish dialog</h3>
+        </div>
+        <p class="where">Figma desktop · Plugins → Development → Component scorecard → <strong>Publish</strong>. Official steps: <a href="https://developers.figma.com/docs/plugins/publishing-plugins/">Publishing plugins</a>.</p>
+      </div>
+
+      <div class="step substep" data-step="plugin-id" data-verified="true">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Keep plugin id 1494664241767135067</h3>
+        </div>
+        <p class="where">Already in <code>package.json</code> → <code>figma-plugin.id</code> and in generated <code>manifest.json</code>. If Figma shows a different id on first publish, stop and paste that id, then rebuild.</p>
+        <div class="copy-wrap">
+          <button type="button" class="copy" aria-label="Copy" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <pre class="copy-block">1494664241767135067</pre>
         </div>
       </div>
-      <div class="task" data-id="name">
-        <input type="checkbox" id="name">
-        <div>
-          <label for="name">Name</label>
-          <p class="where">Publish dialog → name</p>
-          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>Component scorecard</pre></div>
+
+      <div class="step substep" data-step="name">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Name</h3>
+        </div>
+        <p class="where">Publish dialog → name.</p>
+        <div class="copy-wrap">
+          <button type="button" class="copy" aria-label="Copy" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <pre class="copy-block">Component scorecard</pre>
         </div>
       </div>
-      <div class="task" data-id="tagline">
-        <input type="checkbox" id="tagline">
-        <div>
-          <label for="tagline">Tagline</label>
-          <p class="where">Publish dialog → tagline</p>
-          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>Score design-system components against a checklist you control</pre></div>
+
+      <div class="step substep" data-step="tagline">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Tagline</h3>
+        </div>
+        <p class="where">Publish dialog → tagline / short description.</p>
+        <div class="copy-wrap">
+          <button type="button" class="copy" aria-label="Copy" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <pre class="copy-block">Score design-system components against a checklist you control</pre>
         </div>
       </div>
-      <div class="task" data-id="description">
-        <input type="checkbox" id="description">
-        <div>
-          <label for="description">Description</label>
-          <p class="where">Publish dialog → description</p>
-          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>Component scorecard lists every standalone component in the open Figma file and lets you tick it against a checklist your team edits in Markdown.
+
+      <div class="step substep" data-step="description">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Description</h3>
+        </div>
+        <p class="where">Publish dialog → description. Aligns with <code>_docs/spec.md</code>.</p>
+        <div class="copy-wrap">
+          <button type="button" class="copy" aria-label="Copy" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <pre class="copy-block">Component scorecard lists every standalone component in the open Figma file and lets you tick it against a checklist your team edits in Markdown.
 
 Use it while you maintain a design system: open a library file, work through layout, naming, accessibility, and instance hygiene, then hide completed items to see what is left.
 
 Ticks and your checklist stay in Figma on your account. The plugin does not use the network.
 
 Feedback: https://dannyhope.co.uk/feedback
-A Danny Hope plugin: https://dannyhope.co.uk</pre></div>
+A Danny Hope plugin: https://dannyhope.co.uk</pre>
         </div>
       </div>
-      <div class="task" data-id="icon">
-        <input type="checkbox" id="icon">
-        <div>
-          <label for="icon">Icon</label>
-          <p class="where">Publish dialog → icon · file in this pack</p>
-          <div class="body">
-            <p><img class="icon" src="../icons/icon.svg" alt="Plugin icon"></p>
-            <p>Upload <code>publish/icon-128.png</code> (128×128).</p>
+
+      <div class="step substep" data-step="category">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Category</h3>
+        </div>
+        <p class="where">Publish dialog → category. Pick a leaf, not a group name.</p>
+        <div class="qa-table">
+          <div class="answer-row"><span class="label">Pick</span><span class="value">Design tools</span></div>
+          <div class="answer-row"><span class="label">If missing</span><span class="value">Productivity / workflow — closest leaf that is not a parent group</span></div>
+        </div>
+      </div>
+
+      <div class="step substep" data-step="icon">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Icon</h3>
+        </div>
+        <p class="where">Publish dialog → icon · file in this pack.</p>
+        <div class="asset">
+          <img src="icon-128.png" width="128" height="128" alt="Community icon 128×128">
+          <div class="meta">
+            <strong>icon-128.png</strong>
+            128×128<br>
+            <a href="icon-128.png" download>Download</a>
           </div>
         </div>
       </div>
-      <div class="task" data-id="network">
-        <input type="checkbox" id="network">
-        <div>
-          <label for="network">Confirm network access is none</label>
-          <p class="where">Publish dialog → security / network · from <code>manifest.json</code></p>
-          <div class="body"><p><code>allowedDomains: ["none"]</code>. Do not add hosts.</p></div>
+
+      <div class="step substep" data-step="screenshots">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Screenshots</h3>
+        </div>
+        <p class="where">Publish dialog → images. Capture the plugin iframe on a real library file after the smoke test.</p>
+        <p class="form-hint">Honest product UI, not a marketing mock. At least one.</p>
+      </div>
+
+      <div class="step substep" data-step="homepage">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Homepage URL</h3>
+        </div>
+        <p class="where">Publish dialog → website / homepage. Hop file: dannyhope.co.uk site repo <code>component-scorecard/index.html</code> (not live until that site is deployed).</p>
+        <div class="copy-wrap">
+          <button type="button" class="copy" aria-label="Copy" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <pre class="copy-block">https://dannyhope.co.uk/component-scorecard</pre>
         </div>
       </div>
-      <div class="task" data-id="support">
-        <input type="checkbox" id="support">
-        <div>
-          <label for="support">Homepage and support URLs</label>
-          <p class="where">Publish dialog → contact links</p>
-          <div class="body copy-wrap"><button class="copy" type="button" aria-label="Copy">⧉</button><pre>https://dannyhope.co.uk/component-scorecard
-https://dannyhope.co.uk/feedback</pre></div>
+
+      <div class="step substep" data-step="support">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Support / feedback URL</h3>
         </div>
-      </div>
-      <div class="task" data-id="visibility">
-        <input type="checkbox" id="visibility">
-        <div>
-          <label for="visibility">Visibility: Unlisted unless you asked for Public</label>
-          <p class="where">Publish dialog → distribution</p>
-        </div>
-      </div>
-      <div class="task" data-id="submit">
-        <input type="checkbox" id="submit">
-        <div>
-          <label for="submit">Submit for review</label>
-          <p class="where">Publish dialog → Publish</p>
-          <div class="body">
-            <p>Review can take longer than two hours. The hop <a href="https://dannyhope.co.uk/component-scorecard">dannyhope.co.uk/component-scorecard</a> already points at the Community plugin id. It is not live until dannyhope.co.uk is deployed.</p>
-          </div>
+        <p class="where">Publish dialog → support or contact. Shared hop: <a href="https://dannyhope.co.uk/feedback">https://dannyhope.co.uk/feedback</a>.</p>
+        <div class="copy-wrap">
+          <button type="button" class="copy" aria-label="Copy" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <pre class="copy-block">https://dannyhope.co.uk/feedback</pre>
         </div>
       </div>
     </section>
-  </div>
+
+    <section class="panel">
+      <h2>Security and distribution</h2>
+
+      <div class="step substep" data-step="network">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Confirm network access is none</h3>
+        </div>
+        <p class="where">Publish dialog → network / security · from this repo’s <code>manifest.json</code>.</p>
+        <div class="qa-table">
+          <div class="answer-row"><span class="label">allowedDomains</span><span class="value">none</span></div>
+          <div class="answer-row"><span class="label">documentAccess</span><span class="value">dynamic-page</span></div>
+          <div class="answer-row"><span class="label">Do not</span><span class="value">Add hosts in this submission</span></div>
+        </div>
+      </div>
+
+      <div class="step substep" data-step="visibility">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Visibility Unlisted unless you asked for Public</h3>
+        </div>
+        <p class="where">Publish dialog → distribution / visibility.</p>
+        <div class="qa-table">
+          <div class="answer-row"><span class="label">Default</span><span class="value">Unlisted</span></div>
+          <div class="answer-row"><span class="label">Public</span><span class="value">Only if you explicitly want it browseable on Community</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Submit for review</h2>
+
+      <div class="step substep" data-step="submit">
+        <div class="step-head">
+          <label class="done-toggle"><input type="checkbox" data-done aria-label="Done"></label>
+          <h3>Submit for review</h3>
+        </div>
+        <p class="where">Publish dialog → <strong>Publish</strong>. Do not auto-publish from here.</p>
+        <p class="form-hint">After approval, people reach the listing via the hop once dannyhope.co.uk is deployed. Review time is up to Figma.</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status">Copied</div>
+
   <script>
-    const key = 'component-scorecard-publish-done-v1'
-    const saved = JSON.parse(localStorage.getItem(key) || '{}')
-    document.querySelectorAll('.task').forEach((task) => {
-      const id = task.dataset.id
-      const box = task.querySelector('input[type=checkbox]')
-      const apply = (on) => {
-        box.checked = on
-        task.classList.toggle('is-done', on)
-        saved[id] = on
-        localStorage.setItem(key, JSON.stringify(saved))
-      }
-      apply(Boolean(saved[id]))
-      box.addEventListener('change', () => apply(box.checked))
-      task.querySelector('label').addEventListener('click', (event) => {
-        event.preventDefault()
-        apply(!box.checked)
-      })
-    })
-    document.querySelectorAll('.copy').forEach((button) => {
+    const STORAGE_KEY = 'component-scorecard-publish-done-v1';
+    const toast = document.getElementById('toast');
+    let toastTimer;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
+    }
+
+    function loadDone() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw !== null) return JSON.parse(raw);
+      } catch { /* seed below */ }
+      const seed = {};
+      document.querySelectorAll('.step[data-step][data-verified="true"]').forEach((step) => {
+        seed[step.dataset.step] = true;
+      });
+      return seed;
+    }
+
+    function saveDone(map) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    }
+
+    function applyDoneState() {
+      const map = loadDone();
+      document.querySelectorAll('.step[data-step]').forEach((step) => {
+        const checked = !!map[step.dataset.step];
+        step.classList.toggle('is-done', checked);
+        const own = step.querySelector('.step-head input[data-done]');
+        if (own) own.checked = checked;
+      });
+    }
+
+    document.querySelectorAll('.step[data-step]').forEach((step) => {
+      const input = step.querySelector('.step-head input[data-done]');
+      if (!input) return;
+      input.addEventListener('change', () => {
+        const map = loadDone();
+        if (input.checked) map[step.dataset.step] = true;
+        else delete map[step.dataset.step];
+        saveDone(map);
+        step.classList.toggle('is-done', input.checked);
+      });
+      const head = step.querySelector('.step-head');
+      if (!head) return;
+      head.addEventListener('click', (e) => {
+        if (e.target.closest('input[data-done], a, button')) return;
+        e.preventDefault();
+        input.checked = !input.checked;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+
+    document.querySelectorAll('.copy-wrap > button.copy').forEach((button) => {
       button.addEventListener('click', async () => {
-        const text = button.parentElement.querySelector('pre').textContent
-        await navigator.clipboard.writeText(text)
-        button.textContent = '✓'
-        setTimeout(() => { button.textContent = '⧉' }, 1200)
-      })
-    })
+        const block = button.parentElement.querySelector('.copy-block');
+        await navigator.clipboard.writeText(block.textContent);
+        button.classList.add('copied');
+        showToast('Copied');
+        setTimeout(() => button.classList.remove('copied'), 1200);
+      });
+    });
+
+    applyDoneState();
   </script>
 </body>
 </html>
