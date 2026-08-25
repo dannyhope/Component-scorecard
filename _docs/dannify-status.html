@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dannify status — Component scorecard</title>
+  <link rel="stylesheet" href="operator.css">
+  <style>
+    .panel { margin: 0 0 1rem; }
+    .panel h2 { margin-top: 0; }
+    .panel ul { margin: 0 0 0.85rem; padding-left: 1.2rem; }
+    .panel li { margin: 0 0 0.35rem; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Dannify status — Component scorecard</h1>
+    <p class="meta">Living audit. Regenerated whenever <code>/dannify</code> runs. Last updated: 2026-08-23.</p>
+    <p class="hint">What still needs doing, then what’s already up to spec. Not product truth — that’s <code>_docs/spec.md</code> and <code>_docs/design.md</code>.</p>
+
+    <section class="panel">
+      <h2>Improvements</h2>
+      <p>None. This repo matches the Dannify checklist that applies to a Figma plugin.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Already right</h2>
+      <ul>
+        <li>Packed plugin at <code>publish/plugin/</code> includes compiled <code>build/main.js</code> and <code>build/ui.js</code></li>
+        <li><code>.in/</code> inbox with <code>.in/README.md</code></li>
+        <li><code>_vibing/</code> present (gitignored)</li>
+        <li><code>Component-scorecard.code-workspace</code> with a Peacock colour</li>
+        <li>Accessibility level stated in <code>_docs/spec.md</code> (none / not a WCAG target)</li>
+        <li>Bombay <code>projects.json</code> entry for this repo</li>
+        <li>Usability scaffold (<code>_docs/usability-tasks.json</code> + <code>usability-test.html</code>)</li>
+        <li><code>publish/index.html</code> loads sibling <code>operator.css</code></li>
+        <li>Figma plugin detected (<code>figma-plugin</code> in package.json, <code>editorType</code> in manifest); create-figma-plugin stack kept</li>
+        <li><code>_docs/spec.md</code> and <code>_docs/design.md</code> cover plugin iframe, commands, and look</li>
+        <li>README purpose before install; load-from-manifest steps for the packed plugin</li>
+        <li>Attribution “A Danny Hope plugin” → <a href="https://dannyhope.co.uk">https://dannyhope.co.uk</a> in the iframe footer and README</li>
+        <li>Feedback hop <a href="https://dannyhope.co.uk/feedback">https://dannyhope.co.uk/feedback</a></li>
+        <li>Community hop <a href="https://dannyhope.co.uk/component-scorecard">https://dannyhope.co.uk/component-scorecard</a></li>
+        <li><code>networkAccess.allowedDomains</code> is <code>["none"]</code>; <code>documentAccess</code> is <code>"dynamic-page"</code></li>
+        <li>CLAUDE.md present</li>
+        <li><code>.gitignore</code> includes <code>_vibing/</code> and <code>.DS_Store</code></li>
+        <li>British English in user-facing copy</li>
+        <li>Public hrefs use hops, not GitHub or raw Figma Community URLs</li>
+      </ul>
+    </section>
+  </div>
+</body>
+</html>

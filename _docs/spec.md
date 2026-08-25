@@ -1,6 +1,6 @@
 # Component scorecard
 
-Living document. Update whenever behaviour changes. Last updated: 2026-08-20.
+Living document. Update whenever behaviour changes. Last updated: 2026-08-23.
 
 **This file is the source of truth for how Component scorecard should work.**
 
@@ -28,6 +28,10 @@ No website, no network, no account.
 - **Refresh** re-scans the file. Document changes also refresh, debounced.
 - **Feedback** opens `https://dannyhope.co.uk/feedback`. Footer: **A Danny Hope plugin** → `https://dannyhope.co.uk`.
 - No debug panel, no in-plugin tests, no GitHub links in the product UI.
+
+## Accessibility
+
+No thought has been given to accessibility of the plugin iframe. This is not a WCAG target.
 
 ## Out of scope for this version
 
