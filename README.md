@@ -6,10 +6,8 @@ Ticks, the checklist, and which rows you have open are saved in Figma for your a
 
 ## Install (development)
 
-1. `pnpm install` then `pnpm run watch`
-2. In the **Figma desktop** app, Quick Actions → **Import plugin from manifest…**
-3. Choose `manifest.json` in this folder
-4. Run **Component scorecard** from the Plugins menu. After a code change, run it again.
+1. In the **Figma desktop** app, Quick Actions → **Import plugin from manifest…**
+2. For the listing build, choose `publish/plugin/manifest.json` (already compiled). For day-to-day `pnpm run watch`, use the repo-root `manifest.json`.
 
 ## Feedback
 
