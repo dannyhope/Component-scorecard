@@ -15,16 +15,20 @@
 <body>
   <div class="page">
     <h1>Dannify status — Component scorecard</h1>
-    <p class="meta">Living audit. Regenerated whenever <code>/dannify</code> runs. Last updated: 2026-08-25.</p>
+    <p class="meta">Living audit. Regenerated whenever <code>/dannify</code> runs. Last updated: 2026-08-28.</p>
     <p class="hint">What still needs doing, then what’s already up to spec. Product truth is <code>_docs/spec.md</code> and <code>_docs/design.md</code>. Current KPI is <code>_docs/now.md</code>.</p>
 
     <section class="panel">
       <h2>Improvements</h2>
-      <h3>Should</h3>
+      <h3>🔴 Must</h3>
       <ul>
-        <li>Add <code>_docs/now.md</code> with the current KPI (ask for the goal; do not invent one)</li>
-        <li>Drop <code>.attribution { opacity: 0.75 }</code> in <code>src/ui.css</code> — credit is already Cool Grey 60; extra opacity fails credit contrast</li>
-        <li>Replace invented purples in <code>src/ui.css</code> (<code>#7c3ddd</code>, <code>#9b51e0</code>, <code>rgba(155, 81, 224, …)</code>) with brand purple from brand.md (e.g. <code>#862AA8</code> / <code>#9941B4</code> / <code>#F3DAF4</code>); align <code>_docs/design.md</code></li>
+        <li>1. Add <code>scripts/ensure-local-domain.sh</code>, map <code>component-scorecard.test</code> to loopback in <code>/etc/hosts</code>, and run the check automatically before local development commands (the repo has no server, so retain an explicit maintenance command).</li>
+      </ul>
+      <h3>🟠 Should</h3>
+      <ul>
+        <li>2. Add <code>_docs/now.md</code> with the current KPI (ask for the goal; do not invent one).</li>
+        <li>3. Drop <code>.attribution { opacity: 0.75 }</code> in <code>src/ui.css</code> — credit is already Cool Grey 60; extra opacity fails credit contrast.</li>
+        <li>4. Replace invented purples in <code>src/ui.css</code> (<code>#7c3ddd</code>, <code>#9b51e0</code>, <code>rgba(155, 81, 224, …)</code>) with brand purple from brand.md (for example <code>#862AA8</code> / <code>#9941B4</code> / <code>#F3DAF4</code>); align <code>_docs/design.md</code>.</li>
       </ul>
     </section>
 
@@ -49,6 +53,7 @@
         <li>British English; OS <code>prefers-color-scheme</code> only (no appearance picker)</li>
         <li>No local server — <code>.dev-port</code> / sitemap N/A</li>
         <li>Product UI on create-figma-plugin Preact kit (shadcn N/A for this surface)</li>
+        <li><code>component-scorecard.test</code> is the derived local project hostname; the Bombay registry entry is present</li>
       </ul>
     </section>
   </div>
