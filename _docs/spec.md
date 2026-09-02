@@ -12,6 +12,7 @@ A Figma plugin for design-system maintainers. It lists standalone components in 
 
 - Plugin iframe (400×640)
 - Figma canvas selection (clicking a row selects and frames the component)
+- Local development uses Figma's plugin runtime, not an HTTP server. `.local-domain` is retained for shared project registry consistency; no portless browser URL is applicable.
 
 No website, no network, no account.
 

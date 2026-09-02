@@ -6,6 +6,8 @@ Ticks, the checklist, and which rows you have open are saved in Figma for your a
 
 ## Install (development)
 
+The plugin has no local HTTP server: Figma runs the plugin UI inside its own iframe. The normal development workflow is `pnpm run watch`, which rebuilds on save. The preferred development port is reserved as `5347` for Bombay routing only; it is not bound by this project.
+
 1. In the **Figma desktop** app, Quick Actions → **Import plugin from manifest…**
 2. For the listing build, choose `publish/plugin/manifest.json` (already compiled). For day-to-day `pnpm run watch`, use the repo-root `manifest.json`.
 

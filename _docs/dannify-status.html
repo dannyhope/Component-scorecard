@@ -22,7 +22,7 @@
       <h2>Improvements</h2>
       <h3>🔴 Must</h3>
       <ul>
-        <li>1. Add <code>scripts/ensure-local-domain.sh</code>, map <code>component-scorecard.test</code> to loopback in <code>/etc/hosts</code>, and run the check automatically before local development commands (the repo has no server, so retain an explicit maintenance command).</li>
+        <li>1. No local HTTP server exists: Figma owns the plugin runtime, so portless routing is not applicable. Keep the reserved registry route documented as <code>component-scorecard.local</code> → <code>5347</code> if Bombay requires an entry.</li>
       </ul>
       <h3>🟠 Should</h3>
       <ul>
@@ -51,9 +51,9 @@
         <li>Bombay <code>projects.json</code> entry for this repo</li>
         <li>Usability scaffold (<code>_docs/usability-tasks.json</code> + <code>usability-test.html</code>)</li>
         <li>British English; OS <code>prefers-color-scheme</code> only (no appearance picker)</li>
-        <li>No local server — <code>.dev-port</code> / sitemap N/A</li>
+        <li>No local HTTP server — portless URL, loopback binding, startup host check, and sitemap are N/A</li>
         <li>Product UI on create-figma-plugin Preact kit (shadcn N/A for this surface)</li>
-        <li><code>component-scorecard.test</code> is the derived local project hostname; the Bombay registry entry is present</li>
+        <li><code>component-scorecard.local</code> is the requested derived hostname; project is not an HTTP server</li>
       </ul>
     </section>
   </div>

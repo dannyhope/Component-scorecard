@@ -8,8 +8,9 @@
   "homepage": "https://dannyhope.co.uk/component-scorecard",
   "scripts": {
     "build": "build-figma-plugin --typecheck --minify",
-    "watch": "build-figma-plugin --typecheck --watch",
-    "build:pack": "build-figma-plugin --typecheck --minify --output publish/plugin"
+    "watch": "scripts/ensure-local-domain.sh && build-figma-plugin --typecheck --watch",
+    "build:pack": "build-figma-plugin --typecheck --minify --output publish/plugin",
+    "start:check": "scripts/ensure-local-domain.sh"
   },
   "dependencies": {
     "@create-figma-plugin/ui": "^4.0.3",
