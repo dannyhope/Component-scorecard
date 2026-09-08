@@ -15,20 +15,19 @@
 <body>
   <div class="page">
     <h1>Dannify status — Component scorecard</h1>
-    <p class="meta">Living audit. Regenerated whenever <code>/dannify</code> runs. Last updated: 2026-08-28.</p>
+    <p class="meta">Living audit. Regenerated whenever <code>/dannify</code> runs. Last updated: 2026-09-07.</p>
     <p class="hint">What still needs doing, then what’s already up to spec. Product truth is <code>_docs/spec.md</code> and <code>_docs/design.md</code>. Current KPI is <code>_docs/now.md</code>.</p>
 
     <section class="panel">
       <h2>Improvements</h2>
-      <h3>🔴 Must</h3>
-      <ul>
-        <li>1. No local HTTP server exists: Figma owns the plugin runtime, so portless routing is not applicable. Keep the reserved registry route documented as <code>component-scorecard.local</code> → <code>5347</code> if Bombay requires an entry.</li>
-      </ul>
       <h3>🟠 Should</h3>
       <ul>
-        <li>2. Add <code>_docs/now.md</code> with the current KPI (ask for the goal; do not invent one).</li>
-        <li>3. Drop <code>.attribution { opacity: 0.75 }</code> in <code>src/ui.css</code> — credit is already Cool Grey 60; extra opacity fails credit contrast.</li>
-        <li>4. Replace invented purples in <code>src/ui.css</code> (<code>#7c3ddd</code>, <code>#9b51e0</code>, <code>rgba(155, 81, 224, …)</code>) with brand purple from brand.md (for example <code>#862AA8</code> / <code>#9941B4</code> / <code>#F3DAF4</code>); align <code>_docs/design.md</code>.</li>
+        <li>1. Add <code>_docs/now.md</code> with the current KPI (ask for the goal; do not invent one).</li>
+        <li>2. Drop <code>.attribution { opacity: 0.75 }</code> in <code>src/ui.css</code> — credit is already Cool Grey 60; extra opacity fails credit contrast.</li>
+        <li>3. Replace invented purples in <code>src/ui.css</code> (<code>#7c3ddd</code>, <code>#9b51e0</code>, <code>rgba(155, 81, 224, …)</code>) with brand purple from brand.md (for example <code>#862AA8</code> / <code>#9941B4</code> / <code>#F3DAF4</code>); align <code>_docs/design.md</code>.</li>
+        <li>4. Add <code>_docs/usability-issues.md</code> with cognitive-walkthrough issues and align the existing generic <code>_docs/usability-tasks.json</code> prompts to those plugin tasks.</li>
+        <li>5. Run <code>/product-check</code> and record the product-validity, evidence, viability, and goal-alignment report in <code>_docs/product-check.md</code>.</li>
+        <li>6. Run the applicable connected checkers and record their results under <code>_docs/checks/</code>; currently no checker result files exist.</li>
       </ul>
     </section>
 
@@ -53,7 +52,7 @@
         <li>British English; OS <code>prefers-color-scheme</code> only (no appearance picker)</li>
         <li>No local HTTP server — portless URL, loopback binding, startup host check, and sitemap are N/A</li>
         <li>Product UI on create-figma-plugin Preact kit (shadcn N/A for this surface)</li>
-        <li><code>component-scorecard.local</code> is the requested derived hostname; project is not an HTTP server</li>
+        <li><code>.local-domain</code> exists for registry consistency; project is not an HTTP server</li>
       </ul>
     </section>
   </div>
